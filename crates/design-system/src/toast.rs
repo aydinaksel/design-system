@@ -14,7 +14,7 @@ thread_local! {
 #[component]
 pub fn ToastProvider(children: Children) -> impl IntoView {
     view! {
-        <Toaster position=ToasterPosition::BottomRight>
+        <Toaster position=ToasterPosition::BottomCenter>
             <ToasterRegistration />
             {children()}
         </Toaster>

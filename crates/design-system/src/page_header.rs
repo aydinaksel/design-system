@@ -11,22 +11,29 @@ pub fn PageHeader(
     #[prop(into)] title: Signal<String>,
     #[prop(optional, into)] document_number: Option<Signal<String>>,
     #[prop(optional)] status: Option<AnyView>,
+    #[prop(optional, into)] description: Option<Signal<String>>,
     #[prop(optional)] children: Option<Children>,
 ) -> impl IntoView {
     view! {
         <div class="relative mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex flex-wrap items-center gap-2">
-                <h1 class="inline-flex items-center gap-2 text-xl font-bold tracking-tight">
-                    <span>{move || title.get()}</span>
-                    {document_number
-                        .map(|document_number| {
-                            view! {
-                                <span>{move || document_number.get()}</span>
-                                <CopyIconButton value=document_number />
-                            }
-                        })}
-                </h1>
-                {status}
+            <div class="min-w-0 space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h1 class="inline-flex items-center gap-2 text-xl font-bold tracking-tight">
+                        <span>{move || title.get()}</span>
+                        {document_number
+                            .map(|document_number| {
+                                view! {
+                                    <span>{move || document_number.get()}</span>
+                                    <CopyIconButton value=document_number />
+                                }
+                            })}
+                    </h1>
+                    {status}
+                </div>
+                {description
+                    .map(|description| {
+                        view! { <p class="text-sm text-gray-500">{move || description.get()}</p> }
+                    })}
             </div>
             {children
                 .map(|actions| view! { <div class="flex items-center gap-2">{actions()}</div> })}

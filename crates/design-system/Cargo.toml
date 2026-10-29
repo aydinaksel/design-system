@@ -13,6 +13,7 @@ lepticons = { version = "0.13", default-features = false, features = [
     "account",
     "arrows",
     "cursors",
+    "files",
     "layout",
     "navigation",
     "notifications",
@@ -50,7 +51,7 @@ optional = true
 
 [dependencies.web-sys]
 version = "0.3"
-features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "MediaQueryList", "Navigator", "Clipboard", "KeyboardEvent", "Selection", "EventTarget", "MouseEvent", "ScrollIntoViewOptions", "ScrollLogicalPosition", "Location"]
+features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "MediaQueryList", "Navigator", "Clipboard", "KeyboardEvent", "Selection", "EventTarget", "MouseEvent", "ScrollIntoViewOptions", "ScrollLogicalPosition", "Location", "DataTransfer", "DragEvent", "File", "FileList", "HtmlInputElement"]
 
 [dev-dependencies]
 leptos_router = { version = "0.8", features = ["ssr"] }

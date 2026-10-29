@@ -1,4 +1,6 @@
+pub mod alert;
 mod anchored;
+pub mod attachment;
 pub mod badge;
 pub mod brand;
 pub mod busy_overlay;
@@ -11,6 +13,7 @@ pub mod clipboard;
 pub mod combobox;
 pub mod confirm_dialog;
 pub mod controls;
+pub mod currency;
 pub mod date_picker;
 pub mod detail_header;
 pub mod dialog;
@@ -18,6 +21,7 @@ pub mod field_actions;
 pub mod field_values;
 pub mod fields;
 pub mod fieldset;
+pub mod file_drop_zone;
 pub mod filter_chip;
 pub mod form_dialog;
 pub mod formatting;
@@ -27,6 +31,7 @@ pub mod layout;
 pub mod layout_motion;
 pub mod listbox;
 pub mod menu;
+pub mod meter;
 pub mod mode_switch;
 pub mod not_found;
 pub mod page_header;
@@ -37,11 +42,17 @@ pub mod sidebar;
 pub mod table;
 pub mod tabs;
 pub mod toast;
+pub mod tone;
 pub mod tooltip;
 pub mod totals_bar;
 pub mod typography;
 
-pub use badge::{badge, BadgeTone};
+pub use alert::Alert;
+pub use attachment::{
+    Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia, AttachmentOpen,
+    AttachmentOrientation, AttachmentSize, AttachmentState,
+};
+pub use badge::badge;
 pub use brand::{brand, Brand};
 pub use busy_overlay::BusyOverlay;
 pub use button::{button_class, button_icon_class, icon_button_class, ButtonSize, ButtonTone};
@@ -50,9 +61,10 @@ pub use catalog::{Card, CardGrid, ResponsiveImage, ResponsiveSource};
 pub use checkbox::Checkbox;
 pub use choice_list::{ChoiceList, ChoiceOption};
 pub use clipboard::{copy_with_toast, CopyButton, CopyIconButton, CopyLinkButton};
-pub use combobox::{Combobox, ComboboxOption, ComboboxSearch, ComboboxSource};
+pub use combobox::{Combobox, ComboboxDisplay, ComboboxOption, ComboboxSearch, ComboboxSource};
 pub use confirm_dialog::ConfirmDialog;
 pub use controls::{Input, InputKind, Switch, Textarea};
+pub use currency::Currency;
 pub use date_picker::DatePicker;
 pub use detail_header::{DetailHeader, DocumentStatus, IdentifierKind};
 pub use dialog::{use_dialog_close, Dialog, DialogSize};
@@ -63,6 +75,7 @@ pub use field_values::{
 };
 pub use fields::{FieldGrid, FieldRow, FieldSave, FieldSection, SectionEditing};
 pub use fieldset::{Field, Fieldset};
+pub use file_drop_zone::FileDropZone;
 pub use filter_chip::FilterChip;
 pub use form_dialog::FormDialog;
 pub use gallery::{GalleryImage, ImageGallery, ImageGrid};
@@ -70,6 +83,7 @@ pub use icons::loading_indicator;
 pub use layout::Layout;
 pub use listbox::{Listbox, ListboxOption};
 pub use menu::{DropdownMenu, MenuEntry, MenuItem, OverflowMenu, RowActions};
+pub use meter::Meter;
 pub use mode_switch::{selected_mode, ModeSwitch, PageMode};
 pub use not_found::NotFoundPage;
 pub use page_header::PageHeader;
@@ -82,6 +96,7 @@ pub use tabs::{
     ViewTabs,
 };
 pub use toast::{notify_failure, notify_success, ToastProvider};
+pub use tone::{toned_text, Tone};
 pub use tooltip::{Tooltip, TooltipAlign};
 pub use totals_bar::{total, Total, TotalsBar};
 pub use typography::LABEL_CLASS;

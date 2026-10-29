@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-const TOOLTIP_CLASS: &str = "pointer-events-none absolute bottom-full z-50 mb-1.5 scale-95 whitespace-nowrap rounded-md bg-gray-900 px-3 py-1.5 text-xs text-white opacity-0 shadow-md transition delay-0 duration-100 group-hover/tooltip:scale-100 group-hover/tooltip:opacity-100 group-hover/tooltip:delay-300 group-has-focus-visible/tooltip:scale-100 group-has-focus-visible/tooltip:opacity-100 group-has-focus-visible/tooltip:delay-0";
+const TOOLTIP_CLASS: &str = "pointer-events-none absolute bottom-full z-50 mb-1.5 w-max max-w-xs scale-95 whitespace-normal rounded-md bg-gray-900 px-3 py-1.5 text-xs text-white opacity-0 shadow-md transition delay-0 duration-100 group-hover/tooltip:scale-100 group-hover/tooltip:opacity-100 group-hover/tooltip:delay-300 group-has-focus-visible/tooltip:scale-100 group-has-focus-visible/tooltip:opacity-100 group-has-focus-visible/tooltip:delay-0";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TooltipAlign {
@@ -24,7 +24,7 @@ impl TooltipAlign {
 )]
 #[component]
 pub fn Tooltip(
-    label: &'static str,
+    #[prop(into)] label: String,
     #[prop(optional)] align: TooltipAlign,
     children: Children,
 ) -> impl IntoView {

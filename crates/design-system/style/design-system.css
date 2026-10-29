@@ -3,6 +3,7 @@
 @theme {
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-field-saved: field-saved 1600ms ease-out;
+  --animate-shimmer: shimmer 1.6s linear infinite;
 
   @keyframes field-saved {
     from {
@@ -23,4 +24,25 @@
       transform: none;
     }
   }
+
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+}
+
+@utility text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-gray-400) 0%,
+    var(--color-gray-900) 50%,
+    var(--color-gray-400) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
 }

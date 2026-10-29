@@ -2,13 +2,15 @@ use design_system::icons::{self, LucideGlyph};
 use design_system::{
     address_actions, address_value, badge, button_class, button_icon_class, icon_button_class,
     multiline_value, notify_failure, notify_success, partner_value, text_value, total,
-    use_dialog_close, BadgeTone, BusyOverlay, ButtonGroup, ButtonSize, ButtonTone, Card, CardGrid,
-    Checkbox, ChoiceList, ChoiceOption, Combobox, ComboboxOption, ComboboxSearch, ConfirmDialog,
-    CopyButton, CopyIconButton, CopyLinkButton, DatePicker, DetailHeader, Dialog, DialogSize,
-    DropdownMenu, Field, FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset, FilterChip,
-    GalleryImage, ImageGallery, ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry,
-    MenuItem, OverflowMenu, PageHeader, RadioGroup, RadioLayout, RadioOption, ResponsiveImage,
-    SearchInput, SearchSize, SectionEditing, Switch, Textarea, Tooltip, TotalsBar,
+    use_dialog_close, Alert, Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia,
+    AttachmentOpen, AttachmentOrientation, AttachmentSize, AttachmentState, BusyOverlay,
+    ButtonGroup, ButtonSize, ButtonTone, Card, CardGrid, Checkbox, ChoiceList, ChoiceOption,
+    Combobox, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton, CopyIconButton,
+    CopyLinkButton, DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldGrid,
+    FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
+    ImageGallery, ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter,
+    OverflowMenu, PageHeader, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput,
+    SearchSize, SectionEditing, Switch, Textarea, Tone, Tooltip, TotalsBar,
 };
 use leptos::prelude::*;
 
@@ -29,11 +31,12 @@ const BUTTON_SIZES: [(ButtonSize, &str); 3] = [
     (ButtonSize::Dense, "Dense"),
 ];
 
-const BADGE_TONES: [(BadgeTone, &str); 4] = [
-    (BadgeTone::Neutral, "Neutral"),
-    (BadgeTone::Positive, "Positive"),
-    (BadgeTone::Informative, "Informative"),
-    (BadgeTone::Caution, "Caution"),
+const BADGE_TONES: [(Tone, &str); 5] = [
+    (Tone::Neutral, "Neutral"),
+    (Tone::Positive, "Positive"),
+    (Tone::Informative, "Informative"),
+    (Tone::Caution, "Caution"),
+    (Tone::Critical, "Critical"),
 ];
 
 const SWATCHES: [(&str, &str, &str); 4] = [
@@ -215,6 +218,175 @@ fn menus() -> AnyView {
             <DropdownMenu label="Actions" entries=entries() />
             <OverflowMenu entries=entries() />
             <span class="text-sm text-gray-500">{move || last_action.get()}</span>
+        </div>
+    }
+    .into_any()
+}
+
+const ALERT_TONES: [(Tone, &str, &str); 4] = [
+    (
+        Tone::Informative,
+        "Container Booked",
+        "Departs Mersin on 14 November.",
+    ),
+    (
+        Tone::Positive,
+        "Invoice Committed",
+        "Posted to QuickFile as INV-2291.",
+    ),
+    (
+        Tone::Caution,
+        "Possible Duplicate",
+        "An invoice with this number was staged yesterday.",
+    ),
+    (Tone::Critical, "Upload Failed", "The file is not a PDF."),
+];
+
+fn alerts() -> AnyView {
+    let alerts = ALERT_TONES
+        .iter()
+        .map(|(tone, title, body)| {
+            view! {
+                <Alert tone=*tone title=*title>
+                    <p>{*body}</p>
+                </Alert>
+            }
+        })
+        .collect_view();
+    view! { <div class="space-y-3">{alerts}</div> }.into_any()
+}
+
+const METER_READINGS: [(f64, Tone, &str); 3] = [
+    (42.0, Tone::Informative, "42% of container capacity"),
+    (91.0, Tone::Caution, "91% of container capacity"),
+    (100.0, Tone::Critical, "112% of container capacity"),
+];
+
+fn meters() -> AnyView {
+    let meters = METER_READINGS
+        .iter()
+        .map(|(value, tone, label)| {
+            view! {
+                <div class="space-y-1">
+                    <p class="text-xs text-gray-500">{*label}</p>
+                    <Meter value=*value label=*label tone=*tone />
+                </div>
+            }
+        })
+        .collect_view();
+    view! { <div class="max-w-md space-y-4">{meters}</div> }.into_any()
+}
+
+fn file_drop_zone() -> AnyView {
+    let chosen = RwSignal::new(Vec::<String>::new());
+    let remember_names = move |files: Vec<web_sys::File>| {
+        chosen.set(files.iter().map(web_sys::File::name).collect());
+    };
+    view! {
+        <FileDropZone
+            label="Drop Invoice PDFs Here, or Click to Browse"
+            description="PDF only, up to 10 MB each."
+            accept="application/pdf"
+            multiple=true
+            on_files=remember_names
+        >
+            <p class="text-xs text-gray-500">
+                {move || {
+                    let names = chosen.get();
+                    if names.is_empty() {
+                        "No files chosen yet.".to_owned()
+                    } else {
+                        format!("Chose {}.", names.join(", "))
+                    }
+                }}
+            </p>
+        </FileDropZone>
+    }
+    .into_any()
+}
+
+const ATTACHMENT_STATES: [(AttachmentState, &str, &str); 5] = [
+    (AttachmentState::Idle, "supplier-quote.pdf", "PDF · Waiting"),
+    (
+        AttachmentState::Uploading,
+        "packing-list.pdf",
+        "Uploading\u{2026}",
+    ),
+    (
+        AttachmentState::Processing,
+        "invoice-2291.pdf",
+        "Reading line items\u{2026}",
+    ),
+    (
+        AttachmentState::Failed,
+        "scan.heic",
+        "Not a PDF. Upload a PDF instead.",
+    ),
+    (AttachmentState::Done, "bill-of-lading.pdf", "PDF · 2.4 MB"),
+];
+
+fn attachments() -> AnyView {
+    let removed = RwSignal::new(String::from("Nothing removed yet."));
+    let states = ATTACHMENT_STATES
+        .iter()
+        .map(|(state, title, description)| {
+            let name = *title;
+            view! {
+                <Attachment
+                    title=*title
+                    description=*description
+                    media=AttachmentMedia::Icon(LucideGlyph::FileText)
+                    state=*state
+                    actions=vec![
+                        AttachmentAction::new(
+                            format!("Remove {name}"),
+                            LucideGlyph::X,
+                            move || removed.set(format!("Removed {name}.")),
+                        ),
+                    ]
+                />
+            }
+        })
+        .collect_view();
+    let swatches = SWATCHES
+        .iter()
+        .map(|(name, code, color_hex)| {
+            let media = AttachmentMedia::Image {
+                source: swatch(color_hex).display_url,
+                alternative_text: (*name).to_owned(),
+            };
+            view! {
+                <Attachment
+                    title=*name
+                    description=*code
+                    orientation=AttachmentOrientation::Vertical
+                    media=media
+                    open=AttachmentOpen::Link(format!("#{code}"))
+                    actions=vec![
+                        AttachmentAction::new("Delete", LucideGlyph::Trash2, || {}).danger(),
+                    ]
+                />
+            }
+        })
+        .collect_view();
+    view! {
+        <div class="space-y-6">
+            <div class="max-w-md space-y-2">{states}</div>
+            <p class="text-xs text-gray-500">{move || removed.get()}</p>
+            <AttachmentGroup label="Swatches">{swatches}</AttachmentGroup>
+            <div class="flex flex-wrap gap-2">
+                <Attachment
+                    title="sales-dashboard.pdf"
+                    description="PDF · 2.4 MB"
+                    size=AttachmentSize::Compact
+                    media=AttachmentMedia::Icon(LucideGlyph::FileText)
+                />
+                <Attachment
+                    title="sales-dashboard.pdf"
+                    size=AttachmentSize::Dense
+                    media=AttachmentMedia::Icon(LucideGlyph::FileText)
+                />
+            </div>
         </div>
     }
     .into_any()
@@ -475,7 +647,7 @@ fn detail_pages() -> AnyView {
                     <FieldRow label="Posting Date">
                         {text_value(Some("2026-10-06".to_string()))}
                     </FieldRow>
-                    <FieldRow label="Priority">{badge("Hot", BadgeTone::Caution)}</FieldRow>
+                    <FieldRow label="Priority">{badge("Hot", Tone::Caution)}</FieldRow>
                     <FieldRow label="Comments">
                         {multiline_value(
                             Some("Deliver to the loading dock before noon.".to_string()),
@@ -496,6 +668,7 @@ fn detail_pages() -> AnyView {
                 total("Subtotal", "$12,410.00"),
                 total("Freight", "$350.00"),
                 total("Total", "$12,760.00"),
+                total("Margin", "-$1,240.00").tone(Tone::Critical),
             ] />
         </div>
     }
@@ -537,10 +710,10 @@ const FAKE_SAVE_MILLISECONDS: u64 = 900;
 
 const FINISHES: [(&str, &str); 5] = [
     ("", "Not Set"),
-    ("HON", "Honed (HON)"),
-    ("POL", "Polished (POL)"),
-    ("TUM", "Tumbled (TUM)"),
-    ("BRU", "Brushed (BRU)"),
+    ("HON", "Honed"),
+    ("POL", "Polished"),
+    ("TUM", "Tumbled"),
+    ("BRU", "Brushed"),
 ];
 
 const COUNTRIES: [(&str, &str); 6] = [
@@ -624,7 +797,7 @@ fn field_sections() -> AnyView {
                 </FieldRow>
                 <FieldRow
                     label="Thickness (cm)"
-                    description="Measured at the thickest edge."
+                    help="Measured at the thickest edge."
                     changed=Signal::derive(move || thickness.get() != saved_thickness.get())
                     on_revert=move |()| thickness.set(saved_thickness.get_untracked())
                     editor=move || view! { <Input value=thickness kind=InputKind::Decimal /> }
@@ -637,7 +810,7 @@ fn field_sections() -> AnyView {
                 <FieldRow label="SKU">"TRVT-024"</FieldRow>
                 <FieldRow label="Item Name">"Ivory Honed Travertine 18x18"</FieldRow>
                 <FieldRow label="Barcode">
-                    <span class="italic text-amber-600">"Not set"</span>
+                    <span class="italic text-amber-600">"Not Set"</span>
                 </FieldRow>
             </FieldSection>
             <FieldSection title="Pricing">
@@ -726,9 +899,11 @@ fn date_picker() -> AnyView {
     let chosen_date = RwSignal::new(String::from("2026-10-15"));
     view! {
         <div class="space-y-2">
+            <DatePicker value=chosen_date />
             <DatePicker
-                date=chosen_date.get_untracked()
-                on_select=Callback::new(move |date| chosen_date.set(date))
+                value=RwSignal::new(String::new())
+                placeholder="No Deadline"
+                clearable=true
             />
             <p class="text-xs text-gray-500">{move || format!("Chose {}", chosen_date.get())}</p>
         </div>
@@ -911,9 +1086,7 @@ fn images() -> AnyView {
 pub fn OverviewPage() -> impl IntoView {
     view! {
         <main class="mx-auto max-w-screen-2xl space-y-10 px-6 py-8">
-            <PageHeader title="Overview">
-                <span class="text-sm text-gray-500">"Every component, with fake data"</span>
-            </PageHeader>
+            <PageHeader title="Overview" description="Every component, with fake data." />
             {section("Buttons", buttons())}
             {section("Badges, Tooltips and Copying", badges_and_hints())}
             {section("Button Groups", button_group())}
@@ -921,6 +1094,10 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Menus", menus())}
             {section("Dialogs", dialogs())}
             {section("Toasts", toasts())}
+            {section("Alerts", alerts())}
+            {section("Meters", meters())}
+            {section("File Drop Zone", file_drop_zone())}
+            {section("Attachments", attachments())}
             {section("Detail Pages", detail_pages())}
             {section("Fieldsets", fieldsets())}
             {section("Form Controls", form_controls())}

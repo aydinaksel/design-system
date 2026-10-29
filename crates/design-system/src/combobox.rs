@@ -53,6 +53,27 @@ impl ComboboxOption {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ComboboxDisplay {
+    #[default]
+    ValueAndLabel,
+    Label,
+}
+
+impl ComboboxDisplay {
+    fn selection(self, value: &str, label: &str) -> String {
+        match self {
+            Self::ValueAndLabel => selection_display(value, label),
+            Self::Label if value.is_empty() => String::new(),
+            Self::Label => label.to_owned(),
+        }
+    }
+
+    fn shows_value(self) -> bool {
+        matches!(self, Self::ValueAndLabel)
+    }
+}
+
 fn selection_display(value: &str, label: &str) -> String {
     if value.is_empty() {
         String::new()
@@ -155,9 +176,9 @@ impl From<Vec<ComboboxOption>> for ComboboxSource {
 }
 
 impl ComboboxSource {
-    fn lookup(&self, text: &str) -> Lookup {
+    fn lookup(&self, text: &str, display: ComboboxDisplay) -> Lookup {
         match self {
-            Self::List(options) => Lookup::Ready(matching_options(options, text)),
+            Self::List(options) => Lookup::Ready(matching_options(options, text, display)),
             Self::Search(search) => search.lookup(text),
         }
     }
@@ -200,12 +221,20 @@ enum MatchStrength {
     Contained,
 }
 
-fn match_strength(option: &ComboboxOption, needle: &str) -> Option<MatchStrength> {
-    let value = option.value.to_lowercase();
+fn match_strength(
+    option: &ComboboxOption,
+    needle: &str,
+    display: ComboboxDisplay,
+) -> Option<MatchStrength> {
+    let value = if display.shows_value() {
+        option.value.to_lowercase()
+    } else {
+        String::new()
+    };
     let label = option.label.to_lowercase();
-    if value == needle {
+    if !value.is_empty() && value == needle {
         Some(MatchStrength::ExactValue)
-    } else if value.starts_with(needle) || label.starts_with(needle) {
+    } else if (!value.is_empty() && value.starts_with(needle)) || label.starts_with(needle) {
         Some(MatchStrength::Prefix)
     } else if value.contains(needle) || label.contains(needle) {
         Some(MatchStrength::Contained)
@@ -214,14 +243,20 @@ fn match_strength(option: &ComboboxOption, needle: &str) -> Option<MatchStrength
     }
 }
 
-fn matching_options(options: &[ComboboxOption], search: &str) -> Vec<ComboboxOption> {
+fn matching_options(
+    options: &[ComboboxOption],
+    search: &str,
+    display: ComboboxDisplay,
+) -> Vec<ComboboxOption> {
     let needle = search.trim().to_lowercase();
     if needle.is_empty() {
         return options.to_vec();
     }
     let mut matches: Vec<(MatchStrength, &ComboboxOption)> = options
         .iter()
-        .filter_map(|option| match_strength(option, &needle).map(|strength| (strength, option)))
+        .filter_map(|option| {
+            match_strength(option, &needle, display).map(|strength| (strength, option))
+        })
         .collect();
     matches.sort_by_key(|(strength, _)| *strength);
     matches
@@ -264,13 +299,14 @@ pub fn Combobox(
     #[prop(into)] empty_message: String,
     #[prop(into)] clear_label: String,
     #[prop(optional, into)] invalid: Signal<bool>,
+    #[prop(optional)] display: ComboboxDisplay,
 ) -> impl IntoView {
     let combobox_number = NEXT_COMBOBOX_NUMBER.fetch_add(1, Ordering::Relaxed);
     let listbox_id = format!("combobox-{combobox_number}-listbox");
     let option_id = move |index: usize| format!("combobox-{combobox_number}-option-{index}");
 
     let selection_text = move || {
-        selection_display(
+        display.selection(
             &selected_value.get_untracked(),
             &selected_label.get_untracked(),
         )
@@ -290,8 +326,8 @@ pub fn Combobox(
     );
 
     Effect::new(move |_| {
-        let display = selection_display(&selected_value.get(), &selected_label.get());
-        query.set(display);
+        let selection = display.selection(&selected_value.get(), &selected_label.get());
+        query.set(selection);
     });
 
     let options = Memo::new(move |_| match results.get() {
@@ -321,7 +357,7 @@ pub fn Combobox(
             highlighted.set((!loaded.is_empty()).then_some(0));
             results.set(Results::Loaded(loaded));
         };
-        match source.with_value(|source| source.lookup(&search_text)) {
+        match source.with_value(|source| source.lookup(&search_text, display)) {
             Lookup::Nothing => {
                 results.set(Results::Idle);
                 close();
@@ -464,7 +500,12 @@ pub fn Combobox(
             .enumerate()
             .map(|(index, option)| {
                 let is_highlighted = move || highlighted.get() == Some(index);
-                let display_value = option.value.clone();
+                let display_value = display.shows_value().then(|| {
+                    view! {
+                        <span class="font-medium text-gray-900">{option.value.clone()}</span>
+                        <span class="text-gray-500">" - "</span>
+                    }
+                });
                 let display_label = option.label.clone();
                 let detail = option.detail.clone();
                 view! {
@@ -483,9 +524,7 @@ pub fn Combobox(
                         on:click=move |_| select(option.clone())
                     >
                         <span class="min-w-0 truncate">
-                            <span class="font-medium text-gray-900">{display_value}</span>
-                            <span class="text-gray-500">" - "</span>
-                            <span>{display_label}</span>
+                            {display_value} <span>{display_label}</span>
                         </span>
                         {detail
                             .map(|detail| {
@@ -646,7 +685,7 @@ mod tests {
             ComboboxOption::new("CA", "California"),
             ComboboxOption::new("NC", "North Carolina"),
         ];
-        let codes: Vec<String> = matching_options(&states, "ca")
+        let codes: Vec<String> = matching_options(&states, "ca", ComboboxDisplay::ValueAndLabel)
             .into_iter()
             .map(|option| option.value)
             .collect();
@@ -666,10 +705,16 @@ mod tests {
     #[test]
     fn searches_the_server_from_two_characters() {
         let source = ComboboxSource::from(server_search());
-        assert!(matches!(source.lookup(""), Lookup::Nothing));
-        assert!(matches!(source.lookup("t"), Lookup::Nothing));
         assert!(matches!(
-            source.lookup("tr"),
+            source.lookup("", ComboboxDisplay::ValueAndLabel),
+            Lookup::Nothing
+        ));
+        assert!(matches!(
+            source.lookup("t", ComboboxDisplay::ValueAndLabel),
+            Lookup::Nothing
+        ));
+        assert!(matches!(
+            source.lookup("tr", ComboboxDisplay::ValueAndLabel),
             Lookup::Pending {
                 suggesting: false,
                 ..
@@ -684,25 +729,30 @@ mod tests {
         }));
         assert!(source.opens_on_focus());
         assert!(matches!(
-            source.lookup(" "),
+            source.lookup(" ", ComboboxDisplay::ValueAndLabel),
             Lookup::Pending {
                 suggesting: true,
                 ..
             }
         ));
-        assert!(matches!(source.lookup("t"), Lookup::Nothing));
+        assert!(matches!(
+            source.lookup("t", ComboboxDisplay::ValueAndLabel),
+            Lookup::Nothing
+        ));
     }
 
     #[test]
     fn a_list_filters_without_asking_the_server() {
         let source = ComboboxSource::from(options());
         assert!(source.opens_on_focus());
-        assert!(matches!(source.lookup("it"), Lookup::Ready(found) if found.len() == 2));
+        assert!(
+            matches!(source.lookup("it", ComboboxDisplay::ValueAndLabel), Lookup::Ready(found) if found.len() == 2)
+        );
     }
 
     #[test]
     fn a_fixed_list_matches_code_or_name_ignoring_case() {
-        let codes: Vec<String> = matching_options(&options(), "it")
+        let codes: Vec<String> = matching_options(&options(), "it", ComboboxDisplay::ValueAndLabel)
             .into_iter()
             .map(|option| option.value)
             .collect();
@@ -711,6 +761,28 @@ mod tests {
 
     #[test]
     fn a_fixed_list_offers_everything_for_an_empty_search() {
-        assert_eq!(matching_options(&options(), " ").len(), 3);
+        assert_eq!(
+            matching_options(&options(), " ", ComboboxDisplay::ValueAndLabel).len(),
+            3
+        );
+    }
+
+    #[test]
+    fn label_display_shows_only_the_label() {
+        assert_eq!(ComboboxDisplay::Label.selection("42", "Acme"), "Acme");
+        assert_eq!(ComboboxDisplay::Label.selection("", "Acme"), "");
+    }
+
+    #[test]
+    fn label_display_ignores_the_value_when_matching() {
+        let businesses = vec![
+            ComboboxOption::new("12", "Acme Stone"),
+            ComboboxOption::new("7", "Studio 12"),
+        ];
+        let labels: Vec<String> = matching_options(&businesses, "12", ComboboxDisplay::Label)
+            .into_iter()
+            .map(|option| option.label)
+            .collect();
+        assert_eq!(labels, ["Studio 12"]);
     }
 }

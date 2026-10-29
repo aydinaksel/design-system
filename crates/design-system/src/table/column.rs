@@ -3,6 +3,7 @@ use std::sync::Arc;
 use leptos::prelude::*;
 
 use super::cell_value::{Align, CellValue};
+use crate::currency::Currency;
 
 /// A single table column. `value` is the typed value used for sorting and
 /// searching (written once, generically, inside `DataTable`); `render` is the
@@ -144,6 +145,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
         key: &'static str,
         header: &'static str,
         accessor: impl Fn(&Row) -> Option<f64> + Send + Sync + Clone + 'static,
+        currency: impl Fn(&Row) -> Currency + Send + Sync + 'static,
     ) -> Self {
         let value_accessor = accessor.clone();
         Self {
@@ -158,7 +160,9 @@ impl<Row: Send + Sync + 'static> Column<Row> {
                 Some(amount) => CellValue::Number(amount),
                 None => CellValue::Empty,
             }),
-            render: Arc::new(move |row| crate::formatting::format_money(accessor(row)).into_any()),
+            render: Arc::new(move |row| {
+                crate::formatting::format_money(accessor(row), currency(row)).into_any()
+            }),
         }
     }
 
@@ -166,6 +170,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
         key: &'static str,
         header: &'static str,
         accessor: impl Fn(&Row) -> Option<rust_decimal::Decimal> + Send + Sync + Clone + 'static,
+        currency: impl Fn(&Row) -> Currency + Send + Sync + 'static,
     ) -> Self {
         let value_accessor = accessor.clone();
         Self {
@@ -184,7 +189,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
                 }
             }),
             render: Arc::new(move |row| {
-                crate::formatting::format_money_decimal(accessor(row)).into_any()
+                crate::formatting::format_money_decimal(accessor(row), currency(row)).into_any()
             }),
         }
     }

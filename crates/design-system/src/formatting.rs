@@ -1,3 +1,5 @@
+use crate::currency::Currency;
+
 #[must_use]
 pub fn format_with_thousands(integer_part: &str) -> String {
     let (sign, digits) = match integer_part.strip_prefix('-') {
@@ -21,7 +23,7 @@ pub fn format_with_thousands(integer_part: &str) -> String {
 }
 
 #[must_use]
-pub fn format_money(value: Option<f64>) -> String {
+pub fn format_money(value: Option<f64>, currency: Currency) -> String {
     match value {
         Some(amount) => {
             let formatted = format!("{amount:.2}");
@@ -33,7 +35,7 @@ pub fn format_money(value: Option<f64>) -> String {
                 Some(rest) => ("-", rest.to_owned()),
                 None => ("", with_commas),
             };
-            format!("{sign}${body}.{decimal_part}")
+            format!("{sign}{}{body}.{decimal_part}", currency.symbol())
         }
         None => String::new(),
     }
@@ -48,7 +50,7 @@ pub fn format_integer(value: Option<i32>) -> String {
 }
 
 #[must_use]
-pub fn format_money_decimal(value: Option<rust_decimal::Decimal>) -> String {
+pub fn format_money_decimal(value: Option<rust_decimal::Decimal>, currency: Currency) -> String {
     match value {
         Some(amount) => {
             let formatted = amount.round_dp(2).to_string();
@@ -65,7 +67,7 @@ pub fn format_money_decimal(value: Option<rust_decimal::Decimal>) -> String {
                 Some(rest) => ("-", rest.to_owned()),
                 None => ("", with_commas),
             };
-            format!("{sign}${body}.{padded_decimal}")
+            format!("{sign}{}{body}.{padded_decimal}", currency.symbol())
         }
         None => String::new(),
     }
@@ -90,10 +92,26 @@ mod tests {
 
     #[test]
     fn money_is_grouped_with_commas() {
-        assert_eq!(format_money(Some(1_234_567.5)), "$1,234,567.50");
-        assert_eq!(format_money(Some(-980.25)), "-$980.25");
-        assert_eq!(format_money(Some(12.0)), "$12.00");
-        assert_eq!(format_money(None), "");
+        assert_eq!(
+            format_money(Some(1_234_567.5), Currency::UsDollar),
+            "$1,234,567.50"
+        );
+        assert_eq!(format_money(Some(-980.25), Currency::UsDollar), "-$980.25");
+        assert_eq!(format_money(Some(12.0), Currency::UsDollar), "$12.00");
+        assert_eq!(format_money(None, Currency::UsDollar), "");
+    }
+
+    #[test]
+    fn money_carries_the_symbol_of_its_currency() {
+        assert_eq!(
+            format_money(Some(1_250.0), Currency::PoundSterling),
+            "£1,250.00"
+        );
+        assert_eq!(format_money(Some(-3.5), Currency::Euro), "-€3.50");
+        assert_eq!(
+            format_money_decimal(Some(rust_decimal::Decimal::new(99_95, 2)), Currency::Euro),
+            "€99.95"
+        );
     }
 
     #[test]

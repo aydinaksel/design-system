@@ -13,6 +13,7 @@ use crate::controls::FieldElementIds;
 use crate::field_actions::{field_actions_view, FieldAction};
 use crate::icons;
 use crate::toast::notify_success;
+use crate::tooltip::Tooltip;
 use crate::typography::LABEL_CLASS;
 
 static NEXT_FIELD_NUMBER: AtomicU64 = AtomicU64::new(0);
@@ -317,7 +318,7 @@ pub fn FieldSection(
     let heading = (title.is_some() || has_controls).then(|| {
         view! {
             <div class="mb-2 flex min-h-8 items-center justify-between gap-3">
-                <h2 class="text-sm font-semibold text-gray-900">{title}</h2>
+                <h2 class=LABEL_CLASS>{title}</h2>
                 <div class="flex gap-2">{actions} {edit_controls}</div>
             </div>
         }
@@ -325,7 +326,7 @@ pub fn FieldSection(
     let saving = move || state.get() == SectionState::Saving;
 
     view! {
-        <section node_ref=section on:keydown=on_keydown>
+        <section node_ref=section class="w-full max-w-2xl" on:keydown=on_keydown>
             {heading}
             {move || {
                 error
@@ -346,7 +347,7 @@ pub fn FieldSection(
                     aria-busy=move || saving().to_string()
                     class=move || {
                         format!(
-                            "divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white motion-safe:transition-opacity motion-safe:duration-200 {}",
+                            "rounded-lg border border-gray-200 bg-white motion-safe:transition-opacity motion-safe:duration-200 {}",
                             if saving() { "opacity-40" } else { "opacity-100" },
                         )
                     }
@@ -411,10 +412,38 @@ fn revert_button(
     .into_any()
 }
 
+fn field_label(
+    label: String,
+    label_id: String,
+    control_id: String,
+    help: Option<String>,
+    help_id: Option<String>,
+) -> AnyView {
+    let label_element = view! {
+        <label id=label_id for=control_id>
+            {label}
+        </label>
+    };
+    match help {
+        Some(help) => view! {
+            <Tooltip label=help.clone()>
+                <span class="cursor-help underline decoration-gray-300 decoration-dotted underline-offset-4">
+                    {label_element}
+                </span>
+            </Tooltip>
+            <span id=help_id class="sr-only">
+                {help}
+            </span>
+        }
+        .into_any(),
+        None => label_element.into_any(),
+    }
+}
+
 #[component]
 pub fn FieldRow(
     #[prop(into)] label: String,
-    #[prop(optional, into)] description: Option<String>,
+    #[prop(optional, into)] help: Option<String>,
     #[prop(optional, into)] editor: Option<ViewFn>,
     #[prop(optional, into)] changed: Signal<bool>,
     #[prop(optional, into)] on_revert: Option<Callback<()>>,
@@ -427,14 +456,13 @@ pub fn FieldRow(
     let field_number = NEXT_FIELD_NUMBER.fetch_add(1, Ordering::Relaxed);
     let control_id = format!("field-{field_number}");
     let label_id = format!("field-{field_number}-label");
-    let description_id = description
-        .as_ref()
-        .map(|_| format!("field-{field_number}-description"));
+    let help_id = help.as_ref().map(|_| format!("field-{field_number}-help"));
     provide_context(FieldElementIds {
         control: control_id.clone(),
         label: label_id.clone(),
-        description: description_id.clone(),
+        description: help_id.clone(),
     });
+    let label_view = field_label(label, label_id, control_id, help, help_id);
 
     let state = use_context::<SectionContext>().map_or_else(
         || Signal::stored(SectionState::Viewing),
@@ -467,43 +495,43 @@ pub fn FieldRow(
             node_ref=row
             class=move || {
                 format!(
-                    "flex flex-col gap-0.5 px-4 py-3 first:rounded-t-[7px] last:rounded-b-[7px] motion-safe:transition-colors sm:flex-row sm:items-center sm:gap-0 {}",
+                    "group/row px-4 first:rounded-t-[7px] last:rounded-b-[7px] motion-safe:transition-colors {}",
                     row_highlight(),
                 )
             }
         >
-            <dt class=format!("{LABEL_CLASS} sm:w-48 sm:shrink-0 sm:pr-4")>
-                <label id=label_id for=control_id>
-                    {label}
-                </label>
-            </dt>
-            <dd class="min-w-0 flex-1 text-sm text-gray-900">
-                <div class=move || {
-                    if showing_editor() { "hidden" } else { "flex items-center gap-3" }
-                }>
-                    <div class="min-w-0 flex-1">{children()}</div>
-                    {actions_view}
-                </div>
-                {editor
-                    .map(|editor| {
-                        view! {
-                            <div class=move || {
-                                if showing_editor() { "flex items-center gap-2" } else { "hidden" }
-                            }>
-                                <div class="min-w-0 max-w-sm flex-1">{editor.run()}</div>
-                                {revert_button}
-                            </div>
+            <div class="flex flex-col gap-0.5 border-b border-gray-100 py-3 group-last/row:border-b-0 sm:flex-row sm:items-center sm:gap-4">
+                <dt class="text-sm text-gray-500 sm:w-48 sm:shrink-0">{label_view}</dt>
+                <dd class="min-w-0 flex-1 text-sm text-gray-900 sm:text-right">
+                    <div class=move || {
+                        if showing_editor() {
+                            "hidden"
+                        } else {
+                            "flex items-center gap-3 sm:justify-end"
                         }
-                    })}
-                {description
-                    .map(|description| {
-                        view! {
-                            <p id=description_id class="mt-1 text-xs text-gray-500">
-                                {description}
-                            </p>
-                        }
-                    })}
-            </dd>
+                    }>
+                        <div class="min-w-0">{children()}</div>
+                        {actions_view}
+                    </div>
+                    {editor
+                        .map(|editor| {
+                            view! {
+                                <div class=move || {
+                                    if showing_editor() {
+                                        "flex items-center gap-2 sm:justify-end"
+                                    } else {
+                                        "hidden"
+                                    }
+                                }>
+                                    <div class="min-w-0 max-w-sm flex-1 text-left">
+                                        {editor.run()}
+                                    </div>
+                                    {revert_button}
+                                </div>
+                            }
+                        })}
+                </dd>
+            </div>
         </div>
     }
     .into_any()
