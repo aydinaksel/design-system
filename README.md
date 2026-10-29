@@ -14,35 +14,30 @@ the URL. Icons come from [Lucide](https://lucide.dev) through
 
 ## Using it
 
-Add the crate as a git dependency and forward your app's features:
+Tailwind only generates classes it finds in the files it scans, so an app has
+to import the stylesheet this crate ships, and that needs a path it can rely on.
+The simplest is to check this repository out next to the app and depend on it
+by path, forwarding the app's features:
 
 ```toml
 [dependencies]
-design-system = { git = "https://github.com/aydinaksel/design-system", tag = "v0.1.1" }
+design-system = { path = "../design-system/crates/design-system" }
 
 [features]
 hydrate = ["design-system/hydrate"]
 ssr = ["design-system/ssr"]
 ```
 
-Tailwind only generates classes it finds in the files it scans, so your
-stylesheet has to import the one the crate ships. It sits wherever Cargo
-checked the dependency out, which you can ask Cargo for:
-
-```sh
-manifest_path=$(cargo metadata --format-version 1 \
-  | jq -r '.packages[] | select(.name == "design-system") | .manifest_path')
-printf '@import "%s/style/design-system.css";\n' "$(dirname "$manifest_path")" \
-  > style/design-system.css
-```
-
-Generate that file before each build, keep it out of version control, and
-import it after Tailwind:
+Then import its stylesheet after Tailwind, by the same relative route:
 
 ```css
 @import "tailwindcss";
-@import "./design-system.css";
+@import "../../design-system/crates/design-system/style/design-system.css";
 ```
+
+For Nix builds, pin this repository as a non-flake input
+(`github:aydinaksel/design-system/v0.1.1`) and copy it beside the app's source
+before building, so the same relative paths resolve inside the sandbox.
 
 The imported stylesheet adds the crate's sources to Tailwind's scan and
 defines the animations the components use.
