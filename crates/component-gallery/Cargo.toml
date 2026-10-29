@@ -1,0 +1,89 @@
+[package]
+name = "component-gallery"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "component-gallery-server"
+path = "src/main.rs"
+required-features = ["ssr"]
+
+[dependencies]
+design-system = { path = "../design-system" }
+leptos = { version = "0.8" }
+leptos_meta = { version = "0.8" }
+leptos_router = { version = "0.8" }
+serde = { version = "1", features = ["derive"] }
+
+[dependencies.chrono]
+version = "0.4"
+optional = true
+
+[dependencies.leptos_axum]
+version = "0.8"
+optional = true
+
+[dependencies.axum]
+version = "0.8"
+optional = true
+
+[dependencies.tokio]
+version = "1"
+features = ["rt-multi-thread", "net", "time", "macros"]
+optional = true
+
+[dependencies.tracing]
+version = "0.1"
+optional = true
+
+[dependencies.tracing-subscriber]
+version = "0.3"
+features = ["fmt", "env-filter"]
+optional = true
+
+[dependencies.console_error_panic_hook]
+version = "0.1"
+optional = true
+
+[dependencies.wasm-bindgen]
+version = "0.2"
+optional = true
+
+[features]
+hydrate = [
+    "leptos/hydrate",
+    "design-system/hydrate",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+]
+ssr = [
+    "leptos/ssr",
+    "design-system/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "dep:chrono",
+    "dep:leptos_axum",
+    "dep:axum",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+]
+
+[lints]
+workspace = true
+
+[package.metadata.leptos]
+output-name = "component-gallery"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+tailwind-input-file = "style/input.css"
+site-addr = "127.0.0.1:3003"
+reload-port = 5003
+bin-features = ["ssr"]
+lib-features = ["hydrate"]
+bin-exe-name = "component-gallery-server"
+bin-target = "component-gallery-server"

@@ -1,0 +1,16 @@
+[package]
+name = "table-query"
+version = "0.1.0"
+edition = "2021"
+description = "Serializable table query state: search, filters, sorting and paging"
+license = "MIT"
+repository = "https://github.com/aydinaksel/design-system"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

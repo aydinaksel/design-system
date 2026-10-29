@@ -1,0 +1,68 @@
+[package]
+name = "design-system"
+version = "0.1.0"
+edition = "2021"
+description = "Leptos components styled with Tailwind CSS"
+license = "MIT"
+repository = "https://github.com/aydinaksel/design-system"
+include = ["src", "style"]
+
+[dependencies]
+chrono = "0.4"
+lepticons = { version = "0.13", default-features = false, features = [
+    "arrows",
+    "cursors",
+    "layout",
+    "navigation",
+    "notifications",
+    "text",
+    "time",
+] }
+leptos = { version = "0.8" }
+rust_decimal = { version = "1", default-features = false }
+leptos-use = { version = "0.19", default-features = false, features = [
+    "use_calendar",
+    "use_clipboard",
+    "use_debounce_fn",
+    "use_interval_fn",
+    "use_timeout_fn",
+] }
+leptos_meta = { version = "0.8" }
+leptos_toaster = { version = "0.3", features = ["builtin_toast"] }
+leptos_router = { version = "0.8" }
+serde = { version = "1", features = ["derive"] }
+table-query = { path = "../table-query" }
+
+[dependencies.leptos_axum]
+version = "0.8"
+optional = true
+
+[dependencies.http]
+version = "1"
+optional = true
+
+[dependencies.wasm-bindgen]
+version = "0.2"
+optional = true
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "MediaQueryList", "Navigator", "Clipboard", "KeyboardEvent", "Selection", "EventTarget", "MouseEvent", "ScrollIntoViewOptions", "ScrollLogicalPosition", "Location"]
+
+[dev-dependencies]
+leptos_router = { version = "0.8", features = ["ssr"] }
+serde_json = "1"
+
+[features]
+hydrate = ["leptos/hydrate", "leptos_toaster/hydrate", "dep:wasm-bindgen"]
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "leptos_toaster/ssr",
+    "dep:leptos_axum",
+    "dep:http",
+]
+
+[lints]
+workspace = true
