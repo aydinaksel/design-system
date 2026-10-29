@@ -21,11 +21,11 @@ const LABEL_CLASS: &str =
     "transition-opacity duration-200 group-data-[collapsed=true]/sidebar:opacity-0";
 const BRAND_CLASS: &str = "absolute left-4 whitespace-nowrap text-sm font-semibold tracking-tight text-gray-900 transition-opacity duration-200 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0";
 const TOGGLE_CLASS: &str = "ml-auto flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:text-gray-900";
-const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm font-medium bg-gray-100 text-gray-900 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
-const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
-const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
+const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm font-medium bg-gray-100 text-gray-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
+const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
+const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
 const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-gray-200 opacity-0 transition-opacity duration-200 group-data-[collapsed=true]/sidebar:opacity-100";
-const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-2 overflow-hidden whitespace-nowrap rounded-md p-1 text-left text-sm text-gray-700 hover:bg-gray-100 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
+const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-2 overflow-hidden whitespace-nowrap rounded-md p-1 text-left text-sm text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600";
 const AVATAR_CLASS: &str = "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[0.625rem] font-medium text-white";
 
 #[derive(Clone, Copy)]
@@ -345,10 +345,10 @@ pub fn NavigationItem(
 
 #[component]
 pub fn SidebarUser(
-    #[prop(optional, into)] name: Option<String>,
+    #[prop(optional, into)] name: MaybeProp<String>,
     entries: Vec<MenuEntry>,
 ) -> impl IntoView {
-    let name = name.filter(|name| !name.trim().is_empty());
+    let name = name.get_untracked().filter(|name| !name.trim().is_empty());
     let avatar = match name.as_deref().map(initials) {
         Some(initials) => view! { <span class=AVATAR_CLASS>{initials}</span> }.into_any(),
         None => icons::icon(
