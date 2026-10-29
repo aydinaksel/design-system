@@ -10,6 +10,7 @@ include = ["src", "style"]
 [dependencies]
 chrono = "0.4"
 lepticons = { version = "0.13", default-features = false, features = [
+    "account",
     "arrows",
     "cursors",
     "layout",
@@ -26,7 +27,9 @@ leptos-use = { version = "0.19", default-features = false, features = [
     "use_debounce_fn",
     "use_interval_fn",
     "use_timeout_fn",
+    "use_cookie",
 ] }
+codee = "0.3"
 leptos_meta = { version = "0.8" }
 leptos_toaster = { version = "0.3", features = ["builtin_toast"] }
 leptos_router = { version = "0.8" }
@@ -61,6 +64,7 @@ ssr = [
     "leptos_router/ssr",
     "leptos_toaster/ssr",
     "leptos-use/ssr",
+    "leptos-use/axum",
     "dep:leptos_axum",
     "dep:http",
 ]

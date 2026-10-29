@@ -2,19 +2,22 @@ use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, Title};
 use leptos_router::{
     components::{ParentRoute, Route, Router, Routes, A},
-    StaticSegment,
+    StaticSegment, WildcardSegment,
 };
 
 use design_system::{Brand, Layout, NotFoundPage, ToastProvider};
 
-use crate::pages::{calendar::CalendarPage, overview::OverviewPage, tables::TablesPage};
+use crate::pages::{
+    calendar::CalendarPage, overview::OverviewPage, sidebar::SidebarPage, tables::TablesPage,
+};
 
 const STYLESHEET_HREF: &str = "/pkg/component-gallery.css";
 
-const NAVIGATION: [(&str, &str); 3] = [
+const NAVIGATION: [(&str, &str); 4] = [
     ("/", "Overview"),
     ("/tables", "Tables"),
     ("/calendar", "Calendar"),
+    ("/sidebar/dashboard", "Sidebar"),
 ];
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -69,6 +72,11 @@ pub fn App() -> impl IntoView {
                         <Route path=StaticSegment("tables") view=TablesPage />
                         <Route path=StaticSegment("calendar") view=CalendarPage />
                     </ParentRoute>
+                    <Route path=StaticSegment("sidebar") view=SidebarPage />
+                    <Route
+                        path=(StaticSegment("sidebar"), WildcardSegment("page"))
+                        view=SidebarPage
+                    />
                 </Routes>
             </Router>
         </ToastProvider>

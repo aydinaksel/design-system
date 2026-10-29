@@ -33,6 +33,7 @@ pub mod page_header;
 pub mod radio_group;
 pub mod search_input;
 pub mod shell;
+pub mod sidebar;
 pub mod table;
 pub mod tabs;
 pub mod toast;
@@ -75,6 +76,7 @@ pub use page_header::PageHeader;
 pub use radio_group::{RadioGroup, RadioLayout, RadioOption};
 pub use search_input::{SearchInput, SearchSize};
 pub use shell::shell;
+pub use sidebar::{is_active, NavigationItem, NavigationSection, Sidebar, SidebarUser};
 pub use tabs::{
     selected_tab, selected_view, tab_navigation, tab_slug, ChoiceTransition, PageView, TabStrip,
     ViewTabs,

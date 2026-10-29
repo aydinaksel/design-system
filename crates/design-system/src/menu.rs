@@ -41,6 +41,7 @@ enum MenuTarget {
     Action(Arc<dyn Fn() + Send + Sync>),
     Download(Signal<String>),
     Link(String),
+    ExternalLink(String),
 }
 
 impl MenuItem {
@@ -65,6 +66,15 @@ impl MenuItem {
     #[must_use]
     pub fn link(label: &'static str, glyph: icons::LucideGlyph, href: impl Into<String>) -> Self {
         Self::new(label, glyph, MenuTarget::Link(href.into()))
+    }
+
+    #[must_use]
+    pub fn external_link(
+        label: &'static str,
+        glyph: icons::LucideGlyph,
+        href: impl Into<String>,
+    ) -> Self {
+        Self::new(label, glyph, MenuTarget::ExternalLink(href.into()))
     }
 
     #[must_use]
@@ -450,7 +460,7 @@ pub fn RowActions(
     clippy::too_many_lines,
     reason = "one widget: the trigger, the panel, and their key handling belong together"
 )]
-fn menu(
+pub(crate) fn menu(
     trigger_class: &str,
     accessible_label: Option<&'static str>,
     trigger_content: AnyView,
@@ -714,6 +724,21 @@ fn menu_item(state: MenuState, item: MenuItem) -> AnyView {
         MenuTarget::Link(href) => view! {
             <a
                 href=href
+                role="menuitem"
+                tabindex="-1"
+                class=class
+                on:mousemove=|event: MouseEvent| focus_on_hover(&event)
+                on:click=move |_| state.close()
+            >
+                {content}
+            </a>
+        }
+        .into_any(),
+        MenuTarget::ExternalLink(href) => view! {
+            <a
+                href=href
+                target="_blank"
+                rel="noopener noreferrer"
                 role="menuitem"
                 tabindex="-1"
                 class=class

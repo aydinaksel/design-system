@@ -1,5 +1,6 @@
 pub mod calendar;
 pub mod overview;
+pub mod sidebar;
 pub mod tables;
 
 use leptos::prelude::*;
