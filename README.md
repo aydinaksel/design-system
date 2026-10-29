@@ -36,7 +36,7 @@ Then import its stylesheet after Tailwind, by the same relative route:
 ```
 
 For Nix builds, pin this repository as a non-flake input
-(`github:aydinaksel/design-system/v0.1.1`) and copy it beside the app's source
+(`github:aydinaksel/design-system/v0.2.0`) and copy it beside the app's source
 before building, so the same relative paths resolve inside the sandbox.
 
 The imported stylesheet adds the crate's sources to Tailwind's scan and
