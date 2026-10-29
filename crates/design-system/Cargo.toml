@@ -1,6 +1,6 @@
 [package]
 name = "design-system"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Leptos components styled with Tailwind CSS"
 license = "MIT"
@@ -60,6 +60,7 @@ ssr = [
     "leptos_meta/ssr",
     "leptos_router/ssr",
     "leptos_toaster/ssr",
+    "leptos-use/ssr",
     "dep:leptos_axum",
     "dep:http",
 ]

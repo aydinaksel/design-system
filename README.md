@@ -18,7 +18,7 @@ Add the crate as a git dependency and forward your app's features:
 
 ```toml
 [dependencies]
-design-system = { git = "https://github.com/aydinaksel/design-system", tag = "v0.1.0" }
+design-system = { git = "https://github.com/aydinaksel/design-system", tag = "v0.1.1" }
 
 [features]
 hydrate = ["design-system/hydrate"]
