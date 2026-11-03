@@ -63,7 +63,7 @@ pub fn CardGrid(#[prop(optional)] class: &'static str, children: Children) -> im
 #[component]
 pub fn Card(#[prop(into)] href: String, image: AnyView, children: Children) -> impl IntoView {
     view! {
-        <li class="overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-gray-300">
+        <li class="overflow-hidden rounded-surface border border-gray-200 bg-white transition hover:border-gray-300">
             <A href=href>{image} <div class="p-4">{children()}</div></A>
         </li>
     }

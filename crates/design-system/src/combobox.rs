@@ -9,15 +9,15 @@ use leptos::prelude::*;
 
 use crate::anchored::{anchor_to, follow_trigger, AnchoredPosition, ANCHORED_PANEL_CLASS};
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
-use crate::controls::{field_control_id, field_description_id, CONTROL_CLASS};
+use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
 use crate::icons;
 use crate::menu::{moved_position, Movement};
 
 const DEBOUNCE_MILLISECONDS: f64 = 300.0;
 const MINIMUM_SEARCH_CHARS: usize = 2;
 const OPTION_CLASS: &str =
-    "flex cursor-pointer items-baseline justify-between gap-4 rounded-lg px-3 py-1.5 text-gray-700";
-const HIGHLIGHTED_OPTION_CLASS: &str = "flex cursor-pointer items-baseline justify-between gap-4 rounded-lg bg-gray-100 px-3 py-1.5 text-gray-900";
+    "flex cursor-pointer items-baseline justify-between gap-4 rounded-item px-3 py-1.5 text-gray-700";
+const HIGHLIGHTED_OPTION_CLASS: &str = "flex cursor-pointer items-baseline justify-between gap-4 rounded-item bg-gray-100 px-3 py-1.5 text-gray-900";
 const MESSAGE_CLASS: &str = "px-3 py-1.5 text-gray-500";
 
 static NEXT_COMBOBOX_NUMBER: AtomicU64 = AtomicU64::new(0);
@@ -301,6 +301,7 @@ pub fn Combobox(
     #[prop(optional, into)] invalid: Signal<bool>,
     #[prop(optional)] display: ComboboxDisplay,
 ) -> impl IntoView {
+    let invalid = with_field_error(invalid);
     let combobox_number = NEXT_COMBOBOX_NUMBER.fetch_add(1, Ordering::Relaxed);
     let listbox_id = format!("combobox-{combobox_number}-listbox");
     let option_id = move |index: usize| format!("combobox-{combobox_number}-option-{index}");

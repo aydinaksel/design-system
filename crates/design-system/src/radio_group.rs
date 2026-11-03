@@ -64,7 +64,7 @@ impl RadioLayout {
     const fn option_class(self) -> &'static str {
         match self {
             Self::List => "flex cursor-pointer items-start gap-3 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50",
-            Self::Cards => "flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm transition-colors hover:border-gray-300 has-[:checked]:border-blue-600 has-[:checked]:ring-1 has-[:checked]:ring-blue-600 has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-gray-50 has-[:disabled]:opacity-60",
+            Self::Cards => "flex cursor-pointer items-start gap-3 rounded-surface border border-gray-200 bg-white px-4 py-3 shadow-sm transition-colors hover:border-gray-300 has-[:checked]:border-blue-600 has-[:checked]:ring-1 has-[:checked]:ring-blue-600 has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-gray-50 has-[:disabled]:opacity-60",
         }
     }
 }

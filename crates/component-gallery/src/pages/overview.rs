@@ -6,8 +6,8 @@ use design_system::{
     AttachmentOpen, AttachmentOrientation, AttachmentSize, AttachmentState, BusyOverlay,
     ButtonGroup, ButtonSize, ButtonTone, Card, CardGrid, Checkbox, ChoiceList, ChoiceOption,
     Combobox, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton, CopyIconButton,
-    CopyLinkButton, DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldGrid,
-    FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
+    CopyLinkButton, DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldEditor,
+    FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
     ImageGallery, ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter,
     OverflowMenu, PageHeader, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput,
     SearchSize, SectionEditing, Switch, Textarea, Tone, Tooltip, TotalsBar,
@@ -17,12 +17,13 @@ use leptos::prelude::*;
 use super::section;
 use crate::fake_data::swatch;
 
-const BUTTON_TONES: [(ButtonTone, &str); 5] = [
+const BUTTON_TONES: [(ButtonTone, &str); 6] = [
     (ButtonTone::Primary, "Primary"),
     (ButtonTone::Secondary, "Secondary"),
     (ButtonTone::Danger, "Danger"),
     (ButtonTone::DangerOutline, "Danger Outline"),
     (ButtonTone::Ghost, "Ghost"),
+    (ButtonTone::Subtle, "Subtle"),
 ];
 
 const BUTTON_SIZES: [(ButtonSize, &str); 3] = [
@@ -680,7 +681,7 @@ fn fieldsets() -> AnyView {
     let serial_number = RwSignal::new(String::new());
     let disabled = RwSignal::new(false);
     view! {
-        <div class="max-w-md space-y-4 rounded-lg border border-gray-200 p-5">
+        <div class="max-w-md space-y-4 rounded-surface border border-gray-200 p-5">
             <Fieldset legend="Shipment" disabled=disabled>
                 <Field
                     label="Container"
@@ -733,24 +734,41 @@ fn finish_label(code: &str) -> String {
         .unwrap_or_default()
 }
 
-fn fake_save(save: FieldSave, fails: bool) {
+fn fake_save(save: FieldSave, fails: bool, commit: impl FnOnce() + 'static) {
     set_timeout(
         move || {
             if fails {
                 save.failed("The server rejected the change: the item is locked by another user.");
-            } else {
-                save.succeeded();
+                return;
             }
+            commit();
+            save.succeeded();
         },
         std::time::Duration::from_millis(FAKE_SAVE_MILLISECONDS),
     );
 }
 
+fn thickness_error(text: &str) -> Option<String> {
+    match text.trim().parse::<f64>() {
+        Ok(thickness) if thickness > 0.0 => None,
+        Ok(_) => Some("Thickness must be greater than zero.".to_owned()),
+        Err(_) => Some("Enter a number, such as 3 or 1.5.".to_owned()),
+    }
+}
+
+fn item_name_error(text: &str) -> Option<String> {
+    text.trim()
+        .is_empty()
+        .then(|| "Enter the item name.".to_owned())
+}
+
 fn field_sections() -> AnyView {
     let saved_finish = RwSignal::new(String::from("HON"));
     let saved_thickness = RwSignal::new(String::from("3"));
+    let saved_item_name = RwSignal::new(String::from("Ivory Honed Travertine 18x18"));
     let finish = RwSignal::new(saved_finish.get_untracked());
     let thickness = RwSignal::new(saved_thickness.get_untracked());
+    let item_name = RwSignal::new(saved_item_name.get_untracked());
     let save_fails = RwSignal::new(false);
     let finish_options = Signal::stored(
         FINISHES
@@ -758,24 +776,19 @@ fn field_sections() -> AnyView {
             .map(|(value, label)| ListboxOption::new(*value, *label))
             .collect::<Vec<_>>(),
     );
-    let reset = move || {
-        finish.set(saved_finish.get_untracked());
-        thickness.set(saved_thickness.get_untracked());
-    };
-    let editing = SectionEditing {
-        can_edit: true,
-        is_editing: RwSignal::new(false),
-        on_edit: Callback::new(move |()| reset()),
-        on_cancel: Callback::new(move |()| reset()),
-        on_save: Callback::new(move |save: FieldSave| {
-            let fails = save_fails.get_untracked();
-            if !fails {
-                saved_finish.set(finish.get_untracked());
-                saved_thickness.set(thickness.get_untracked());
-            }
-            fake_save(save, fails);
-        }),
-    };
+    let classification_editing = SectionEditing::new(move |save: FieldSave| {
+        let (new_finish, new_thickness) = (finish.get_untracked(), thickness.get_untracked());
+        fake_save(save, save_fails.get_untracked(), move || {
+            saved_finish.set(new_finish);
+            saved_thickness.set(new_thickness);
+        });
+    });
+    let identity_editing = SectionEditing::new(move |save: FieldSave| {
+        let new_item_name = item_name.get_untracked();
+        fake_save(save, save_fails.get_untracked(), move || {
+            saved_item_name.set(new_item_name);
+        });
+    });
     view! {
         <div class="mb-4 flex items-center gap-3 text-sm text-gray-700">
             <Switch
@@ -786,29 +799,44 @@ fn field_sections() -> AnyView {
             "Make the Next Save Fail"
         </div>
         <FieldGrid>
-            <FieldSection title="Classification" editing=editing>
+            <FieldSection title="Classification" editing=classification_editing>
                 <FieldRow
                     label="Finish"
-                    changed=Signal::derive(move || finish.get() != saved_finish.get())
-                    on_revert=move |()| finish.set(saved_finish.get_untracked())
-                    editor=move || view! { <Listbox options=finish_options selected=finish /> }
+                    editor=FieldEditor::new(
+                        finish,
+                        saved_finish,
+                        move || view! { <Listbox options=finish_options selected=finish /> },
+                    )
                 >
-                    {move || finish_label(&finish.get())}
+                    {move || finish_label(&saved_finish.get())}
                 </FieldRow>
                 <FieldRow
                     label="Thickness (cm)"
                     help="Measured at the thickest edge."
-                    changed=Signal::derive(move || thickness.get() != saved_thickness.get())
-                    on_revert=move |()| thickness.set(saved_thickness.get_untracked())
-                    editor=move || view! { <Input value=thickness kind=InputKind::Decimal /> }
+                    editor=FieldEditor::new(
+                            thickness,
+                            saved_thickness,
+                            move || view! { <Input value=thickness kind=InputKind::Decimal /> },
+                        )
+                        .error(move || thickness.with(|text| thickness_error(text)))
                 >
-                    {move || thickness.get()}
+                    {move || saved_thickness.get()}
                 </FieldRow>
                 <FieldRow label="Pattern">"Versailles"</FieldRow>
             </FieldSection>
-            <FieldSection title="Identity">
+            <FieldSection title="Identity" editing=identity_editing>
                 <FieldRow label="SKU">"TRVT-024"</FieldRow>
-                <FieldRow label="Item Name">"Ivory Honed Travertine 18x18"</FieldRow>
+                <FieldRow
+                    label="Item Name"
+                    editor=FieldEditor::new(
+                            item_name,
+                            saved_item_name,
+                            move || view! { <Input value=item_name /> },
+                        )
+                        .error(move || item_name.with(|text| item_name_error(text)))
+                >
+                    {move || saved_item_name.get()}
+                </FieldRow>
                 <FieldRow label="Barcode">
                     <span class="italic text-amber-600">"Not Set"</span>
                 </FieldRow>

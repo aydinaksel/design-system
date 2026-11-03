@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos::web_sys::HtmlElement;
 
 pub(crate) const PANEL_MAXIMUM_HEIGHT_PIXELS: f64 = 240.0;
-pub(crate) const ANCHORED_PANEL_CLASS: &str = "fixed z-50 max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
+pub(crate) const ANCHORED_PANEL_CLASS: &str = "fixed z-50 max-h-60 overflow-y-auto rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
 const GAP_PIXELS: f64 = 4.0;
 const VIEWPORT_MARGIN_PIXELS: f64 = 8.0;
 

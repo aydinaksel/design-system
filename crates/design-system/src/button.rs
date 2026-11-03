@@ -6,6 +6,7 @@ pub enum ButtonTone {
     Danger,
     DangerOutline,
     Ghost,
+    Subtle,
 }
 
 impl ButtonTone {
@@ -25,6 +26,9 @@ impl ButtonTone {
             }
             ButtonTone::Ghost => {
                 "border border-transparent bg-transparent text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus-visible:ring-gray-400"
+            }
+            ButtonTone::Subtle => {
+                "border border-transparent bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-400"
             }
         }
     }
@@ -56,7 +60,7 @@ impl ButtonSize {
     }
 }
 
-pub(crate) const SHARED_CLASS: &str = "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed";
+pub(crate) const SHARED_CLASS: &str = "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed aria-disabled:opacity-60 aria-disabled:cursor-not-allowed";
 
 #[must_use]
 pub fn button_class(tone: ButtonTone, size: ButtonSize) -> String {

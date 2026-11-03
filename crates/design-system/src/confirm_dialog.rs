@@ -3,6 +3,8 @@ use leptos::prelude::*;
 use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::dialog::{Dialog, DialogSize};
 
+const DEFAULT_CANCEL_LABEL: &str = "Cancel";
+
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
@@ -13,9 +15,12 @@ pub fn ConfirmDialog(
     #[prop(into)] title: Signal<String>,
     #[prop(into)] body: Signal<String>,
     #[prop(into)] confirm_label: Signal<String>,
+    #[prop(optional, into)] cancel_label: Option<String>,
     #[prop(optional)] tone: ButtonTone,
     #[prop(into)] on_confirm: Callback<()>,
 ) -> impl IntoView {
+    let cancel_label =
+        StoredValue::new(cancel_label.unwrap_or_else(|| DEFAULT_CANCEL_LABEL.to_owned()));
     move || {
         open.get().then(|| {
             view! {
@@ -33,7 +38,7 @@ pub fn ConfirmDialog(
                             class=button_class(ButtonTone::Secondary, ButtonSize::Standard)
                             on:click=move |_| open.set(false)
                         >
-                            "Cancel"
+                            {cancel_label.get_value()}
                         </button>
                         <button
                             type="button"

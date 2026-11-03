@@ -128,7 +128,7 @@ where
     view! {
         <div class="space-y-4">
             {month_navigation(month_label, counted, previous_month, next_month)}
-            <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div class="rounded-surface border border-gray-200 bg-white shadow-sm">
                 {weekday_header()} <div class="grid grid-cols-7">{day_cells}</div>
             </div> {selected_rows}
         </div>

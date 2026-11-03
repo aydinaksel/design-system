@@ -208,7 +208,7 @@ impl FacetControls {
 
     fn expanded_rail(self) -> AnyView {
         let panel_class = format!(
-            "flex {BODY_MAX_HEIGHT_CLASS} flex-col overflow-hidden rounded-lg border border-gray-200 bg-white"
+            "flex {BODY_MAX_HEIGHT_CLASS} flex-col overflow-hidden rounded-surface border border-gray-200 bg-white"
         );
         view! {
             <div class="hidden sm:block sm:w-64 sm:shrink-0">

@@ -87,7 +87,7 @@ pub fn ImageGallery(
 
 fn empty_gallery() -> AnyView {
     view! {
-        <div class="aspect-square w-full rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center">
+        <div class="aspect-square w-full rounded-surface border border-gray-200 bg-gray-100 flex items-center justify-center">
             <span class="text-sm text-gray-400">"No images"</span>
         </div>
     }
@@ -111,7 +111,7 @@ fn GalleryStage(
     );
 
     view! {
-        <div class="relative aspect-square w-full rounded-lg border border-gray-200 overflow-hidden bg-white">
+        <div class="relative aspect-square w-full rounded-surface border border-gray-200 overflow-hidden bg-white">
             <img
                 src=image.display_url
                 srcset=image.source_set
@@ -234,7 +234,7 @@ pub fn ImageGrid(#[prop(into)] images: Signal<Vec<GalleryImage>>) -> impl IntoVi
                                         class="group block w-full cursor-pointer text-left"
                                         on:click=move |_| enlarged.set(Some(index))
                                     >
-                                        <div class="aspect-square overflow-hidden rounded-lg border border-gray-200 bg-white group-hover:border-gray-400">
+                                        <div class="aspect-square overflow-hidden rounded-surface border border-gray-200 bg-white group-hover:border-gray-400">
                                             <img
                                                 src=image.display_url
                                                 srcset=image.source_set

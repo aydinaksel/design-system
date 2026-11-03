@@ -20,7 +20,7 @@ pub fn BusyOverlay(
                         <div
                             role="status"
                             aria-live="polite"
-                            class="flex items-center gap-3 rounded-lg bg-white px-6 py-4 shadow-lg"
+                            class="flex items-center gap-3 rounded-surface bg-white px-6 py-4 shadow-lg"
                         >
                             {icons::spinner("h-5 w-5 text-blue-600")}
                             <span class="text-sm font-medium text-gray-700">

@@ -1,6 +1,10 @@
 @source "../src";
 
 @theme {
+  --radius-surface: 0.75rem;
+  --radius-surface-inner: calc(var(--radius-surface) - 1px);
+  --radius-item: calc(var(--radius-surface) - 0.25rem);
+
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-field-saved: field-saved 1600ms ease-out;
   --animate-shimmer: shimmer 1.6s linear infinite;

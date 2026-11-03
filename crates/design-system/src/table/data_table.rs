@@ -192,9 +192,10 @@ fn card_body<Row>(
 where
     Row: Clone + Send + Sync + 'static,
 {
-    let cards = move || match rows.get() {
+    let cards = move || {
+        match rows.get() {
         None => (0..LOADING_CARD_COUNT)
-            .map(|_| view! { <li class="aspect-square animate-pulse rounded-lg bg-gray-100"></li> })
+            .map(|_| view! { <li class="aspect-square animate-pulse rounded-surface bg-gray-100"></li> })
             .collect_view()
             .into_any(),
         Some(Err(message)) => {
@@ -211,6 +212,7 @@ where
             .map(|row| card_for_row(row))
             .collect_view()
             .into_any(),
+    }
     };
     view! {
         <div
@@ -1125,7 +1127,7 @@ where
         view! {
             <div class="fixed inset-0 z-30" on:click=move |_| open_filter.set(None)></div>
             <div
-                class="fixed z-40 overflow-hidden rounded-lg bg-white text-sm text-gray-700 shadow-xl ring-1 ring-gray-900/10"
+                class="fixed z-40 overflow-hidden rounded-surface bg-white text-sm text-gray-700 shadow-xl ring-1 ring-gray-900/10"
                 style=position_style
             >
                 {sort_section}
@@ -1137,7 +1139,7 @@ where
 
     let loading = move || rows.get().is_none();
     let container_class = move || {
-        let base = "overflow-auto rounded-lg border border-gray-200 bg-white max-w-full";
+        let base = "overflow-auto rounded-surface border border-gray-200 bg-white max-w-full";
         if loading() {
             format!("{base} w-full {BODY_HEIGHT_CLASS}")
         } else {

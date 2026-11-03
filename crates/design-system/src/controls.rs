@@ -2,11 +2,12 @@ use leptos::prelude::*;
 
 pub(crate) const CONTROL_CLASS: &str = "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-500";
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub(crate) struct FieldElementIds {
     pub(crate) control: String,
     pub(crate) label: String,
     pub(crate) description: Option<String>,
+    pub(crate) invalid: Signal<bool>,
 }
 
 pub(crate) fn field_control_id() -> Option<String> {
@@ -19,6 +20,13 @@ pub(crate) fn field_label_id() -> Option<String> {
 
 pub(crate) fn field_description_id() -> Option<String> {
     use_context::<FieldElementIds>().and_then(|ids| ids.description)
+}
+
+pub(crate) fn with_field_error(invalid: Signal<bool>) -> Signal<bool> {
+    let field_invalid = use_context::<FieldElementIds>().map(|ids| ids.invalid);
+    Signal::derive(move || {
+        invalid.get() || field_invalid.is_some_and(|field_invalid| field_invalid.get())
+    })
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -65,6 +73,7 @@ pub fn Input(
     #[prop(optional, into)] invalid: Signal<bool>,
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
+    let invalid = with_field_error(invalid);
     view! {
         <input
             data-autofocus=autofocus.then_some("")
@@ -99,6 +108,7 @@ pub fn Textarea(
     #[prop(optional, into)] invalid: Signal<bool>,
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
+    let invalid = with_field_error(invalid);
     view! {
         <textarea
             id=field_control_id()

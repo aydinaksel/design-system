@@ -73,7 +73,10 @@ pub use field_values::{
     address_actions, address_value, missing_value, multiline_value, partner_value, text_value,
     value_skeleton,
 };
-pub use fields::{FieldGrid, FieldRow, FieldSave, FieldSection, SectionEditing};
+pub use fields::{
+    provide_editing_scope, FieldEditor, FieldGrid, FieldRow, FieldSave, FieldSection, HeadingLevel,
+    SectionEditing,
+};
 pub use fieldset::{Field, Fieldset};
 pub use file_drop_zone::FileDropZone;
 pub use filter_chip::FilterChip;

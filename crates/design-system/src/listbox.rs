@@ -6,7 +6,7 @@ use leptos::prelude::*;
 use leptos_use::use_timeout_fn;
 
 use crate::anchored::{anchor_to, follow_trigger, AnchoredPosition, ANCHORED_PANEL_CLASS};
-use crate::controls::{field_control_id, field_description_id, CONTROL_CLASS};
+use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
 use crate::icons;
 use crate::menu::{
     is_typeahead_key, moved_position, typeahead_position, Movement,
@@ -17,9 +17,9 @@ static NEXT_LISTBOX_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const DEFAULT_PLACEHOLDER: &str = "Select\u{2026}";
 const OPTION_CLASS: &str =
-    "flex cursor-pointer select-none items-center gap-2 rounded-lg px-3 py-1.5 text-gray-700";
+    "flex cursor-pointer select-none items-center gap-2 rounded-item px-3 py-1.5 text-gray-700";
 const HIGHLIGHTED_OPTION_CLASS: &str =
-    "flex cursor-pointer select-none items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-gray-900";
+    "flex cursor-pointer select-none items-center gap-2 rounded-item bg-gray-100 px-3 py-1.5 text-gray-900";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ListboxOption {
@@ -49,6 +49,7 @@ pub fn Listbox(
     #[prop(optional, into)] invalid: Signal<bool>,
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
+    let invalid = with_field_error(invalid);
     let listbox_number = NEXT_LISTBOX_NUMBER.fetch_add(1, Ordering::Relaxed);
     let panel_id = format!("listbox-{listbox_number}-options");
     let option_id = move |index: usize| format!("listbox-{listbox_number}-option-{index}");

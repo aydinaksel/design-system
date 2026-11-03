@@ -21,7 +21,7 @@ pub(crate) fn section(title: &'static str, content: AnyView) -> AnyView {
     view! {
         <section class="space-y-3">
             <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</h2>
-            <div class="rounded-lg border border-gray-200 p-6">{content}</div>
+            <div class="rounded-surface border border-gray-200 p-6">{content}</div>
         </section>
     }
     .into_any()

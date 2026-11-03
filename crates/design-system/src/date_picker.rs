@@ -3,7 +3,7 @@ use leptos::prelude::*;
 use leptos_use::{use_calendar_with_options, CalendarDate, UseCalendarOptions, UseCalendarReturn};
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
-use crate::controls::{field_control_id, field_description_id};
+use crate::controls::{field_control_id, field_description_id, with_field_error};
 use crate::icons;
 
 const WEEKDAY_LABELS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -31,6 +31,7 @@ pub fn DatePicker(
     #[prop(optional, into)] invalid: Signal<bool>,
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
+    let invalid = with_field_error(invalid);
     let is_open = RwSignal::new(false);
     let placeholder = placeholder.unwrap_or_else(|| DEFAULT_PLACEHOLDER.to_owned());
     let clear_label = clear_label.unwrap_or_else(|| DEFAULT_CLEAR_LABEL.to_owned());
@@ -158,7 +159,7 @@ fn CalendarPanel(
     };
 
     view! {
-        <div class="absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+        <div class="absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-surface border border-gray-200 bg-white p-3 shadow-lg">
             <div class="mb-2 flex items-center justify-between">
                 <button
                     type="button"

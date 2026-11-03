@@ -10,7 +10,7 @@ use crate::icons;
 static NEXT_DIALOG_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const BACKDROP_CLASS: &str = "fixed inset-0 bg-gray-900/40 transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:transition-none";
-const PANEL_CLASS: &str = "relative w-full rounded-lg border border-gray-200 bg-white p-5 shadow-xl transition duration-200 ease-out focus:outline-none starting:scale-95 starting:opacity-0 motion-reduce:transition-none";
+const PANEL_CLASS: &str = "relative w-full rounded-surface border border-gray-200 bg-white p-5 shadow-xl transition duration-200 ease-out focus:outline-none starting:scale-95 starting:opacity-0 motion-reduce:transition-none";
 const CLOSE_BUTTON_CLASS: &str =
     "cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600";
 
