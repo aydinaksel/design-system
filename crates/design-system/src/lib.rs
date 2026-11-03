@@ -1,5 +1,4 @@
 pub mod alert;
-mod anchored;
 pub mod attachment;
 pub mod badge;
 pub mod brand;
@@ -36,6 +35,7 @@ pub mod meter;
 pub mod mode_switch;
 pub mod not_found;
 pub mod page_header;
+mod placement;
 pub mod popover;
 pub mod radio_group;
 pub mod search_input;

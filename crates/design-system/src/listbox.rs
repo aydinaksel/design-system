@@ -5,16 +5,24 @@ use leptos::html::Button;
 use leptos::prelude::*;
 use leptos_use::use_timeout_fn;
 
-use crate::anchored::{anchor_to, follow_trigger, AnchoredPosition, ANCHORED_PANEL_CLASS};
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
 use crate::icons;
 use crate::menu::{
     is_typeahead_key, moved_position, typeahead_position, Movement,
     TYPEAHEAD_RESET_DELAY_MILLISECONDS,
 };
+use crate::placement::{Alignment, AnchoredPanel, Anchoring};
 
 static NEXT_LISTBOX_NUMBER: AtomicU64 = AtomicU64::new(0);
 
+pub(crate) const LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS: f64 = 240.0;
+pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
+pub(crate) const LISTBOX_ANCHORING: Anchoring = Anchoring {
+    alignment: Alignment::Start,
+    gap_pixels: 4.0,
+    matches_trigger_width: true,
+    reserved_height_pixels: 0.0,
+};
 const DEFAULT_PLACEHOLDER: &str = "Select\u{2026}";
 const OPTION_CLASS: &str =
     "flex cursor-pointer select-none items-center gap-2 rounded-item px-3 py-1.5 text-gray-700";
@@ -57,7 +65,7 @@ pub fn Listbox(
 
     let open = RwSignal::new(false);
     let highlighted: RwSignal<Option<usize>> = RwSignal::new(None);
-    let position = RwSignal::new(AnchoredPosition::default());
+    let panel = AnchoredPanel::new();
     let trigger: NodeRef<Button> = NodeRef::new();
     let typeahead_query = StoredValue::new(String::new());
     let reset_typeahead = use_timeout_fn(
@@ -65,10 +73,10 @@ pub fn Listbox(
         TYPEAHEAD_RESET_DELAY_MILLISECONDS,
     )
     .start;
-    follow_trigger(
+    panel.follow(
         open.into(),
-        move || trigger.get_untracked().map(|element| anchor_to(&element)),
-        position,
+        move || trigger.get_untracked().map(Into::into),
+        LISTBOX_ANCHORING,
     );
 
     let selected_index = move || {
@@ -85,9 +93,6 @@ pub fn Listbox(
     };
 
     let open_with = move |fallback: Movement| {
-        if let Some(element) = trigger.get_untracked() {
-            position.set(anchor_to(&element));
-        }
         let count = options.with_untracked(Vec::len);
         highlighted.set(selected_index().or_else(|| moved_position(None, count, fallback)));
         open.set(true);
@@ -95,6 +100,7 @@ pub fn Listbox(
     let close = move || {
         open.set(false);
         highlighted.set(None);
+        panel.unplace();
     };
     let choose = move |index: Option<usize>| {
         let chosen = index.and_then(|position| {
@@ -273,8 +279,9 @@ pub fn Listbox(
                             <div
                                 id=panel_id.get_value()
                                 role="listbox"
-                                class=ANCHORED_PANEL_CLASS
-                                style=move || position.get().style()
+                                node_ref=panel.node
+                                class=LISTBOX_PANEL_CLASS
+                                style=move || panel.style()
                                 on:mousedown=|event: MouseEvent| event.prevent_default()
                             >
                                 {rows}

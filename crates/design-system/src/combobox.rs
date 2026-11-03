@@ -7,12 +7,17 @@ use leptos::ev::{Event, KeyboardEvent, MouseEvent};
 use leptos::html::Input;
 use leptos::prelude::*;
 
-use crate::anchored::{anchor_to, follow_trigger, AnchoredPosition, ANCHORED_PANEL_CLASS};
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
 use crate::icons;
+use crate::listbox::{LISTBOX_ANCHORING, LISTBOX_PANEL_CLASS, LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS};
 use crate::menu::{moved_position, Movement};
+use crate::placement::{AnchoredPanel, Anchoring};
 
+const ANCHORING: Anchoring = Anchoring {
+    reserved_height_pixels: LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS,
+    ..LISTBOX_ANCHORING
+};
 const DEBOUNCE_MILLISECONDS: f64 = 300.0;
 const MINIMUM_SEARCH_CHARS: usize = 2;
 const OPTION_CLASS: &str =
@@ -318,12 +323,12 @@ pub fn Combobox(
     let open = RwSignal::new(false);
     let highlighted: RwSignal<Option<usize>> = RwSignal::new(None);
     let latest_request = StoredValue::new(0_u64);
-    let position = RwSignal::new(AnchoredPosition::default());
+    let panel = AnchoredPanel::new();
     let input: NodeRef<Input> = NodeRef::new();
-    follow_trigger(
+    panel.follow(
         open.into(),
-        move || input.get_untracked().map(|element| anchor_to(&element)),
-        position,
+        move || input.get_untracked().map(Into::into),
+        ANCHORING,
     );
 
     Effect::new(move |_| {
@@ -336,15 +341,11 @@ pub fn Combobox(
         Results::Idle | Results::Searching => Vec::new(),
     });
 
-    let show = move || {
-        if let Some(element) = input.get_untracked() {
-            position.set(anchor_to(&element));
-        }
-        open.set(true);
-    };
+    let show = move || open.set(true);
     let close = move || {
         open.set(false);
         highlighted.set(None);
+        panel.unplace();
     };
 
     let opens_on_focus = source.opens_on_focus();
@@ -641,8 +642,9 @@ pub fn Combobox(
                     <div
                         id=listbox_id.get_value()
                         role="listbox"
-                        class=ANCHORED_PANEL_CLASS
-                        style=move || position.get().style()
+                        node_ref=panel.node
+                        class=LISTBOX_PANEL_CLASS
+                        style=move || panel.style()
                         on:mousedown=|event: MouseEvent| event.prevent_default()
                     >
                         {rows}

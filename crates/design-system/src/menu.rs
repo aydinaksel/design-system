@@ -5,12 +5,11 @@ use leptos::html::{Button, Div};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::{HtmlElement, Node};
-use leptos_use::{
-    use_event_listener_with_options, use_timeout_fn, use_window, UseEventListenerOptions,
-};
+use leptos_use::use_timeout_fn;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::icons;
+use crate::placement::{Alignment, AnchoredPanel, Anchoring};
 
 const ITEM_MARKER_CLASS: &str = "menu-item";
 const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-item px-3 py-1.5 text-left text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-none";
@@ -20,11 +19,15 @@ const DISABLED_ITEM_CLASS: &str = "flex w-full cursor-not-allowed items-center g
 const ICON_CLASS: &str = "h-4 w-4 shrink-0 text-gray-400 group-focus:text-gray-600";
 const SHORTCUT_CLASS: &str =
     "invisible ml-auto pl-6 font-sans text-xs text-gray-500 group-focus:visible";
-const PANEL_CLASS: &str = "fixed z-50 w-max min-w-48 rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg duration-100 ease-out will-change-[opacity] focus:outline-none motion-reduce:transition-none";
+const PANEL_CLASS: &str = "fixed z-50 w-max min-w-48 max-w-[calc(100vw-1rem)] rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg duration-100 ease-out will-change-[opacity] focus:outline-none motion-reduce:transition-none";
 const PANEL_OPEN_CLASS: &str = "visible opacity-100 transition-opacity";
 const PANEL_CLOSED_CLASS: &str = "invisible opacity-0 transition-[opacity,visibility]";
-const PANEL_GAP_PIXELS: f64 = 4.0;
-const VIEWPORT_MARGIN_PIXELS: f64 = 8.0;
+const ANCHORING: Anchoring = Anchoring {
+    alignment: Alignment::End,
+    gap_pixels: 4.0,
+    matches_trigger_width: false,
+    reserved_height_pixels: 0.0,
+};
 const TRIGGER_OPEN_CLASS: &str = "aria-expanded:bg-gray-100";
 pub(crate) const TYPEAHEAD_RESET_DELAY_MILLISECONDS: f64 = 350.0;
 
@@ -229,132 +232,21 @@ pub(crate) fn is_typeahead_key(event: &KeyboardEvent, query_in_progress: bool) -
     is_single_character && !has_modifier && (key != " " || query_in_progress)
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum VerticalSide {
-    #[default]
-    Below,
-    Above,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum HorizontalAlignment {
-    #[default]
-    End,
-    Start,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct Placement {
-    side: VerticalSide,
-    alignment: HorizontalAlignment,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct PanelPosition {
-    placement: Placement,
-    trigger: Bounds,
-    viewport: Size,
-}
-
-impl PanelPosition {
-    fn style(self) -> String {
-        let Self {
-            placement,
-            trigger,
-            viewport,
-        } = self;
-        let vertical = match placement.side {
-            VerticalSide::Below => format!("top:{}px", trigger.bottom + PANEL_GAP_PIXELS),
-            VerticalSide::Above => format!(
-                "bottom:{}px",
-                viewport.height - trigger.top + PANEL_GAP_PIXELS
-            ),
-        };
-        let horizontal = match placement.alignment {
-            HorizontalAlignment::End => format!("right:{}px", viewport.width - trigger.right),
-            HorizontalAlignment::Start => format!("left:{}px", trigger.left),
-        };
-        format!("{vertical};{horizontal}")
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct Bounds {
-    left: f64,
-    right: f64,
-    top: f64,
-    bottom: f64,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct Size {
-    width: f64,
-    height: f64,
-}
-
-fn choose_placement(trigger: Bounds, panel: Size, viewport: Size) -> Placement {
-    let fits_end_aligned = trigger.right - panel.width >= VIEWPORT_MARGIN_PIXELS;
-    let fits_start_aligned = trigger.left + panel.width <= viewport.width - VIEWPORT_MARGIN_PIXELS;
-    let alignment = if !fits_end_aligned && fits_start_aligned {
-        HorizontalAlignment::Start
-    } else {
-        HorizontalAlignment::End
-    };
-    let panel_extent = PANEL_GAP_PIXELS + panel.height;
-    let fits_below = trigger.bottom + panel_extent <= viewport.height - VIEWPORT_MARGIN_PIXELS;
-    let fits_above = trigger.top - panel_extent >= VIEWPORT_MARGIN_PIXELS;
-    let side = if !fits_below && fits_above {
-        VerticalSide::Above
-    } else {
-        VerticalSide::Below
-    };
-    Placement { side, alignment }
-}
-
-fn measure_position(trigger: &HtmlElement, panel: &HtmlElement) -> PanelPosition {
-    let Some(root) = document().document_element() else {
-        return PanelPosition::default();
-    };
-    let trigger_rectangle = trigger.get_bounding_client_rect();
-    let trigger_bounds = Bounds {
-        left: trigger_rectangle.left(),
-        right: trigger_rectangle.right(),
-        top: trigger_rectangle.top(),
-        bottom: trigger_rectangle.bottom(),
-    };
-    let panel_size = Size {
-        width: f64::from(panel.offset_width()),
-        height: f64::from(panel.offset_height()),
-    };
-    let viewport_size = Size {
-        width: f64::from(root.client_width()),
-        height: f64::from(root.client_height()),
-    };
-    PanelPosition {
-        placement: choose_placement(trigger_bounds, panel_size, viewport_size),
-        trigger: trigger_bounds,
-        viewport: viewport_size,
-    }
-}
-
 #[derive(Clone, Copy)]
 struct MenuState {
     open: RwSignal<bool>,
-    position: RwSignal<PanelPosition>,
     trigger: NodeRef<Button>,
-    panel: NodeRef<Div>,
+    panel: AnchoredPanel,
 }
 
 impl MenuState {
     fn open_and_focus(self, movement: Option<Movement>) {
-        if let (Some(trigger), Some(panel)) =
-            (self.trigger.get_untracked(), self.panel.get_untracked())
-        {
-            self.position.set(measure_position(&trigger, &panel));
+        if let Some(trigger) = self.trigger.get_untracked() {
+            self.panel.place_against(&trigger, ANCHORING);
         }
         self.open.set(true);
         request_animation_frame(move || {
-            let Some(panel) = self.panel.get_untracked() else {
+            let Some(panel) = self.panel.node.get_untracked() else {
                 return;
             };
             match movement {
@@ -468,23 +360,15 @@ pub(crate) fn menu(
 ) -> AnyView {
     let state = MenuState {
         open: RwSignal::new(false),
-        position: RwSignal::new(PanelPosition::default()),
         trigger: NodeRef::new(),
-        panel: NodeRef::new(),
+        panel: AnchoredPanel::new(),
     };
     let wrapper: NodeRef<Div> = NodeRef::new();
-    drop(use_event_listener_with_options(
-        use_window(),
-        leptos::ev::scroll,
-        move |_| {
-            if state.open.get_untracked() {
-                state.close();
-            }
-        },
-        UseEventListenerOptions::default()
-            .capture(true)
-            .passive(true),
-    ));
+    state.panel.follow(
+        state.open.into(),
+        move || state.trigger.get_untracked().map(Into::into),
+        ANCHORING,
+    );
     let typeahead_query = StoredValue::new(String::new());
     let reset_typeahead = use_timeout_fn(
         move |()| typeahead_query.set_value(String::new()),
@@ -517,7 +401,7 @@ pub(crate) fn menu(
     };
 
     let on_panel_keydown = move |event: KeyboardEvent| {
-        let Some(panel) = state.panel.get_untracked() else {
+        let Some(panel) = state.panel.node.get_untracked() else {
             return;
         };
         let query_in_progress = typeahead_query.with_value(|query| !query.is_empty());
@@ -567,7 +451,7 @@ pub(crate) fn menu(
     };
 
     let on_panel_mouseleave = move |_: MouseEvent| {
-        if let Some(panel) = state.panel.get_untracked() {
+        if let Some(panel) = state.panel.node.get_untracked() {
             if state.open.get_untracked() {
                 focus_element(&panel);
             }
@@ -607,7 +491,7 @@ pub(crate) fn menu(
             <div
                 role="menu"
                 tabindex="-1"
-                node_ref=state.panel
+                node_ref=state.panel.node
                 class=move || {
                     let visibility = if state.open.get() {
                         PANEL_OPEN_CLASS
@@ -616,7 +500,7 @@ pub(crate) fn menu(
                     };
                     format!("{PANEL_CLASS} {visibility}")
                 }
-                style=move || state.position.get().style()
+                style=move || state.panel.style()
                 on:keydown=on_panel_keydown
                 on:mousedown=|event: MouseEvent| event.prevent_default()
                 on:mouseleave=on_panel_mouseleave
@@ -758,52 +642,6 @@ mod tests {
 
     fn labels(names: &[&str]) -> Vec<String> {
         names.iter().map(|name| (*name).to_owned()).collect()
-    }
-
-    const VIEWPORT: Size = Size {
-        width: 1000.0,
-        height: 800.0,
-    };
-    const PANEL: Size = Size {
-        width: 200.0,
-        height: 150.0,
-    };
-
-    fn trigger_at(left: f64, top: f64) -> Bounds {
-        Bounds {
-            left,
-            right: left + 40.0,
-            top,
-            bottom: top + 40.0,
-        }
-    }
-
-    #[test]
-    fn opens_below_aligned_to_the_trigger_end_when_there_is_room() {
-        let placement = choose_placement(trigger_at(500.0, 100.0), PANEL, VIEWPORT);
-        assert_eq!(placement, Placement::default());
-    }
-
-    #[test]
-    fn aligns_to_the_trigger_start_near_the_left_edge() {
-        let placement = choose_placement(trigger_at(20.0, 100.0), PANEL, VIEWPORT);
-        assert_eq!(placement.alignment, HorizontalAlignment::Start);
-    }
-
-    #[test]
-    fn opens_above_near_the_bottom_edge() {
-        let placement = choose_placement(trigger_at(500.0, 700.0), PANEL, VIEWPORT);
-        assert_eq!(placement.side, VerticalSide::Above);
-    }
-
-    #[test]
-    fn stays_below_when_neither_side_has_room() {
-        let tall_panel = Size {
-            width: 200.0,
-            height: 700.0,
-        };
-        let placement = choose_placement(trigger_at(500.0, 300.0), tall_panel, VIEWPORT);
-        assert_eq!(placement.side, VerticalSide::Below);
     }
 
     #[test]

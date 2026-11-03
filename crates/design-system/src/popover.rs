@@ -2,24 +2,21 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use leptos::context::Provider;
 use leptos::ev::{KeyboardEvent, MouseEvent};
-use leptos::html::{Button, Div};
+use leptos::html::Button;
 use leptos::portal::Portal;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::{Element, EventTarget, HtmlElement, Node};
-use leptos_use::{
-    use_event_listener, use_event_listener_with_options, use_window, UseEventListenerOptions,
-};
+use leptos::web_sys::{EventTarget, HtmlElement, Node};
+use leptos_use::{use_event_listener_with_options, use_window, UseEventListenerOptions};
 
 use crate::editing::{focus_is_within_or_lost, FIRST_CONTROL_SELECTOR};
+use crate::placement::{Alignment, AnchoredPanel, Anchoring};
 
 static NEXT_POPOVER_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const GAP_PIXELS: f64 = 6.0;
-const VIEWPORT_MARGIN_PIXELS: f64 = 8.0;
 const DEFAULT_WIDTH_CLASS: &str = "w-72";
 const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal rounded-surface border border-gray-200 bg-white p-3 text-left text-sm text-gray-900 shadow-lg focus:outline-none motion-safe:animate-fade-in motion-safe:transition-shadow";
-const UNPLACED_STYLE: &str = "left:0;top:0;opacity:0";
 const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
 const TABBABLE_SELECTOR: &str = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
@@ -36,75 +33,6 @@ pub enum Dismissal {
     Escape,
     OutsideClick,
     TriggerClick,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Bounds {
-    left: f64,
-    top: f64,
-    right: f64,
-    bottom: f64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Extent {
-    width: f64,
-    height: f64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Placement {
-    left: f64,
-    top: f64,
-}
-
-impl Placement {
-    fn style(self) -> String {
-        format!("left:{}px;top:{}px", self.left, self.top)
-    }
-}
-
-fn place(trigger: Bounds, panel: Extent, viewport: Extent, align: PopoverAlign) -> Placement {
-    let below = trigger.bottom + GAP_PIXELS;
-    let above = trigger.top - GAP_PIXELS - panel.height;
-    let fits_below = below + panel.height <= viewport.height - VIEWPORT_MARGIN_PIXELS;
-    let fits_above = above >= VIEWPORT_MARGIN_PIXELS;
-    let more_room_above = trigger.top > viewport.height - trigger.bottom;
-    let top = if fits_below || (!fits_above && !more_room_above) {
-        below
-    } else {
-        above
-    };
-    let preferred_left = match align {
-        PopoverAlign::Start => trigger.left,
-        PopoverAlign::Center => (trigger.left + trigger.right - panel.width) / 2.0,
-        PopoverAlign::End => trigger.right - panel.width,
-    };
-    let rightmost_left = viewport.width - VIEWPORT_MARGIN_PIXELS - panel.width;
-    Placement {
-        left: preferred_left
-            .min(rightmost_left)
-            .max(VIEWPORT_MARGIN_PIXELS),
-        top,
-    }
-}
-
-fn bounds_of(element: &Element) -> Bounds {
-    let rectangle = element.get_bounding_client_rect();
-    Bounds {
-        left: rectangle.left(),
-        top: rectangle.top(),
-        right: rectangle.right(),
-        bottom: rectangle.bottom(),
-    }
-}
-
-fn viewport() -> Option<Extent> {
-    let root = document().document_element()?;
-    Some(Extent {
-        width: f64::from(root.client_width()),
-        height: f64::from(root.client_height()),
-    })
 }
 
 fn focus_initial(panel: &HtmlElement) {
@@ -174,8 +102,7 @@ pub struct PopoverState {
     number: u64,
     open: RwSignal<bool>,
     trigger: NodeRef<Button>,
-    panel: NodeRef<Div>,
-    placement: RwSignal<Option<Placement>>,
+    panel: AnchoredPanel,
     titled: RwSignal<bool>,
     described: RwSignal<bool>,
 }
@@ -193,8 +120,7 @@ impl PopoverState {
             number: NEXT_POPOVER_NUMBER.fetch_add(1, Ordering::Relaxed),
             open: RwSignal::new(false),
             trigger: NodeRef::new(),
-            panel: NodeRef::new(),
-            placement: RwSignal::new(None),
+            panel: AnchoredPanel::new(),
             titled: RwSignal::new(false),
             described: RwSignal::new(false),
         }
@@ -208,6 +134,7 @@ impl PopoverState {
     pub fn close(self) {
         let focus_was_inside = self
             .panel
+            .node
             .get_untracked()
             .is_none_or(|panel| focus_is_within_or_lost(&panel));
         self.hide(focus_was_inside);
@@ -215,7 +142,7 @@ impl PopoverState {
 
     fn hide(self, returns_focus: bool) {
         self.open.set(false);
-        self.placement.set(None);
+        self.panel.unplace();
         if !returns_focus {
             return;
         }
@@ -239,33 +166,13 @@ impl PopoverState {
         format!("popover-{}-description", self.number)
     }
 
-    fn reposition(self, align: PopoverAlign) {
-        let (Some(trigger), Some(panel), Some(viewport)) = (
-            self.trigger.get_untracked(),
-            self.panel.get_untracked(),
-            viewport(),
-        ) else {
-            return;
-        };
-        let panel_bounds = bounds_of(&panel);
-        let panel_extent = Extent {
-            width: panel_bounds.right - panel_bounds.left,
-            height: panel_bounds.bottom - panel_bounds.top,
-        };
-        self.placement.set(Some(place(
-            bounds_of(&trigger),
-            panel_extent,
-            viewport,
-            align,
-        )));
-    }
-
     fn contains(self, target: Option<EventTarget>) -> bool {
         let Some(node) = target.and_then(|target| target.dyn_into::<Node>().ok()) else {
             return false;
         };
         let in_panel = self
             .panel
+            .node
             .get_untracked()
             .is_some_and(|panel| panel.contains(Some(&node)));
         let on_trigger = self
@@ -309,6 +216,19 @@ impl PopoverContext {
         allowed
     }
 
+    fn anchoring(self) -> Anchoring {
+        let alignment = match self.align {
+            PopoverAlign::Start => Alignment::Start,
+            PopoverAlign::Center => Alignment::Center,
+            PopoverAlign::End => Alignment::End,
+        };
+        Anchoring {
+            alignment,
+            gap_pixels: GAP_PIXELS,
+            ..Anchoring::default()
+        }
+    }
+
     fn watch_while_open(self) {
         let state = self.state;
         drop(use_event_listener_with_options(
@@ -323,22 +243,8 @@ impl PopoverContext {
             },
             UseEventListenerOptions::default().capture(true),
         ));
-        drop(use_event_listener_with_options(
-            use_window(),
-            leptos::ev::scroll,
-            move |_| state.reposition(self.align),
-            UseEventListenerOptions::default()
-                .capture(true)
-                .passive(true),
-        ));
-        drop(use_event_listener(
-            use_window(),
-            leptos::ev::resize,
-            move |_| state.reposition(self.align),
-        ));
         request_animation_frame(move || {
-            state.reposition(self.align);
-            if let Some(panel) = state.panel.get_untracked() {
+            if let Some(panel) = state.panel.node.get_untracked() {
                 focus_initial(&panel);
             }
         });
@@ -411,6 +317,11 @@ pub fn PopoverContent(
         return ().into_any();
     };
     let state = context.state;
+    state.panel.follow(
+        state.open.into(),
+        move || state.trigger.get_untracked().map(Into::into),
+        context.anchoring(),
+    );
     let on_keydown = move |event: KeyboardEvent| {
         if event.default_prevented() {
             return;
@@ -422,7 +333,7 @@ pub fn PopoverContent(
                 context.dismiss(Dismissal::Escape);
             }
             "Tab" => {
-                if let Some(panel) = state.panel.get_untracked() {
+                if let Some(panel) = state.panel.node.get_untracked() {
                     keep_tab_inside(&panel, &event);
                 }
             }
@@ -435,19 +346,14 @@ pub fn PopoverContent(
         view! {
             <Portal>
                 <div
-                    node_ref=state.panel
+                    node_ref=state.panel.node
                     id=state.panel_id()
                     role="dialog"
                     tabindex="-1"
                     aria-labelledby=move || state.titled.get().then(|| state.title_id())
                     aria-describedby=move || state.described.get().then(|| state.description_id())
                     class=move || format!("{PANEL_CLASS} {}", class.get())
-                    style=move || {
-                        state
-                            .placement
-                            .get()
-                            .map_or_else(|| UNPLACED_STYLE.to_owned(), Placement::style)
-                    }
+                    style=move || state.panel.style()
                     on:keydown=on_keydown
                 >
                     {children()}
@@ -504,120 +410,5 @@ pub fn PopoverDescription(children: Children) -> impl IntoView {
         <p id=state.map(PopoverState::description_id) class="text-sm text-gray-500">
             {children()}
         </p>
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const VIEWPORT: Extent = Extent {
-        width: 1000.0,
-        height: 800.0,
-    };
-    const PANEL: Extent = Extent {
-        width: 288.0,
-        height: 200.0,
-    };
-
-    fn trigger_at(left: f64, top: f64) -> Bounds {
-        Bounds {
-            left,
-            top,
-            right: left + 120.0,
-            bottom: top + 32.0,
-        }
-    }
-
-    #[test]
-    fn opens_below_and_lines_up_with_the_start_of_the_trigger() {
-        let placement = place(
-            trigger_at(100.0, 100.0),
-            PANEL,
-            VIEWPORT,
-            PopoverAlign::Start,
-        );
-        assert_eq!(
-            placement,
-            Placement {
-                left: 100.0,
-                top: 138.0
-            }
-        );
-    }
-
-    #[test]
-    fn centres_on_the_trigger() {
-        let placement = place(
-            trigger_at(400.0, 100.0),
-            PANEL,
-            VIEWPORT,
-            PopoverAlign::Center,
-        );
-        assert_eq!(
-            placement,
-            Placement {
-                left: 316.0,
-                top: 138.0
-            }
-        );
-    }
-
-    #[test]
-    fn lines_up_with_the_end_of_the_trigger() {
-        let placement = place(trigger_at(400.0, 100.0), PANEL, VIEWPORT, PopoverAlign::End);
-        assert_eq!(
-            placement,
-            Placement {
-                left: 232.0,
-                top: 138.0
-            }
-        );
-    }
-
-    #[test]
-    fn flips_above_when_there_is_no_room_below() {
-        let placement = place(
-            trigger_at(100.0, 700.0),
-            PANEL,
-            VIEWPORT,
-            PopoverAlign::Start,
-        );
-        assert_eq!(
-            placement,
-            Placement {
-                left: 100.0,
-                top: 494.0
-            }
-        );
-    }
-
-    #[test]
-    fn stays_inside_the_right_edge_of_the_viewport() {
-        let placement = place(
-            trigger_at(900.0, 100.0),
-            PANEL,
-            VIEWPORT,
-            PopoverAlign::Start,
-        );
-        assert_eq!(
-            placement,
-            Placement {
-                left: 704.0,
-                top: 138.0
-            }
-        );
-    }
-
-    #[test]
-    fn stays_inside_the_left_edge_of_the_viewport() {
-        let placement = place(trigger_at(0.0, 100.0), PANEL, VIEWPORT, PopoverAlign::End);
-        assert_eq!(
-            placement,
-            Placement {
-                left: VIEWPORT_MARGIN_PIXELS,
-                top: 138.0
-            }
-        );
     }
 }
