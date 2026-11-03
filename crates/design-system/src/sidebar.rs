@@ -25,8 +25,7 @@ const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitesp
 const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
 const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0 focus-ring-inset";
 const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-gray-200 opacity-0 transition-opacity duration-200 group-data-[collapsed=true]/sidebar:opacity-100";
-const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-2 overflow-hidden whitespace-nowrap rounded-md p-1 text-left text-sm text-gray-700 hover:bg-gray-100 focus-ring-inset";
-const AVATAR_CLASS: &str = "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[0.625rem] font-medium text-white";
+const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-left text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
 
 #[derive(Clone, Copy)]
 struct SidebarState {
@@ -80,14 +79,6 @@ pub fn is_active(pathname: &str, href: &str) -> bool {
         || pathname
             .strip_prefix(href)
             .is_some_and(|rest| rest.starts_with('/'))
-}
-
-fn initials(name: &str) -> String {
-    name.split_whitespace()
-        .filter_map(|word| word.chars().next())
-        .take(2)
-        .flat_map(char::to_uppercase)
-        .collect()
 }
 
 #[component]
@@ -346,22 +337,19 @@ pub fn NavigationItem(
     .into_any()
 }
 
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn SidebarUser(
     #[prop(optional, into)] name: MaybeProp<String>,
     entries: Vec<MenuEntry>,
 ) -> impl IntoView {
     let name = name.get_untracked().filter(|name| !name.trim().is_empty());
-    let avatar = match name.as_deref().map(initials) {
-        Some(initials) => view! { <span class=AVATAR_CLASS>{initials}</span> }.into_any(),
-        None => icons::icon(
-            LucideGlyph::CircleUserRound,
-            "block h-6 w-6 shrink-0 text-gray-400",
-        ),
-    };
     let label = name.unwrap_or_else(|| UNNAMED_USER_LABEL.to_owned());
     let content = view! {
-        {avatar}
+        {icons::icon(LucideGlyph::CircleUserRound, ICON_CLASS)}
         <span class=format!("truncate {LABEL_CLASS}")>{label}</span>
     }
     .into_any();
@@ -371,7 +359,7 @@ pub fn SidebarUser(
 
 #[cfg(test)]
 mod tests {
-    use super::{initials, is_active};
+    use super::is_active;
 
     #[test]
     fn the_home_link_is_active_only_on_the_home_page() {
@@ -384,12 +372,5 @@ mod tests {
         assert!(is_active("/quotes", "/quotes"));
         assert!(is_active("/quotes/12", "/quotes"));
         assert!(!is_active("/quotes-archive", "/quotes"));
-    }
-
-    #[test]
-    fn initials_take_the_first_letter_of_the_first_two_words() {
-        assert_eq!(initials("aydin aksel"), "AA");
-        assert_eq!(initials("Stephanie Mary Aksel"), "SM");
-        assert_eq!(initials("aydin"), "A");
     }
 }
