@@ -12,11 +12,11 @@ use crate::icons;
 use crate::placement::{Alignment, AnchoredPanel, Anchoring};
 
 const ITEM_MARKER_CLASS: &str = "menu-item";
-const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-item px-3 py-1.5 text-left text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-none";
+pub(crate) const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-item px-3 py-1.5 text-left text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-none";
 const DANGER_ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-item px-3 py-1.5 text-left text-red-700 focus:bg-red-50 focus:text-red-800 focus:outline-none";
 const DANGER_ICON_CLASS: &str = "h-4 w-4 shrink-0 text-red-500 group-focus:text-red-600";
 const DISABLED_ITEM_CLASS: &str = "flex w-full cursor-not-allowed items-center gap-2 whitespace-nowrap rounded-item px-3 py-1.5 text-left text-gray-700 opacity-50";
-const ICON_CLASS: &str = "h-4 w-4 shrink-0 text-gray-400 group-focus:text-gray-600";
+pub(crate) const ICON_CLASS: &str = "h-4 w-4 shrink-0 text-gray-400 group-focus:text-gray-600";
 const SHORTCUT_CLASS: &str =
     "invisible ml-auto pl-6 font-sans text-xs text-gray-500 group-focus:visible";
 const PANEL_CLASS: &str = "fixed z-50 w-max min-w-48 max-w-[calc(100vw-1rem)] rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg duration-100 ease-out will-change-[opacity] focus:outline-none motion-reduce:transition-none";
@@ -548,7 +548,7 @@ fn item_content(item: &MenuItem) -> AnyView {
     .into_any()
 }
 
-fn focus_on_hover(event: &MouseEvent) {
+pub(crate) fn focus_on_hover(event: &MouseEvent) {
     let hovered = event
         .current_target()
         .and_then(|target| target.dyn_into::<HtmlElement>().ok());

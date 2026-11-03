@@ -16,7 +16,9 @@ static NEXT_POPOVER_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const GAP_PIXELS: f64 = 6.0;
 const DEFAULT_WIDTH_CLASS: &str = "w-72";
-const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal rounded-surface border border-gray-200 bg-white p-3 text-left text-sm text-gray-900 shadow-lg focus:outline-none motion-safe:animate-fade-in motion-safe:transition-shadow";
+const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal rounded-surface border border-gray-200 bg-white text-left text-sm text-gray-900 shadow-lg focus:outline-none motion-safe:animate-fade-in motion-safe:transition-shadow";
+const PADDED_PANEL_CLASS: &str = "p-3";
+const UNPADDED_PANEL_CLASS: &str = "overflow-hidden";
 const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
 const TABBABLE_SELECTOR: &str = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
@@ -311,10 +313,16 @@ pub fn PopoverTrigger(
 #[component]
 pub fn PopoverContent(
     #[prop(into, default = Signal::stored(DEFAULT_WIDTH_CLASS.to_owned()))] class: Signal<String>,
+    #[prop(optional)] unpadded: bool,
     children: ChildrenFn,
 ) -> impl IntoView {
     let Some(context) = use_context::<PopoverContext>() else {
         return ().into_any();
+    };
+    let padding_class = if unpadded {
+        UNPADDED_PANEL_CLASS
+    } else {
+        PADDED_PANEL_CLASS
     };
     let state = context.state;
     state.panel.follow(
@@ -352,7 +360,7 @@ pub fn PopoverContent(
                     tabindex="-1"
                     aria-labelledby=move || state.titled.get().then(|| state.title_id())
                     aria-describedby=move || state.described.get().then(|| state.description_id())
-                    class=move || format!("{PANEL_CLASS} {}", class.get())
+                    class=move || format!("{PANEL_CLASS} {padding_class} {}", class.get())
                     style=move || state.panel.style()
                     on:keydown=on_keydown
                 >

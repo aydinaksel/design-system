@@ -11,9 +11,11 @@ use crate::catalog::CardGrid;
 use crate::empty_state::EmptyState;
 use crate::icons;
 use crate::loading_state::LoadingState;
+use crate::menu::{focus_on_hover, ICON_CLASS, ITEM_CLASS};
+use crate::popover::{use_popover, Popover, PopoverAlign, PopoverContent, PopoverTrigger};
 use crate::search_input::{SearchInput, SearchSize};
 
-use super::cell_value::CellValue;
+use super::cell_value::{Align, CellValue};
 use super::column::Column;
 use super::filter_option::FilterOption;
 use super::url_query::UrlTableQuery;
@@ -69,44 +71,18 @@ fn sort_direction_label(ascending: bool) -> &'static str {
     }
 }
 
-const POPOVER_VIEWPORT_MARGIN_PIXELS: u32 = 8;
-const FILTER_POPOVER_WIDTH_PIXELS: u32 = 256;
-const SORT_POPOVER_WIDTH_PIXELS: u32 = 176;
+const FILTER_MENU_WIDTH_CLASS: &str = "w-64";
+const SORT_MENU_WIDTH_CLASS: &str = "w-44";
+const HEADER_TRIGGER_CLASS: &str = "-mx-1.5 -my-0.5 inline-flex cursor-pointer select-none items-center rounded-md px-1.5 py-0.5 hover:bg-gray-100 aria-expanded:bg-gray-100 focus-ring";
+const FOOTER_ACTION_CLASS: &str = "cursor-pointer rounded-sm hover:underline focus-ring";
 
-#[derive(Clone, Copy, Default)]
-struct PopoverAnchor {
-    left: f64,
-    top: f64,
-}
-
-impl PopoverAnchor {
-    fn position_style(self, width_pixels: u32) -> String {
-        let Self { left, top } = self;
-        let margin = POPOVER_VIEWPORT_MARGIN_PIXELS;
-        format!(
-            "left:clamp({margin}px, {left}px, max({margin}px, 100vw - {width_pixels}px - {margin}px));\
-             top:{top}px;width:{width_pixels}px"
-        )
+fn menu_alignment(align: Align) -> PopoverAlign {
+    match align {
+        Align::Left => PopoverAlign::Start,
+        Align::Right => PopoverAlign::End,
+        Align::Center => PopoverAlign::Center,
     }
 }
-
-#[cfg(feature = "hydrate")]
-fn capture_anchor(event: &leptos::ev::MouseEvent, anchor: RwSignal<PopoverAnchor>) {
-    use leptos::wasm_bindgen::JsCast;
-    const POPOVER_GAP_PIXELS: f64 = 6.0;
-    let Some(target) = event.current_target() else {
-        return;
-    };
-    let element: web_sys::Element = target.unchecked_into();
-    let rect = element.get_bounding_client_rect();
-    anchor.set(PopoverAnchor {
-        left: rect.left(),
-        top: rect.bottom() + POPOVER_GAP_PIXELS,
-    });
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn capture_anchor(_event: &leptos::ev::MouseEvent, _anchor: RwSignal<PopoverAnchor>) {}
 
 #[cfg(feature = "hydrate")]
 fn click_asks_for_row_navigation(event: &leptos::ev::MouseEvent) -> bool {
@@ -300,13 +276,13 @@ fn server_filter_section(section: ServerFilterSection) -> AnyView {
         </div>
         <div class="flex items-center justify-between border-t border-gray-100 px-3 py-2.5 text-xs text-blue-600">
             <button
-                class="cursor-pointer hover:underline"
+                class=FOOTER_ACTION_CLASS
                 on:click=move |_| query.update(|query| query.clear_column_filter(column_key))
             >
                 "Select All"
             </button>
             <button
-                class="cursor-pointer hover:underline"
+                class=FOOTER_ACTION_CLASS
                 on:click=move |_| {
                     query.update(|query| query.deselect_every_value(column_key));
                 }
@@ -417,9 +393,7 @@ where
     );
     let sort_state: RwSignal<Option<(usize, bool)>> = RwSignal::new(None);
     let column_filters: RwSignal<HashMap<usize, HashSet<String>>> = RwSignal::new(HashMap::new());
-    let open_filter: RwSignal<Option<usize>> = RwSignal::new(None);
     let value_search = RwSignal::new(String::new());
-    let anchor: RwSignal<PopoverAnchor> = RwSignal::new(PopoverAnchor::default());
     let server_query = query;
     let server_driven = server_query.is_some();
     let server_filtering = server_query.zip(filter_column_request);
@@ -484,95 +458,6 @@ where
         empty_message
     };
     let empty_message = StoredValue::new(empty_message);
-
-    let header = move || {
-        columns.with_value(|all_columns| {
-            all_columns
-                .iter()
-                .enumerate()
-                .map(|(index, column)| {
-                    let filterable = is_filterable(column);
-                    let interactive = column.sortable || filterable;
-                    let base = format!(
-                        "px-4 py-3 {} {} select-none",
-                        column.align.text_class(),
-                        crate::typography::LABEL_CLASS,
-                    );
-                    let class = if interactive {
-                        format!("{base} cursor-pointer hover:bg-gray-100")
-                    } else {
-                        base
-                    };
-                    let header_label = column.header;
-                    let caret = if interactive {
-                        view! {
-                            {move || {
-                                let filtered = is_filtered(index);
-                                let sorted = matches!(
-                                    displayed_sort.get(),
-                                    Some((current, _))
-                                    if current == index
-                                );
-                                if sorted && !filtered {
-                                    return ().into_any();
-                                }
-                                let (class, title) = if filtered {
-                                    ("h-3.5 w-3.5 shrink-0 text-blue-600", "Filtered")
-                                } else {
-                                    ("h-3.5 w-3.5 shrink-0 text-gray-400", "Sort and Filter")
-                                };
-                                icons::labelled_icon(icons::LucideGlyph::ChevronDown, class, title)
-                            }}
-                        }
-                        .into_any()
-                    } else {
-                        ().into_any()
-                    };
-                    view! {
-                        <th
-                            class=class
-                            on:click=move |event: leptos::ev::MouseEvent| {
-                                if !interactive {
-                                    return;
-                                }
-                                if open_filter.get_untracked() == Some(index) {
-                                    open_filter.set(None);
-                                    return;
-                                }
-                                capture_anchor(&event, anchor);
-                                value_search.set(String::new());
-                                open_filter.set(Some(index));
-                                if let Some((_, requested_column)) = server_filtering {
-                                    requested_column
-                                        .set(
-                                            filterable
-                                                .then(|| column_key_at(index))
-                                                .flatten()
-                                                .map(str::to_string),
-                                        );
-                                }
-                            }
-                        >
-                            <span class="inline-flex items-center gap-1 align-middle">
-                                {header_label}
-                                {move || match displayed_sort.get() {
-                                    Some((current, ascending)) if current == index => {
-                                        icons::labelled_icon(
-                                            sort_arrow_glyph(ascending),
-                                            "h-3.5 w-3.5 shrink-0 text-gray-900",
-                                            sort_direction_label(ascending),
-                                        )
-                                    }
-                                    _ => ().into_any(),
-                                }} {caret}
-                            </span>
-                        </th>
-                    }
-                })
-                .collect_view()
-                .into_any()
-        })
-    };
 
     let visible_rows: Signal<Vec<Row>> = Signal::derive(move || {
         let Some(Ok(all_rows)) = rows.get() else {
@@ -987,26 +872,20 @@ where
         .into_any()
     };
 
-    let filter_popover = move || {
-        let Some(index) = open_filter.get() else {
-            return ().into_any();
-        };
+    let column_menu = move |index: usize| {
         let (sortable, filterable) = columns.with_value(|all| {
             all.get(index).map_or((false, false), |column| {
                 (column.sortable, is_filterable(column))
             })
         });
-        let position_style = anchor.get().position_style(if filterable {
-            FILTER_POPOVER_WIDTH_PIXELS
-        } else {
-            SORT_POPOVER_WIDTH_PIXELS
-        });
+        let popover = use_popover();
 
         let sort_section = if sortable {
             let sort_button = move |ascending: bool| {
                 view! {
                     <button
-                        class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 hover:bg-gray-50"
+                        class=ITEM_CLASS
+                        on:mousemove=|event: leptos::ev::MouseEvent| focus_on_hover(&event)
                         on:click=move |_| {
                             sort_state.set(Some((index, ascending)));
                             if let Some(query) = server_query {
@@ -1019,22 +898,17 @@ where
                                         });
                                 }
                             }
-                            open_filter.set(None);
+                            if let Some(popover) = popover {
+                                popover.close();
+                            }
                         }
                     >
-                        {icons::icon(
-                            sort_arrow_glyph(ascending),
-                            "h-3.5 w-3.5 shrink-0 text-gray-500",
-                        )}
+                        {icons::icon(sort_arrow_glyph(ascending), ICON_CLASS)}
                         <span class="whitespace-nowrap">{sort_direction_label(ascending)}</span>
                     </button>
                 }
             };
-            view! {
-                <div class="border-b border-gray-100 py-1.5">
-                    {sort_button(true)} {sort_button(false)}
-                </div>
-            }
+            view! { <div class="border-b border-gray-100 p-1">{sort_button(true)} {sort_button(false)}</div> }
             .into_any()
         } else {
             ().into_any()
@@ -1108,7 +982,7 @@ where
                 </div>
                 <div class="flex items-center justify-between border-t border-gray-100 px-3 py-2.5 text-xs text-blue-600">
                     <button
-                        class="cursor-pointer hover:underline"
+                        class=FOOTER_ACTION_CLASS
                         on:click=move |_| {
                             column_filters
                                 .update(|filters| {
@@ -1119,7 +993,7 @@ where
                         "Select All"
                     </button>
                     <button
-                        class="cursor-pointer hover:underline"
+                        class=FOOTER_ACTION_CLASS
                         on:click=move |_| {
                             column_filters
                                 .update(|filters| {
@@ -1135,16 +1009,96 @@ where
         };
 
         view! {
-            <div class="fixed inset-0 z-30" on:click=move |_| open_filter.set(None)></div>
-            <div
-                class="fixed z-40 overflow-hidden rounded-surface bg-white text-sm text-gray-700 shadow-xl ring-1 ring-gray-900/10"
-                style=position_style
-            >
-                {sort_section}
-                {filter_section}
-            </div>
+            {sort_section}
+            {filter_section}
         }
         .into_any()
+    };
+
+    let header = move || {
+        columns.with_value(|all_columns| {
+            all_columns
+                .iter()
+                .enumerate()
+                .map(|(index, column)| {
+                    let filterable = is_filterable(column);
+                    let interactive = column.sortable || filterable;
+                    let label_class =
+                        format!("{} {}", column.align.text_class(), crate::typography::LABEL_CLASS);
+                    let label = view! {
+                        <span class="inline-flex items-center gap-1 align-middle">
+                            {column.header}
+                            {move || match displayed_sort.get() {
+                                Some((current, ascending)) if current == index => {
+                                    icons::labelled_icon(
+                                        sort_arrow_glyph(ascending),
+                                        "h-3.5 w-3.5 shrink-0 text-gray-900",
+                                        sort_direction_label(ascending),
+                                    )
+                                }
+                                _ => ().into_any(),
+                            }}
+                            {move || {
+                                if !interactive {
+                                    return ().into_any();
+                                }
+                                let filtered = is_filtered(index);
+                                let sorted = matches!(
+                                    displayed_sort.get(),
+                                    Some((current, _))
+                                    if current == index
+                                );
+                                if sorted && !filtered {
+                                    return ().into_any();
+                                }
+                                let (class, title) = if filtered {
+                                    ("h-3.5 w-3.5 shrink-0 text-blue-600", "Filtered")
+                                } else {
+                                    ("h-3.5 w-3.5 shrink-0 text-gray-400", "Sort and Filter")
+                                };
+                                icons::labelled_icon(icons::LucideGlyph::ChevronDown, class, title)
+                            }}
+                        </span>
+                    };
+                    if !interactive {
+                        return view! { <th class=format!("px-4 py-3 select-none {label_class}")>{label}</th> }
+                        .into_any();
+                    }
+                    let on_open = Callback::new(move |()| {
+                        value_search.set(String::new());
+                        if let Some((_, requested_column)) = server_filtering {
+                            requested_column
+                                .set(
+                                    filterable
+                                        .then(|| column_key_at(index))
+                                        .flatten()
+                                        .map(str::to_string),
+                                );
+                        }
+                    });
+                    let menu_width_class = if filterable {
+                        FILTER_MENU_WIDTH_CLASS
+                    } else {
+                        SORT_MENU_WIDTH_CLASS
+                    };
+                    view! {
+                        <th class=format!("px-4 py-3 {}", column.align.text_class())>
+                            <Popover align=menu_alignment(column.align) on_open=on_open>
+                                <PopoverTrigger class=format!(
+                                    "{HEADER_TRIGGER_CLASS} {}",
+                                    crate::typography::LABEL_CLASS,
+                                )>{label}</PopoverTrigger>
+                                <PopoverContent class=menu_width_class unpadded=true>
+                                    {move || column_menu(index)}
+                                </PopoverContent>
+                            </Popover>
+                        </th>
+                    }
+                    .into_any()
+                })
+                .collect_view()
+                .into_any()
+        })
     };
 
     let search_is_active = move || match server_query {
@@ -1237,7 +1191,6 @@ where
                     {pager}
                 </div>
             </div>
-            {filter_popover}
         </div>
     }
     .into_any()
