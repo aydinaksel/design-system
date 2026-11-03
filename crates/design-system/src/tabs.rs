@@ -8,6 +8,19 @@ use crate::table::clear_table_query_parameters;
 
 const TAB_CLASS: &str = "relative cursor-pointer px-3 pb-2.5 pt-2 text-sm font-medium";
 const UNDERLINE_CLASS: &str = "pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-blue-600";
+const TAB_LIST_CLASS: &str = "mb-6 flex flex-wrap gap-2 border-b border-gray-200";
+const PAGE_HEADER_TAB_LIST_CLASS: &str = "-mb-px flex flex-wrap gap-2";
+
+#[derive(Clone, Copy)]
+pub(crate) struct TabsInPageHeader;
+
+fn tab_list_class() -> &'static str {
+    if use_context::<TabsInPageHeader>().is_some() {
+        PAGE_HEADER_TAB_LIST_CLASS
+    } else {
+        TAB_LIST_CLASS
+    }
+}
 
 pub const VIEW_PARAMETER: &str = "view";
 
@@ -153,7 +166,7 @@ pub fn ViewTabs(views: &'static [PageView]) -> impl IntoView {
     slide_underline_on_change(move || selected.get(), underlines.clone());
 
     view! {
-        <div class="mb-4 flex flex-wrap gap-2 border-b border-gray-200" role="tablist">
+        <div class=tab_list_class() role="tablist">
             {views
                 .iter()
                 .zip(underlines)
@@ -224,7 +237,7 @@ pub fn TabStrip(#[prop(into)] tabs: Vec<&'static str>, active: Signal<usize>) ->
     slide_underline_on_change(move || active.get(), underlines.clone());
 
     view! {
-        <div class="flex flex-wrap gap-2 border-b border-gray-200 mb-6">
+        <div class=tab_list_class() role="tablist">
             {tabs
                 .into_iter()
                 .zip(underlines)
@@ -235,6 +248,8 @@ pub fn TabStrip(#[prop(into)] tabs: Vec<&'static str>, active: Signal<usize>) ->
                     view! {
                         <button
                             type="button"
+                            role="tab"
+                            aria-selected=move || (active.get() == index).to_string()
                             class=move || tab_class(active.get() == index)
                             on:click=move |_| navigate(&target(), tab_navigation())
                         >

@@ -1,3 +1,4 @@
+use leptos::context::Provider;
 use leptos::prelude::*;
 use leptos_router::components::A;
 
@@ -5,6 +6,9 @@ use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::clipboard::{copy_current_address_with_toast, copy_with_toast};
 use crate::icons;
 use crate::menu::{DropdownMenu, MenuEntry, MenuItem};
+use crate::tabs::TabsInPageHeader;
+
+const PAGE_WIDTH_CLASS: &str = "mx-auto max-w-screen-2xl px-6";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DocumentStatus {
@@ -120,7 +124,7 @@ pub fn DetailHeader(
     };
 
     view! {
-        <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <header class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                 <h1 class="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xl font-bold tracking-tight text-gray-900">
                     <span>{move || title.get()}</span>
@@ -129,6 +133,34 @@ pub fn DetailHeader(
             </div>
             <div class="flex items-center gap-2">{back_link} {actions_menu}</div>
         </header>
+    }
+    .into_any()
+}
+
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
+#[component]
+pub fn DetailPage(
+    #[prop(into)] header: ViewFnOnce,
+    #[prop(optional, into)] tabs: Option<ViewFn>,
+    children: Children,
+) -> impl IntoView {
+    let band_class = if tabs.is_some() {
+        format!("{PAGE_WIDTH_CLASS} space-y-4 pt-6")
+    } else {
+        format!("{PAGE_WIDTH_CLASS} pb-4 pt-6")
+    };
+    let tabs = tabs.map(|tabs| {
+        view! { <Provider value=TabsInPageHeader>{tabs.run()}</Provider> }
+    });
+
+    view! {
+        <div class="border-b border-gray-200">
+            <div class=band_class>{header.run()} {tabs}</div>
+        </div>
+        <div class=format!("{PAGE_WIDTH_CLASS} py-6")>{children()}</div>
     }
     .into_any()
 }

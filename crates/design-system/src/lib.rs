@@ -17,6 +17,7 @@ pub mod date_picker;
 pub mod detail_header;
 pub mod dialog;
 pub mod editing;
+pub mod empty_state;
 pub mod field_actions;
 pub mod field_values;
 pub mod fields;
@@ -30,6 +31,7 @@ pub mod icons;
 pub mod layout;
 pub mod layout_motion;
 pub mod listbox;
+pub mod loading_state;
 pub mod menu;
 pub mod meter;
 pub mod mode_switch;
@@ -70,13 +72,13 @@ pub use confirm_dialog::ConfirmDialog;
 pub use controls::{Input, InputKind, Switch, Textarea};
 pub use currency::Currency;
 pub use date_picker::DatePicker;
-pub use detail_header::{DetailHeader, DocumentStatus, IdentifierKind};
+pub use detail_header::{DetailHeader, DetailPage, DocumentStatus, IdentifierKind};
 pub use dialog::{use_dialog_close, Dialog, DialogSize};
 pub use editing::FieldSave;
+pub use empty_state::EmptyState;
 pub use field_actions::FieldAction;
 pub use field_values::{
     address_actions, address_value, missing_value, multiline_value, partner_value, text_value,
-    value_skeleton,
 };
 pub use fields::{
     provide_editing_scope, FieldEditor, FieldGrid, FieldRow, FieldSection, HeadingLevel,
@@ -90,6 +92,7 @@ pub use gallery::{GalleryImage, ImageGallery, ImageGrid};
 pub use icons::loading_indicator;
 pub use layout::Layout;
 pub use listbox::{Listbox, ListboxOption};
+pub use loading_state::LoadingState;
 pub use menu::{DropdownMenu, MenuEntry, MenuItem, OverflowMenu, RowActions};
 pub use meter::Meter;
 pub use mode_switch::{selected_mode, ModeSwitch, PageMode};

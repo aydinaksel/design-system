@@ -1,18 +1,20 @@
 use design_system::icons::{self, LucideGlyph};
 use design_system::{
     address_actions, address_value, badge, button_class, button_icon_class, icon_button_class,
-    multiline_value, notify_failure, notify_success, partner_value, text_value, total,
-    use_dialog_close, Alert, Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia,
+    multiline_value, notify_failure, notify_success, partner_value, selected_tab, text_value,
+    total, use_dialog_close, Alert, Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia,
     AttachmentOpen, AttachmentOrientation, AttachmentSize, AttachmentState, BusyOverlay,
     ButtonGroup, ButtonSize, ButtonTone, Card, CardGrid, Checkbox, ChoiceList, ChoiceOption,
     Combobox, ComboboxGroup, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton,
-    CopyLinkButton, DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldEditor,
-    FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
-    ImageGallery, ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter,
-    OverflowMenu, PageHeader, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput,
-    SearchSize, SectionEditing, Switch, Textarea, Tone, Tooltip, TotalsBar,
+    CopyLinkButton, DatePicker, DetailHeader, DetailPage, Dialog, DialogSize, DropdownMenu,
+    EmptyState, Field, FieldEditor, FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset,
+    FileDropZone, FilterChip, GalleryImage, ImageGallery, ImageGrid, Input, InputKind, Listbox,
+    ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu, PageHeader, RadioGroup, RadioLayout,
+    RadioOption, ResponsiveImage, SearchInput, SearchSize, SectionEditing, Switch, TabStrip,
+    Textarea, Tone, Tooltip, TotalsBar,
 };
 use leptos::prelude::*;
+use leptos_router::hooks::use_query_map;
 
 use super::section;
 use crate::fake_data::swatch;
@@ -627,16 +629,11 @@ fn header_actions() -> Vec<MenuEntry> {
     ]
 }
 
-fn detail_pages() -> AnyView {
+const DETAIL_TABS: [&str; 2] = ["Overview", "Lines"];
+
+fn detail_overview() -> AnyView {
     view! {
         <div class="space-y-6">
-            <DetailHeader
-                title="Sales Order".to_string()
-                identifier="24817".to_string()
-                back_href="/tables".to_string()
-                back_label="Sales Orders".to_string()
-                actions=Callback::new(|()| header_actions())
-            />
             <FieldGrid>
                 <FieldSection title="Overview">
                     <FieldRow label="Customer">
@@ -675,6 +672,39 @@ fn detail_pages() -> AnyView {
                 total("Total", "$12,760.00"),
                 total("Margin", "-$1,240.00").tone(Tone::Critical),
             ] />
+        </div>
+    }
+    .into_any()
+}
+
+fn detail_pages() -> AnyView {
+    let query = use_query_map();
+    let active_tab =
+        Signal::derive(move || selected_tab(&DETAIL_TABS, query.read().get("tab").as_deref()));
+    view! {
+        <div class="-m-6">
+            <DetailPage
+                header=|| {
+                    view! {
+                        <DetailHeader
+                            title="Sales Order".to_string()
+                            identifier="24817".to_string()
+                            back_href="/tables".to_string()
+                            back_label="Sales Orders".to_string()
+                            actions=Callback::new(|()| header_actions())
+                        />
+                    }
+                }
+                tabs=move || view! { <TabStrip tabs=DETAIL_TABS.to_vec() active=active_tab /> }
+            >
+                {move || {
+                    if active_tab.get() == 0 {
+                        detail_overview()
+                    } else {
+                        view! { <EmptyState title="No lines yet" /> }.into_any()
+                    }
+                }}
+            </DetailPage>
         </div>
     }
     .into_any()
@@ -774,6 +804,7 @@ fn field_sections() -> AnyView {
     let thickness = RwSignal::new(saved_thickness.get_untracked());
     let item_name = RwSignal::new(saved_item_name.get_untracked());
     let save_fails = RwSignal::new(false);
+    let loading = RwSignal::new(false);
     let finish_options = Signal::stored(
         FINISHES
             .iter()
@@ -801,9 +832,15 @@ fn field_sections() -> AnyView {
                 label="Make the Next Save Fail"
             />
             "Make the Next Save Fail"
+            <Switch
+                checked=loading
+                on_toggle=Callback::new(move |()| loading.update(|loading| *loading = !*loading))
+                label="Show Loading"
+            />
+            "Show Loading"
         </div>
         <FieldGrid>
-            <FieldSection title="Classification" editing=classification_editing>
+            <FieldSection title="Classification" editing=classification_editing loading=loading>
                 <FieldRow
                     label="Finish"
                     editor=FieldEditor::new(
@@ -828,7 +865,7 @@ fn field_sections() -> AnyView {
                 </FieldRow>
                 <FieldRow label="Pattern">"Versailles"</FieldRow>
             </FieldSection>
-            <FieldSection title="Identity" editing=identity_editing>
+            <FieldSection title="Identity" editing=identity_editing loading=loading>
                 <FieldRow label="SKU">"TRVT-024"</FieldRow>
                 <FieldRow
                     label="Item Name"
@@ -845,7 +882,7 @@ fn field_sections() -> AnyView {
                     <span class="italic text-amber-600">"Not Set"</span>
                 </FieldRow>
             </FieldSection>
-            <FieldSection title="Pricing">
+            <FieldSection title="Pricing" loading=loading>
                 <FieldRow label="Base Price">"$4.25"</FieldRow>
                 <FieldRow label="Last Purchase Price">"$2.10 USD"</FieldRow>
             </FieldSection>

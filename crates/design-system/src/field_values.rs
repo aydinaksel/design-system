@@ -13,17 +13,6 @@ pub fn missing_value() -> AnyView {
 }
 
 #[must_use]
-pub fn value_skeleton() -> AnyView {
-    view! {
-        <span
-            aria-hidden="true"
-            class="inline-block h-3.5 w-40 max-w-full animate-pulse rounded bg-gray-100 align-middle"
-        ></span>
-    }
-    .into_any()
-}
-
-#[must_use]
 pub fn text_value(value: Option<String>) -> AnyView {
     match present(value) {
         Some(text) => view! { <span>{text}</span> }.into_any(),

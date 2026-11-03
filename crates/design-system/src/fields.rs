@@ -22,6 +22,7 @@ use crate::editing::{
 };
 use crate::field_actions::{field_actions_view, FieldAction};
 use crate::icons;
+use crate::loading_state::LoadingState;
 use crate::tone::Tone;
 use crate::tooltip::Tooltip;
 use crate::typography::LABEL_CLASS;
@@ -650,6 +651,8 @@ fn status_view(state: RwSignal<SectionState>, announcement: String) -> impl Into
     }
 }
 
+const SECTION_LOADING_HEIGHT_CLASS: &str = "h-48";
+
 #[expect(
     clippy::too_many_lines,
     reason = "one widget: the header, the rows, the footer and the saving overlay share the edit state"
@@ -660,6 +663,7 @@ pub fn FieldSection(
     #[prop(optional)] heading_level: HeadingLevel,
     #[prop(optional)] actions: Option<AnyView>,
     #[prop(optional)] editing: Option<SectionEditing>,
+    #[prop(optional, into)] loading: Signal<bool>,
     children: Children,
 ) -> impl IntoView {
     let section_number = NEXT_FIELD_NUMBER.fetch_add(1, Ordering::Relaxed);
@@ -746,15 +750,19 @@ pub fn FieldSection(
         view! {
             <div class="mb-1 flex min-h-7 items-center justify-between gap-3">
                 {heading}
-                <div class="ml-auto flex items-center gap-2">{actions} {edit_controls}</div>
+                <div class="ml-auto flex items-center gap-2" class:hidden=move || loading.get()>
+                    {actions}
+                    {edit_controls}
+                </div>
             </div>
         }
     });
     let saving = move || state.get() == SectionState::Saving;
     let card_class = move || {
         format!(
-            "rounded-surface border border-gray-200 bg-white motion-safe:transition-shadow motion-safe:duration-300 {}",
+            "rounded-surface border border-gray-200 bg-white motion-safe:transition-shadow motion-safe:duration-300 {} {}",
             if attention.get() { "ring-2 ring-focus ring-offset-2" } else { "" },
+            if loading.get() { "hidden" } else { "" },
         )
     };
     let on_keydown = move |event: KeyboardEvent| {
@@ -771,6 +779,9 @@ pub fn FieldSection(
             on:keydown=on_keydown
         >
             {heading}
+            {move || {
+                loading.get().then(|| view! { <LoadingState class=SECTION_LOADING_HEIGHT_CLASS /> })
+            }}
             <div class=card_class>
                 <div class="relative">
                     <dl

@@ -6,6 +6,7 @@ use leptos_router::hooks::use_location;
 use leptos_use::{use_cookie_with_options, SameSite, UseCookieOptions};
 
 use crate::brand::brand;
+use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::icons::{self, LucideGlyph};
 use crate::menu::{menu, MenuEntry};
 
@@ -20,7 +21,6 @@ const ICON_CLASS: &str = "block h-4 w-4 shrink-0";
 const LABEL_CLASS: &str =
     "transition-opacity duration-200 group-data-[collapsed=true]/sidebar:opacity-0";
 const BRAND_CLASS: &str = "absolute left-4 whitespace-nowrap text-sm font-semibold tracking-tight text-gray-900 transition-opacity duration-200 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0";
-const TOGGLE_CLASS: &str = "ml-auto flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:text-gray-900";
 const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm font-medium bg-gray-100 text-gray-900 focus-ring-inset";
 const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
 const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0 focus-ring-inset";
@@ -150,7 +150,10 @@ pub fn Sidebar(
                     <button
                         type="button"
                         aria-label="Toggle Navigation"
-                        class=TOGGLE_CLASS
+                        class=format!(
+                            "ml-auto {}",
+                            icon_button_class(ButtonTone::Ghost, ButtonSize::Dense),
+                        )
                         on:click=move |_| {
                             set_collapsed_cookie.set(Some(!collapsed.get_untracked()));
                         }

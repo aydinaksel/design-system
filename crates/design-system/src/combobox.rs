@@ -615,17 +615,18 @@ pub fn Combobox(
                     view! { <div aria-hidden="true" class=GROUP_SEPARATOR_CLASS></div> }
                 });
                 let heading_view = group.heading.clone().map(|heading| {
-                    view! { <div aria-hidden="true" class=GROUP_HEADING_CLASS>{heading}</div> }
+                    view! {
+                        <div aria-hidden="true" class=GROUP_HEADING_CLASS>
+                            {heading}
+                        </div>
+                    }
                 });
                 let option_count = group.options.len();
                 let rows = option_rows(first_index, group.options);
                 first_index = first_index.saturating_add(option_count);
                 view! {
                     {separator}
-                    <div
-                        role=group.heading.is_some().then_some("group")
-                        aria-label=group.heading
-                    >
+                    <div role=group.heading.is_some().then_some("group") aria-label=group.heading>
                         {heading_view}
                         {rows}
                     </div>
@@ -701,7 +702,9 @@ pub fn Combobox(
                         }
                             .into_any()
                     }
-                    Results::Loaded(groups) if lacks_options(&groups) && showing_suggestions.get() => {
+                    Results::Loaded(
+                        groups,
+                    ) if lacks_options(&groups) && showing_suggestions.get() => {
                         return ().into_any();
                     }
                     Results::Loaded(groups) if lacks_options(&groups) => {

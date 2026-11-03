@@ -8,7 +8,9 @@ use leptos_router::NavigateOptions;
 
 use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::catalog::CardGrid;
+use crate::empty_state::EmptyState;
 use crate::icons;
+use crate::loading_state::LoadingState;
 use crate::search_input::{SearchInput, SearchSize};
 
 use super::cell_value::CellValue;
@@ -37,12 +39,18 @@ impl Search {
     }
 }
 
-const LOADING_ROW_COUNT: usize = 20;
-const LOADING_CARD_COUNT: usize = 8;
 const NO_ROWS_MESSAGE: &str = "No results.";
-const NO_MATCHES_MESSAGE: &str = "No matching results.";
+const NO_MATCHES_TITLE: &str = "Nothing matches these filters";
+const NO_MATCHES_DESCRIPTION: &str = "Try a broader search or reset the filters.";
 
-/// Generic table: absorbs loading skeleton / error / empty states, a sticky
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BodyState {
+    Loading,
+    Empty,
+    Rows,
+}
+
+/// Generic table: absorbs loading / error / empty states, a sticky
 /// header, client-side search, click-to-sort, and Excel-style per-column value
 /// filters. Cells stay custom via each `Column`'s `render`.
 fn sort_arrow_glyph(ascending: bool) -> icons::LucideGlyph {
@@ -174,54 +182,46 @@ fn error_alert(message: String) -> AnyView {
     .into_any()
 }
 
-fn empty_rows_message(all_rows_are_empty: bool, empty_message: StoredValue<String>) -> String {
-    if all_rows_are_empty {
-        empty_message.get_value()
-    } else {
-        NO_MATCHES_MESSAGE.to_string()
+fn refresh_spinner(pending: Signal<bool>) -> AnyView {
+    view! {
+        <div class=move || { if pending.get() { "sticky top-0 z-20 h-0" } else { "hidden" } }>
+            <div class="flex h-64 items-center justify-center">
+                {icons::spinner("h-6 w-6 text-gray-400")}
+            </div>
+        </div>
     }
+    .into_any()
 }
 
 fn card_body<Row>(
     rows: Signal<Option<Result<Vec<Row>, String>>>,
     visible_rows: Signal<Vec<Row>>,
     card_for_row: RowView<Row>,
-    empty_message: StoredValue<String>,
     pending: Signal<bool>,
 ) -> AnyView
 where
     Row: Clone + Send + Sync + 'static,
 {
-    let cards = move || {
-        match rows.get() {
-        None => (0..LOADING_CARD_COUNT)
-            .map(|_| view! { <li class="aspect-square animate-pulse rounded-surface bg-gray-100"></li> })
-            .collect_view()
-            .into_any(),
+    let cards = move || match rows.get() {
         Some(Err(message)) => {
             view! { <li class="col-span-full">{error_alert(message)}</li> }.into_any()
         }
-        Some(Ok(all_rows)) if visible_rows.with(Vec::is_empty) => {
-            let message = empty_rows_message(all_rows.is_empty(), empty_message);
-            view! { <li class="col-span-full py-8 text-center text-sm text-gray-400">{message}</li> }
-                .into_any()
-        }
-        Some(Ok(_)) => visible_rows
+        _ => visible_rows
             .get()
             .iter()
             .map(|row| card_for_row(row))
             .collect_view()
             .into_any(),
-    }
     };
     view! {
         <div
             class=move || {
                 let fade = if pending.get() { "opacity-50" } else { "" };
-                format!("overflow-auto transition-opacity {BODY_MAX_HEIGHT_CLASS} {fade}")
+                format!("relative overflow-auto transition-opacity {BODY_MAX_HEIGHT_CLASS} {fade}")
             }
             aria-busy=move || pending.get().to_string()
         >
+            {refresh_spinner(pending)}
             <CardGrid>{cards}</CardGrid>
         </div>
     }
@@ -442,14 +442,6 @@ where
     let empty_message = StoredValue::new(empty_message);
 
     let header = move || {
-        if rows.read().is_none() {
-            return view! {
-                <th colspan=column_count.to_string() class="px-4 py-3">
-                    <div class="h-4 w-full rounded bg-gray-100 animate-pulse"></div>
-                </th>
-            }
-            .into_any();
-        }
         columns.with_value(|all_columns| {
             all_columns
                 .iter()
@@ -661,18 +653,6 @@ where
     };
 
     let status_rows = move || match rows.get() {
-        None => (0..LOADING_ROW_COUNT)
-            .map(|_| {
-                view! {
-                    <tr>
-                        <td colspan=column_count.to_string() class="px-4 py-3">
-                            <div class="h-4 w-full rounded bg-gray-100 animate-pulse"></div>
-                        </td>
-                    </tr>
-                }
-            })
-            .collect_view()
-            .into_any(),
         Some(Err(message)) => view! {
             <tr>
                 <td colspan=column_count.to_string() class="px-4 py-6">
@@ -681,24 +661,7 @@ where
             </tr>
         }
         .into_any(),
-        Some(Ok(all_rows)) => {
-            if visible_rows.with(Vec::is_empty) {
-                let message = empty_rows_message(all_rows.is_empty(), empty_message);
-                view! {
-                    <tr>
-                        <td
-                            colspan=column_count.to_string()
-                            class="px-4 py-8 text-center text-gray-400"
-                        >
-                            {message}
-                        </td>
-                    </tr>
-                }
-                .into_any()
-            } else {
-                ().into_any()
-            }
-        }
+        _ => ().into_any(),
     };
 
     let data_rows = match row_key {
@@ -819,6 +782,9 @@ where
                 return ().into_any();
             };
             let shown = visible_rows.get().len();
+            if shown == 0 {
+                return ().into_any();
+            }
             let total = all_rows.len();
             let summary = if shown == total {
                 format!("Showing {total}")
@@ -1137,20 +1103,61 @@ where
         .into_any()
     };
 
-    let loading = move || rows.get().is_none();
-    let container_class = move || {
-        let base = "overflow-auto rounded-surface border border-gray-200 bg-white max-w-full";
-        if loading() {
-            format!("{base} w-full {BODY_HEIGHT_CLASS}")
-        } else {
-            format!("{base} w-full {BODY_MAX_HEIGHT_CLASS}")
+    let search_is_active = move || match server_query {
+        Some(query) => query.with(|query| !query.search.is_empty()),
+        None => filter.with(|search| !search.is_empty()),
+    };
+    let reset_filters = move || {
+        filter.set(String::new());
+        column_filters.set(HashMap::new());
+        if let Some(query) = server_query {
+            query.update(|query| {
+                query.set_search(String::new());
+                query.clear_all_column_filters();
+            });
         }
     };
+    let body_state = Memo::new(move |_| match rows.read().as_ref() {
+        None => BodyState::Loading,
+        Some(Ok(_)) if visible_rows.with(Vec::is_empty) => BodyState::Empty,
+        Some(_) => BodyState::Rows,
+    });
+    let empty_state = move || {
+        if !(filters_are_active() || search_is_active()) {
+            return view! { <EmptyState title=empty_message.get_value() /> }.into_any();
+        }
+        let reset_button = view! {
+            <button
+                type="button"
+                class=button_class(ButtonTone::Secondary, ButtonSize::Standard)
+                on:click=move |_| reset_filters()
+            >
+                {icons::icon(icons::LucideGlyph::X, "h-4 w-4 shrink-0 opacity-70")}
+                "Reset Filters"
+            </button>
+        };
+        view! {
+            <EmptyState
+                glyph=icons::LucideGlyph::SearchX
+                title=NO_MATCHES_TITLE
+                description=NO_MATCHES_DESCRIPTION
+                action=reset_button.into_any()
+            />
+        }
+        .into_any()
+    };
+    let placeholder = move || match body_state.get() {
+        BodyState::Loading => view! { <LoadingState class=BODY_HEIGHT_CLASS /> }.into_any(),
+        BodyState::Empty => empty_state(),
+        BodyState::Rows => ().into_any(),
+    };
     let body = match card {
-        Some(card_for_row) => card_body(rows, visible_rows, card_for_row, empty_message, pending),
+        Some(card_for_row) => card_body(rows, visible_rows, card_for_row, pending),
         None => view! {
-            <div class=container_class>
-                <table class="min-w-full text-sm whitespace-nowrap">
+            <div class=format!(
+                "relative w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-white {BODY_MAX_HEIGHT_CLASS}",
+            )>
+                {refresh_spinner(pending)} <table class="min-w-full text-sm whitespace-nowrap">
                     <thead class="bg-gray-50 sticky top-0 z-10 shadow-[inset_0_-1px_0_0_rgb(229,231,235)]">
                         <tr>{header}</tr>
                         {width_holding_row}
@@ -1179,7 +1186,12 @@ where
                 if toolbar_row_is_shown || filters_are_active() { "mb-4 space-y-2" } else { "" }
             }>{toolbar_row} {filter_chips}</div>
             <div class="flex items-start gap-6">
-                {sidebar} <div class="min-w-0 flex-1">{body} {pager}</div>
+                {sidebar}
+                <div class="min-w-0 flex-1">
+                    {placeholder}
+                    <div class:hidden=move || body_state.get() != BodyState::Rows>{body}</div>
+                    {pager}
+                </div>
             </div>
             {filter_popover}
         </div>
