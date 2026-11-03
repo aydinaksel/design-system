@@ -28,7 +28,7 @@ use crate::typography::LABEL_CLASS;
 static NEXT_FIELD_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-[0.5625rem]";
-const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-surface-inner after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-start sm:gap-4 motion-safe:transition-colors";
+const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-surface-inner after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
 const HELP_TRIGGER_CLASS: &str = "cursor-help rounded-sm underline decoration-gray-300 decoration-dotted underline-offset-4 focus-ring";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -991,7 +991,7 @@ pub fn FieldRow(
                     if showing_editor.get() {
                         "hidden"
                     } else {
-                        "flex items-start gap-3 sm:justify-end"
+                        "flex items-center gap-3 sm:justify-end"
                     }
                 }>
                     <div class=move || {

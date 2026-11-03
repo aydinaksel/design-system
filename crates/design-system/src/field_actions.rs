@@ -92,7 +92,7 @@ pub(crate) fn field_actions_view(actions: Vec<FieldAction>) -> Option<AnyView> {
         })
         .collect::<Vec<_>>();
     Some(
-        view! { <div class="mt-0.5 flex shrink-0 items-center gap-0.5">{rendered}</div> }
+        view! { <div class="flex shrink-0 items-center gap-0.5">{rendered}</div> }
             .into_any(),
     )
 }
