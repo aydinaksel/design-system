@@ -126,8 +126,6 @@ where
             .map(|page| page.total_rows)
     });
 
-    let (refreshing, set_refreshing) = signal(false);
-
     let row_href = row_href.unwrap_or_else(|| std::sync::Arc::new(|_| String::new()));
     let row_class = row_class.unwrap_or_else(|| std::sync::Arc::new(|_| String::new()));
 
@@ -152,40 +150,23 @@ where
         None => toolbar.run(),
     };
 
-    let table =
-        move |rows: LoadedRows<Row>, total_rows: Signal<Option<u64>>, pending: Signal<bool>| {
-            view! {
-                <DataTable
-                    rows=rows
-                    columns=columns.clone()
-                    search=Search::Server
-                    search_placeholder=search_placeholder.clone()
-                    empty_message=empty_message.clone()
-                    row_href=row_href.clone()
-                    row_class=row_class.clone()
-                    toolbar=Some(toolbar_with_filters())
-                    sidebar=facet_controls.map(FacetControls::rail)
-                    query=table_query
-                    total_rows=total_rows
-                    pending=pending
-                    filter_column_request=filter_column_request
-                    filter_values=filter_values
-                    card=card.clone()
-                />
-            }
-            .into_any()
-        };
-
-    let skeleton = table.clone();
     view! {
-        <Transition
-            fallback=move || {
-                skeleton(Signal::derive(|| None), Signal::derive(|| None), Signal::derive(|| false))
-            }
-            set_pending=set_refreshing
-        >
-            {move || table(page_rows, total_rows, refreshing.into())}
-        </Transition>
+        <DataTable
+            rows=page_rows
+            columns=columns
+            search=Search::Server
+            search_placeholder=search_placeholder
+            empty_message=empty_message
+            row_href=row_href
+            row_class=row_class
+            toolbar=Some(toolbar_with_filters())
+            sidebar=facet_controls.map(FacetControls::rail)
+            query=table_query
+            total_rows=total_rows
+            filter_column_request=filter_column_request
+            filter_values=filter_values
+            card=card
+        />
     }
     .into_any()
 }

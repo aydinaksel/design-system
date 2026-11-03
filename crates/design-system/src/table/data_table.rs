@@ -318,10 +318,6 @@ fn server_filter_section(section: ServerFilterSection) -> AnyView {
     .into_any()
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "the component wires search, sort, and filter state into one view! tree"
-)]
 #[component]
 pub fn DataTable<Row>(
     #[prop(into)] rows: Signal<Option<Result<Vec<Row>, String>>>,
@@ -346,9 +342,6 @@ pub fn DataTable<Row>(
     /// Rows matching the query in full. Server-driven mode only.
     #[prop(optional, into)]
     total_rows: Signal<Option<u64>>,
-    /// True while stale rows await the server's answer to a new query.
-    #[prop(optional, into)]
-    pending: Signal<bool>,
     /// The column key whose values the page should load, written when a filter
     /// popover opens. Enables `filterable` columns in server-driven mode.
     #[prop(optional_no_strip)]
@@ -358,6 +351,57 @@ pub fn DataTable<Row>(
     filter_values: Signal<LoadedFilterValues>,
     /// Draws each row as a card in a grid in place of the table.
     #[prop(optional_no_strip)]
+    card: Option<RowView<Row>>,
+) -> impl IntoView
+where
+    Row: Clone + Send + Sync + 'static,
+{
+    let (refreshing, set_refreshing) = signal(false);
+    view! {
+        <Transition
+            fallback=|| view! { <LoadingState class=BODY_HEIGHT_CLASS /> }
+            set_pending=set_refreshing
+        >
+            <TableContents
+                rows
+                columns
+                search
+                search_placeholder
+                empty_message
+                row_class
+                row_href
+                row_key
+                toolbar
+                sidebar
+                query
+                total_rows
+                pending=refreshing.into()
+                filter_column_request
+                filter_values
+                card
+            />
+        </Transition>
+    }
+    .into_any()
+}
+
+#[component]
+fn TableContents<Row>(
+    rows: Signal<Option<Result<Vec<Row>, String>>>,
+    columns: Vec<Column<Row>>,
+    search: Search,
+    search_placeholder: String,
+    empty_message: String,
+    row_class: Option<RowAttribute<Row>>,
+    row_href: Option<RowAttribute<Row>>,
+    row_key: Option<RowAttribute<Row>>,
+    toolbar: Option<AnyView>,
+    sidebar: Option<AnyView>,
+    query: Option<UrlTableQuery>,
+    total_rows: Signal<Option<u64>>,
+    pending: Signal<bool>,
+    filter_column_request: Option<RwSignal<Option<String>>>,
+    filter_values: Signal<LoadedFilterValues>,
     card: Option<RowView<Row>>,
 ) -> impl IntoView
 where
