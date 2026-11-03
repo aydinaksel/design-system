@@ -22,6 +22,7 @@ lepticons = { version = "0.13", default-features = false, features = [
 ] }
 leptos = { version = "0.8" }
 rust_decimal = { version = "1", default-features = false }
+send_wrapper = "0.6"
 leptos-use = { version = "0.19", default-features = false, features = [
     "use_calendar",
     "use_debounce_fn",

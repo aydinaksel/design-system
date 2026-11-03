@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Div;
@@ -254,7 +255,7 @@ pub fn Dialog(
         {children()}
     }
     .into_any();
-    let content = StoredValue::new_local(Some(content));
+    let content = StoredValue::new(Mutex::new(Some(content)));
     let title_id = StoredValue::new(title_id);
     let description_id = StoredValue::new(description_id);
 
@@ -278,7 +279,10 @@ pub fn Dialog(
                             class=format!("{PANEL_CLASS} {}", size.width_class())
                             on:keydown=on_keydown
                         >
-                            {content.try_update_value(Option::take).flatten()}
+                            {content
+                                .with_value(|content| {
+                                    content.lock().ok().and_then(|mut content| content.take())
+                                })}
                         </div>
                     </div>
                 </div>

@@ -10,6 +10,7 @@ use leptos::web_sys::{Element, HtmlAnchorElement, ScrollIntoViewOptions, ScrollL
 use leptos_use::{
     use_event_listener, use_event_listener_with_options, use_window, UseEventListenerOptions,
 };
+use send_wrapper::SendWrapper;
 
 use crate::alert::Alert;
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
@@ -28,6 +29,8 @@ use crate::tooltip::Tooltip;
 use crate::typography::LABEL_CLASS;
 
 static NEXT_FIELD_NUMBER: AtomicU64 = AtomicU64::new(0);
+
+type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
 const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-[0.5625rem]";
 const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-surface-inner after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
@@ -487,10 +490,7 @@ impl EditSession {
     }
 }
 
-fn guard_navigation(
-    session: EditSession,
-    pending_navigation: StoredValue<Option<HtmlAnchorElement>, LocalStorage>,
-) {
+fn guard_navigation(session: EditSession, pending_navigation: PendingNavigation) {
     drop(use_event_listener_with_options(
         use_window(),
         leptos::ev::click,
@@ -503,7 +503,7 @@ fn guard_navigation(
             };
             event.prevent_default();
             event.stop_propagation();
-            pending_navigation.set_value(Some(anchor));
+            pending_navigation.set_value(Some(SendWrapper::new(anchor)));
             session.discard_prompt_open.set(true);
         },
         UseEventListenerOptions::default().capture(true),
@@ -523,7 +523,7 @@ fn guard_navigation(
 fn discard_dialog(
     session: EditSession,
     title: Option<String>,
-    pending_navigation: StoredValue<Option<HtmlAnchorElement>, LocalStorage>,
+    pending_navigation: PendingNavigation,
 ) -> AnyView {
     let warning =
         Signal::derive(move || discard_warning(session.changed_count(), title.as_deref()));
@@ -725,7 +725,7 @@ pub fn FieldSection(
         });
     }
 
-    let pending_navigation = StoredValue::new_local(None);
+    let pending_navigation: PendingNavigation = StoredValue::new(None);
     let edit_controls = session.map(|session| {
         guard_navigation(session, pending_navigation);
         let entry = ActiveEditor {

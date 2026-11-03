@@ -499,6 +499,7 @@ dependencies = [
  "leptos_router",
  "leptos_toaster",
  "rust_decimal",
+ "send_wrapper",
  "serde",
  "serde_json",
  "table-query",

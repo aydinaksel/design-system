@@ -158,6 +158,12 @@ fn error_alert(message: String) -> AnyView {
     .into_any()
 }
 
+fn pending_setter_outside_server_rendering(
+    set_refreshing: WriteSignal<bool>,
+) -> Option<SignalSetter<bool>> {
+    cfg!(not(feature = "ssr")).then(|| set_refreshing.into())
+}
+
 fn refresh_spinner(pending: Signal<bool>) -> AnyView {
     view! {
         <div class=move || { if pending.get() { "sticky top-0 z-20 h-0" } else { "hidden" } }>
@@ -333,11 +339,8 @@ where
     Row: Clone + Send + Sync + 'static,
 {
     let (refreshing, set_refreshing) = signal(false);
-    view! {
-        <Transition
-            fallback=|| view! { <LoadingState class=BODY_HEIGHT_CLASS /> }
-            set_pending=set_refreshing
-        >
+    let contents = move || {
+        view! {
             <TableContents
                 rows
                 columns
@@ -356,8 +359,13 @@ where
                 filter_values
                 card
             />
-        </Transition>
-    }
+        }
+    };
+    Transition(TransitionProps {
+        fallback: ViewFnOnce::from(|| view! { <LoadingState class=BODY_HEIGHT_CLASS /> }),
+        set_pending: pending_setter_outside_server_rendering(set_refreshing),
+        children: TypedChildren::to_children(contents),
+    })
     .into_any()
 }
 
