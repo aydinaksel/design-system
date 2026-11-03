@@ -72,7 +72,7 @@ fn tabbable_elements(panel: &HtmlElement) -> Vec<HtmlElement> {
         .collect()
 }
 
-fn keep_tab_inside(panel: &HtmlElement, event: &KeyboardEvent) {
+pub(crate) fn keep_tab_inside(panel: &HtmlElement, event: &KeyboardEvent) {
     let tabbables = tabbable_elements(panel);
     let (Some(first), Some(last)) = (tabbables.first(), tabbables.last()) else {
         event.prevent_default();

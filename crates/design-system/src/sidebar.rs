@@ -1,5 +1,7 @@
 use codee::string::FromToStringCodec;
 use leptos::context::Provider;
+use leptos::ev::KeyboardEvent;
+use leptos::html::{Aside, Button};
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_location;
@@ -7,32 +9,45 @@ use leptos_use::{use_cookie_with_options, SameSite, UseCookieOptions};
 
 use crate::brand::brand;
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
+use crate::editing::focus_is_within_or_lost;
+use crate::element_key::ElementKey;
 use crate::icons::{self, LucideGlyph};
 use crate::menu::{menu, MenuEntry};
+use crate::popover::keep_tab_inside;
 
 const COOKIE_PATH: &str = "/";
 const COOKIE_MAX_AGE_MILLISECONDS: i64 = 365 * 24 * 60 * 60 * 1000;
 const CLOSED_SECTION_SEPARATOR: char = ',';
-const EXPANDED_WIDTH: &str = "13rem";
-const COLLAPSED_WIDTH: &str = "3rem";
 const UNNAMED_USER_LABEL: &str = "Account";
 
 const ICON_CLASS: &str = "block h-4 w-4 shrink-0";
 const LABEL_CLASS: &str =
-    "transition-opacity duration-200 group-data-[collapsed=true]/sidebar:opacity-0";
-const BRAND_CLASS: &str = "absolute left-4 whitespace-nowrap text-sm font-semibold tracking-tight text-gray-900 transition-opacity duration-200 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0";
+    "truncate transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:opacity-0";
+const TOP_BAR_BRAND_CLASS: &str =
+    "whitespace-nowrap text-sm font-semibold tracking-tight text-gray-900";
+const BRAND_CLASS: &str = "absolute left-4 whitespace-nowrap text-sm font-semibold tracking-tight text-gray-900 transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:pointer-events-none sm:group-data-[rail=true]/sidebar:opacity-0";
 const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm font-medium bg-gray-100 text-gray-900 focus-ring-inset";
 const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
-const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 group-data-[collapsed=true]/sidebar:pointer-events-none group-data-[collapsed=true]/sidebar:opacity-0 focus-ring-inset";
-const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-gray-200 opacity-0 transition-opacity duration-200 group-data-[collapsed=true]/sidebar:opacity-100";
+const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 sm:group-data-[rail=true]/sidebar:pointer-events-none sm:group-data-[rail=true]/sidebar:opacity-0 focus-ring-inset";
+const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-gray-200 opacity-0 transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:opacity-100";
 const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-left text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
+const PANEL_CLASS: &str = "flex h-full w-full flex-col border-r border-gray-200 bg-white";
+const ASIDE_CLASS: &str = "group/sidebar z-50 w-52 shrink-0 overflow-hidden bg-white duration-200 motion-reduce:duration-0 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:shadow-lg sm:h-full sm:transition-[width]";
+const RAIL_WIDTH_CLASS: &str = "sm:w-12";
+const DRAWER_OPEN_CLASS: &str = "max-sm:visible max-sm:translate-x-0 max-sm:transition-[translate]";
+const DRAWER_CLOSED_CLASS: &str =
+    "max-sm:invisible max-sm:-translate-x-full max-sm:transition-[translate,visibility]";
+const BACKDROP_CLASS: &str =
+    "fixed inset-0 z-40 bg-black/40 duration-200 motion-reduce:duration-0 sm:hidden";
+const BACKDROP_OPEN_CLASS: &str = "visible opacity-100 transition-opacity";
+const BACKDROP_CLOSED_CLASS: &str = "invisible opacity-0 transition-[opacity,visibility]";
 
 #[derive(Clone, Copy)]
 struct SidebarState {
-    collapsed: Signal<bool>,
+    rail: Signal<bool>,
     closed_sections: Signal<Option<String>>,
     set_closed_sections: WriteSignal<Option<String>>,
-    drawer_open: Option<RwSignal<bool>>,
+    drawer_open: RwSignal<bool>,
 }
 
 impl SidebarState {
@@ -64,9 +79,7 @@ impl SidebarState {
     }
 
     fn close_drawer(self) {
-        if let Some(drawer_open) = self.drawer_open {
-            drawer_open.set(false);
-        }
+        self.drawer_open.set(false);
     }
 }
 
@@ -79,6 +92,153 @@ pub fn is_active(pathname: &str, href: &str) -> bool {
         || pathname
             .strip_prefix(href)
             .is_some_and(|rest| rest.starts_with('/'))
+}
+
+fn focus_button(button: NodeRef<Button>) {
+    if let Some(element) = button.get_untracked() {
+        element.focus().unwrap_or_default();
+    }
+}
+
+fn move_focus_with_drawer(
+    drawer_open: RwSignal<bool>,
+    aside: NodeRef<Aside>,
+    close_button: NodeRef<Button>,
+    open_button: NodeRef<Button>,
+) {
+    Effect::new(move |was_open: Option<bool>| {
+        let open = drawer_open.get();
+        if was_open.is_none_or(|was_open| was_open == open) {
+            return open;
+        }
+        let focus_was_inside = aside
+            .get_untracked()
+            .is_none_or(|panel| focus_is_within_or_lost(&panel));
+        if open {
+            request_animation_frame(move || focus_button(close_button));
+        } else if focus_was_inside {
+            focus_button(open_button);
+        }
+        open
+    });
+}
+
+fn keep_focus_in_drawer(event: &KeyboardEvent, drawer_open: RwSignal<bool>, aside: NodeRef<Aside>) {
+    if !drawer_open.get_untracked() {
+        return;
+    }
+    match event.key().as_str() {
+        "Escape" => {
+            event.prevent_default();
+            drawer_open.set(false);
+        }
+        "Tab" => {
+            if let Some(panel) = aside.get_untracked() {
+                keep_tab_inside(&panel, event);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn aside_class(drawer_open: bool, rail: bool) -> String {
+    let drawer = if drawer_open {
+        DRAWER_OPEN_CLASS
+    } else {
+        DRAWER_CLOSED_CLASS
+    };
+    let width = if rail { RAIL_WIDTH_CLASS } else { "" };
+    format!("{ASIDE_CLASS} {drawer} {width}")
+}
+
+fn backdrop_class(drawer_open: bool) -> String {
+    let motion = if drawer_open {
+        BACKDROP_OPEN_CLASS
+    } else {
+        BACKDROP_CLOSED_CLASS
+    };
+    format!("{BACKDROP_CLASS} {motion}")
+}
+
+fn sidebar_id(key: ElementKey) -> String {
+    format!("sidebar-{key}")
+}
+
+#[component]
+fn PhoneTopBar(
+    drawer_open: RwSignal<bool>,
+    open_button: NodeRef<Button>,
+    aside_key: ElementKey,
+) -> impl IntoView {
+    let brand = brand();
+    view! {
+        <div class="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 border-b border-gray-200 bg-white px-3 sm:hidden">
+            <button
+                node_ref=open_button
+                type="button"
+                aria-label="Open Navigation"
+                aria-expanded=move || drawer_open.get().to_string()
+                aria-controls=sidebar_id(aside_key)
+                class=icon_button_class(ButtonTone::Ghost, ButtonSize::Dense)
+                on:click=move |_| drawer_open.set(true)
+            >
+                {icons::icon(LucideGlyph::Menu, ICON_CLASS)}
+            </button>
+            <A href=brand.home_href attr:class=TOP_BAR_BRAND_CLASS>
+                {brand.name}
+            </A>
+        </div>
+    }
+}
+
+#[component]
+fn PanelHeader(
+    state: SidebarState,
+    collapsed: Signal<bool>,
+    set_collapsed_cookie: WriteSignal<Option<bool>>,
+    close_button: NodeRef<Button>,
+    aside_key: ElementKey,
+) -> impl IntoView {
+    let brand = brand();
+    let ghost_button_class = icon_button_class(ButtonTone::Ghost, ButtonSize::Dense);
+    view! {
+        <div class="relative flex h-12 shrink-0 items-center border-b border-gray-200 px-2.5">
+            <A
+                href=brand.home_href
+                attr:class=BRAND_CLASS
+                attr:tabindex=move || state.rail.get().then_some("-1")
+                on:click=move |_| state.close_drawer()
+            >
+                {brand.name}
+            </A>
+            <button
+                type="button"
+                aria-label="Toggle Navigation"
+                aria-expanded=move || (!collapsed.get()).to_string()
+                aria-controls=sidebar_id(aside_key)
+                class=format!("ml-auto max-sm:hidden {ghost_button_class}")
+                on:click=move |_| set_collapsed_cookie.set(Some(!collapsed.get_untracked()))
+            >
+                {move || {
+                    let glyph = if collapsed.get() {
+                        LucideGlyph::PanelLeftOpen
+                    } else {
+                        LucideGlyph::PanelLeftClose
+                    };
+                    icons::icon(glyph, ICON_CLASS)
+                }}
+            </button>
+            <button
+                node_ref=close_button
+                type="button"
+                aria-label="Close Navigation"
+                class=format!("ml-auto sm:hidden {ghost_button_class}")
+                on:click=move |_| state.close_drawer()
+            >
+                {icons::icon(LucideGlyph::X, ICON_CLASS)}
+            </button>
+        </div>
+    }
 }
 
 #[component]
@@ -103,148 +263,57 @@ pub fn Sidebar(
     );
     let collapsed = Signal::derive(move || collapsed_cookie.get().unwrap_or(false));
     let drawer_open = RwSignal::new(false);
-    let desktop_state = SidebarState {
-        collapsed,
+    let rail = Signal::derive(move || collapsed.get() && !drawer_open.get());
+    let state = SidebarState {
+        rail,
         closed_sections,
         set_closed_sections,
-        drawer_open: None,
+        drawer_open,
     };
-    let drawer_state = SidebarState {
-        collapsed: Signal::derive(|| false),
-        closed_sections,
-        set_closed_sections,
-        drawer_open: Some(drawer_open),
-    };
-    let brand = brand();
-    let desktop_children = children.clone();
-    let desktop_footer = footer.clone();
+    let aside_key = ElementKey::next();
+    let aside: NodeRef<Aside> = NodeRef::new();
+    let open_button: NodeRef<Button> = NodeRef::new();
+    let close_button: NodeRef<Button> = NodeRef::new();
+
+    move_focus_with_drawer(drawer_open, aside, close_button, open_button);
+    let on_aside_keydown =
+        move |event: KeyboardEvent| keep_focus_in_drawer(&event, drawer_open, aside);
 
     view! {
-        <MobileNavigation drawer_open state=drawer_state children footer />
+        <PhoneTopBar drawer_open open_button aside_key />
+        <div
+            class=move || backdrop_class(drawer_open.get())
+            aria-hidden="true"
+            on:click=move |_| drawer_open.set(false)
+        ></div>
 
         <aside
-            class="group/sidebar hidden h-full shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white transition-[width] duration-200 sm:flex"
-            data-collapsed=move || collapsed.get().to_string()
-            style=move || {
-                format!("width:{}", if collapsed.get() { COLLAPSED_WIDTH } else { EXPANDED_WIDTH })
-            }
+            node_ref=aside
+            id=sidebar_id(aside_key)
+            aria-label="Navigation"
+            role=move || drawer_open.get().then_some("dialog")
+            aria-modal=move || drawer_open.get().then_some("true")
+            data-rail=move || rail.get().to_string()
+            class=move || aside_class(drawer_open.get(), rail.get())
+            on:keydown=on_aside_keydown
         >
-            <Provider value=desktop_state>
-                <div class="relative flex h-12 shrink-0 items-center border-b border-gray-200 px-2.5">
-                    <A
-                        href=brand.home_href
-                        attr:class=BRAND_CLASS
-                        attr:tabindex=move || collapsed.get().then_some("-1")
-                    >
-                        {brand.name}
-                    </A>
-                    <button
-                        type="button"
-                        aria-label="Toggle Navigation"
-                        class=format!(
-                            "ml-auto {}",
-                            icon_button_class(ButtonTone::Ghost, ButtonSize::Dense),
-                        )
-                        on:click=move |_| {
-                            set_collapsed_cookie.set(Some(!collapsed.get_untracked()));
-                        }
-                    >
-                        {move || {
-                            let glyph = if collapsed.get() {
-                                LucideGlyph::PanelLeftOpen
-                            } else {
-                                LucideGlyph::PanelLeftClose
-                            };
-                            icons::icon(glyph, ICON_CLASS)
-                        }}
-                    </button>
+            <Provider value=state>
+                <div class=PANEL_CLASS>
+                    <PanelHeader state collapsed set_collapsed_cookie close_button aside_key />
+                    <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden p-2">
+                        {children()}
+                    </nav>
+                    {footer
+                        .map(|footer| {
+                            view! {
+                                <div class="shrink-0 border-t border-gray-200 p-2">
+                                    {footer.run()}
+                                </div>
+                            }
+                        })}
                 </div>
-                <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden p-2">
-                    {desktop_children()}
-                </nav>
-                {desktop_footer
-                    .map(|footer| {
-                        view! {
-                            <div class="shrink-0 border-t border-gray-200 p-2">{footer.run()}</div>
-                        }
-                    })}
             </Provider>
         </aside>
-    }
-    .into_any()
-}
-
-#[component]
-fn MobileNavigation(
-    drawer_open: RwSignal<bool>,
-    state: SidebarState,
-    children: ChildrenFn,
-    footer: Option<ViewFn>,
-) -> impl IntoView {
-    let brand = brand();
-    let drawer_brand_href = brand.home_href;
-
-    view! {
-        <div class="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 border-b border-gray-200 bg-white px-3 sm:hidden">
-            <button
-                type="button"
-                aria-label="Open Navigation"
-                class="flex cursor-pointer items-center justify-center p-1 text-gray-700"
-                on:click=move |_| drawer_open.set(true)
-            >
-                {icons::icon(LucideGlyph::Menu, ICON_CLASS)}
-            </button>
-            <A href=brand.home_href attr:class="text-sm font-semibold tracking-tight text-gray-900">
-                {brand.name}
-            </A>
-        </div>
-
-        {move || {
-            if !drawer_open.get() {
-                return ().into_any();
-            }
-            let children = children.clone();
-            let footer = footer.clone();
-            view! {
-                <div
-                    class="fixed inset-0 z-40 bg-black/40 sm:hidden"
-                    on:click=move |_| drawer_open.set(false)
-                ></div>
-                <div class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden bg-white shadow-lg sm:hidden">
-                    <Provider value=state>
-                        <div class="flex h-12 shrink-0 items-center border-b border-gray-200 px-3">
-                            <A
-                                href=drawer_brand_href
-                                attr:class="text-sm font-semibold tracking-tight text-gray-900"
-                                on:click=move |_| drawer_open.set(false)
-                            >
-                                {brand.name}
-                            </A>
-                            <button
-                                type="button"
-                                aria-label="Close Navigation"
-                                class="ml-auto flex cursor-pointer items-center justify-center p-1 text-gray-500 hover:text-gray-700"
-                                on:click=move |_| drawer_open.set(false)
-                            >
-                                {icons::icon(LucideGlyph::X, ICON_CLASS)}
-                            </button>
-                        </div>
-                        <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
-                            {children()}
-                        </nav>
-                        {footer
-                            .map(|footer| {
-                                view! {
-                                    <div class="shrink-0 border-t border-gray-200 p-2">
-                                        {footer.run()}
-                                    </div>
-                                }
-                            })}
-                    </Provider>
-                </div>
-            }
-                .into_any()
-        }}
     }
     .into_any()
 }
@@ -262,7 +331,7 @@ pub fn NavigationSection(
     let Some(state) = use_context::<SidebarState>() else {
         return children().into_any();
     };
-    let open = move || state.collapsed.get() || !state.section_closed(key);
+    let open = move || state.rail.get() || !state.section_closed(key);
 
     view! {
         <div role="group" aria-label=title class="flex flex-col">
@@ -271,7 +340,7 @@ pub fn NavigationSection(
                     type="button"
                     class=SECTION_TOGGLE_CLASS
                     aria-expanded=move || open().to_string()
-                    tabindex=move || state.collapsed.get().then_some("-1")
+                    tabindex=move || state.rail.get().then_some("-1")
                     on:click=move |_| state.toggle_section(key)
                 >
                     <span>{title}</span>
@@ -350,7 +419,7 @@ pub fn SidebarUser(
     let label = name.unwrap_or_else(|| UNNAMED_USER_LABEL.to_owned());
     let content = view! {
         {icons::icon(LucideGlyph::CircleUserRound, ICON_CLASS)}
-        <span class=format!("truncate {LABEL_CLASS}")>{label}</span>
+        <span class=LABEL_CLASS>{label}</span>
     }
     .into_any();
 
