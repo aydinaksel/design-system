@@ -1,4 +1,4 @@
-# Design system
+# Design System
 
 [Leptos](https://leptos.dev) 0.8 components styled with
 [Tailwind CSS](https://tailwindcss.com) 4: buttons, dialogs, menus, comboboxes,
@@ -12,7 +12,7 @@ the URL. Icons come from [Lucide](https://lucide.dev) through
 | `table-query` | Serializable table state (search, filters, sorting, paging), shared by the browser and the server functions that answer it. |
 | `component-gallery` | A Leptos app that renders every component, for development. |
 
-## Using it
+## Using It
 
 Tailwind only generates classes it finds in the files it scans, so an app has
 to import the stylesheet this crate ships, and that needs a path it can rely on.
