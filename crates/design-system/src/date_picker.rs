@@ -14,6 +14,7 @@ const DATE_FORMAT: &str = "%Y-%m-%d";
 const DEFAULT_PLACEHOLDER: &str = "Select Date";
 const DEFAULT_CLEAR_LABEL: &str = "Clear Date";
 const INVALID_TRIGGER_CLASS: &str = "border-red-400";
+const TRIGGER_WIDTH_CLASS: &str = "min-w-40";
 
 fn parsed_date(text: &str) -> Option<NaiveDate> {
     NaiveDate::parse_from_str(text.trim(), DATE_FORMAT).ok()
@@ -38,19 +39,24 @@ pub fn DatePicker(
     let clear_label = clear_label.unwrap_or_else(|| DEFAULT_CLEAR_LABEL.to_owned());
     let selected_date = Signal::derive(move || value.with(|text| parsed_date(text)));
     let trigger_class = Signal::derive(move || {
-        let base = button_class(ButtonTone::Secondary, ButtonSize::Standard);
+        let base = format!(
+            "{} {TRIGGER_WIDTH_CLASS}",
+            button_class(ButtonTone::Secondary, ButtonSize::Standard)
+        );
         if invalid.get() {
             format!("{base} {INVALID_TRIGGER_CLASS}")
         } else {
             base
         }
     });
-    let trigger_text = move || match selected_date.get() {
+    let trigger_text = move || {
+        match selected_date.get() {
         Some(date) => {
-            view! { <span class="tabular-nums">{date.format(DATE_FORMAT).to_string()}</span> }
+            view! { <span class="flex-1 text-left tabular-nums">{date.format(DATE_FORMAT).to_string()}</span> }
                 .into_any()
         }
-        None => view! { <span class="text-gray-400">{placeholder.clone()}</span> }.into_any(),
+        None => view! { <span class="flex-1 text-left text-gray-400">{placeholder.clone()}</span> }.into_any(),
+    }
     };
     let clear_button = clearable.then(|| {
         view! {
@@ -74,7 +80,7 @@ pub fn DatePicker(
     });
 
     view! {
-        <div class="inline-flex items-center gap-1">
+        <div class="flex items-center gap-1">
             <Popover state=popover>
                 <PopoverTrigger
                     class=trigger_class
