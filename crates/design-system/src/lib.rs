@@ -78,7 +78,7 @@ pub use field_values::{
 };
 pub use fields::{
     provide_editing_scope, FieldEditor, FieldGrid, FieldRow, FieldSection, HeadingLevel,
-    SectionEditing,
+    SaveRejection, SectionEditing,
 };
 pub use fieldset::{Field, Fieldset};
 pub use file_drop_zone::FileDropZone;

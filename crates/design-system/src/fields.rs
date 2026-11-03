@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use leptos::context::Provider;
@@ -76,11 +77,62 @@ impl SectionEditing {
     }
 
     #[must_use]
+    pub fn action<Input, Output, Error>(
+        action: Action<Input, Result<Output, Error>>,
+        request: impl Fn() -> Result<Input, SaveRejection> + Send + Sync + 'static,
+    ) -> Self
+    where
+        Input: Send + Sync + 'static,
+        Output: Send + Sync + 'static,
+        Error: Display + Send + Sync + 'static,
+    {
+        let pending_save = StoredValue::new(None::<FieldSave>);
+        Effect::new(move |_| {
+            let Some(failure) = action
+                .value()
+                .with(|result| result.as_ref().map(failure_message))
+            else {
+                return;
+            };
+            let Some(save) = pending_save.try_update_value(Option::take).flatten() else {
+                return;
+            };
+            match failure {
+                None => save.succeeded(),
+                Some(message) => save.failed(message),
+            }
+        });
+        Self::new(move |save: FieldSave| match request() {
+            Ok(input) => {
+                pending_save.set_value(Some(save));
+                action.dispatch(input);
+            }
+            Err(SaveRejection::Failed(message)) => save.failed(message),
+            Err(SaveRejection::Invalid) => save.invalid(),
+        })
+    }
+
+    #[must_use]
     pub fn on_editing_change(self, on_change: impl Fn(bool) + Send + Sync + 'static) -> Self {
         Self {
             on_editing_change: Some(Callback::new(on_change)),
             ..self
         }
+    }
+}
+
+fn failure_message<Output, Error: Display>(result: &Result<Output, Error>) -> Option<String> {
+    result.as_ref().err().map(ToString::to_string)
+}
+
+pub enum SaveRejection {
+    Failed(String),
+    Invalid,
+}
+
+impl From<&str> for SaveRejection {
+    fn from(message: &str) -> Self {
+        Self::Failed(message.to_owned())
     }
 }
 
