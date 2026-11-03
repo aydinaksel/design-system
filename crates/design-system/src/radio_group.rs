@@ -1,10 +1,7 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use leptos::prelude::*;
 
 use crate::controls::{field_control_id, field_description_id, field_label_id};
-
-static NEXT_RADIO_GROUP_NUMBER: AtomicU64 = AtomicU64::new(0);
+use crate::element_key::ElementKey;
 
 const RADIO_CLASS: &str = "mt-0.5 size-4 shrink-0 cursor-pointer appearance-none rounded-full border border-gray-300 bg-white transition-all hover:border-gray-400 checked:border-[5px] checked:border-blue-600 checked:hover:border-blue-700 focus-ring disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:checked:border-gray-300 motion-reduce:transition-none";
 const OPTION_LABEL_CLASS: &str = "block text-sm font-medium text-gray-900";
@@ -69,6 +66,10 @@ impl RadioLayout {
     }
 }
 
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn RadioGroup(
     #[prop(into)] options: Signal<Vec<RadioOption>>,
@@ -77,7 +78,7 @@ pub fn RadioGroup(
     #[prop(optional, into)] disabled: Signal<bool>,
     #[prop(optional, into)] label: Option<String>,
 ) -> impl IntoView {
-    let group_number = NEXT_RADIO_GROUP_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let group_number = ElementKey::next();
     let name = format!("radio-group-{group_number}");
     let labelled_by = field_label_id();
     let label = label.filter(|_| labelled_by.is_none());

@@ -1,5 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use leptos::context::Provider;
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Button;
@@ -10,9 +8,8 @@ use leptos::web_sys::{EventTarget, HtmlElement, Node};
 use leptos_use::{use_event_listener_with_options, use_window, UseEventListenerOptions};
 
 use crate::editing::{focus_is_within_or_lost, FIRST_CONTROL_SELECTOR};
+use crate::element_key::ElementKey;
 use crate::placement::{Alignment, AnchoredPanel, Anchoring};
-
-static NEXT_POPOVER_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const GAP_PIXELS: f64 = 6.0;
 const DEFAULT_WIDTH_CLASS: &str = "w-72";
@@ -101,7 +98,7 @@ fn keep_tab_inside(panel: &HtmlElement, event: &KeyboardEvent) {
 
 #[derive(Clone, Copy)]
 pub struct PopoverState {
-    number: u64,
+    number: ElementKey,
     open: RwSignal<bool>,
     trigger: NodeRef<Button>,
     panel: AnchoredPanel,
@@ -119,7 +116,7 @@ impl PopoverState {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            number: NEXT_POPOVER_NUMBER.fetch_add(1, Ordering::Relaxed),
+            number: ElementKey::next(),
             open: RwSignal::new(false),
             trigger: NodeRef::new(),
             panel: AnchoredPanel::new(),

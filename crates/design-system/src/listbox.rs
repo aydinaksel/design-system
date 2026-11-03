@@ -1,19 +1,16 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Button;
 use leptos::prelude::*;
 use leptos_use::use_timeout_fn;
 
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
+use crate::element_key::ElementKey;
 use crate::icons;
 use crate::menu::{
     is_typeahead_key, moved_position, typeahead_position, Movement,
     TYPEAHEAD_RESET_DELAY_MILLISECONDS,
 };
 use crate::placement::{Alignment, AnchoredPanel, Anchoring};
-
-static NEXT_LISTBOX_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) const LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS: f64 = 240.0;
 pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
@@ -49,6 +46,10 @@ impl ListboxOption {
     clippy::too_many_lines,
     reason = "one widget: the button, the options, and their key handling belong together"
 )]
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn Listbox(
     #[prop(into)] options: Signal<Vec<ListboxOption>>,
@@ -58,7 +59,7 @@ pub fn Listbox(
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
-    let listbox_number = NEXT_LISTBOX_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let listbox_number = ElementKey::next();
     let panel_id = format!("listbox-{listbox_number}-options");
     let option_id = move |index: usize| format!("listbox-{listbox_number}-option-{index}");
     let placeholder = placeholder.unwrap_or_else(|| DEFAULT_PLACEHOLDER.to_owned());

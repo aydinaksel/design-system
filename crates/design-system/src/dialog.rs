@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use leptos::ev::{KeyboardEvent, MouseEvent};
@@ -6,9 +5,8 @@ use leptos::html::Div;
 use leptos::portal::Portal;
 use leptos::prelude::*;
 
+use crate::element_key::ElementKey;
 use crate::icons;
-
-static NEXT_DIALOG_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const BACKDROP_CLASS: &str = "fixed inset-0 bg-gray-900/40 transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:transition-none";
 const PANEL_CLASS: &str = "relative w-full rounded-surface border border-gray-200 bg-white p-5 shadow-xl transition duration-200 ease-out focus:outline-none starting:scale-95 starting:opacity-0 motion-reduce:transition-none";
@@ -45,6 +43,7 @@ pub fn use_dialog_close() -> Option<Callback<()>> {
 mod browser {
     use std::cell::RefCell;
 
+    use crate::element_key::ElementKey;
     use leptos::prelude::document;
     use leptos::wasm_bindgen::JsCast;
     use leptos::web_sys::{Element, HtmlElement};
@@ -53,10 +52,10 @@ mod browser {
     const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
 
     thread_local! {
-        static OPEN_DIALOGS: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+        static OPEN_DIALOGS: RefCell<Vec<ElementKey>> = const { RefCell::new(Vec::new()) };
     }
 
-    pub(super) fn opened(number: u64) {
+    pub(super) fn opened(number: ElementKey) {
         let first = OPEN_DIALOGS.with(|open| {
             let mut open = open.borrow_mut();
             open.push(number);
@@ -67,7 +66,7 @@ mod browser {
         }
     }
 
-    pub(super) fn closed(number: u64) {
+    pub(super) fn closed(number: ElementKey) {
         let none_left = OPEN_DIALOGS.with(|open| {
             let mut open = open.borrow_mut();
             open.retain(|other| *other != number);
@@ -78,7 +77,7 @@ mod browser {
         }
     }
 
-    pub(super) fn is_topmost(number: u64) -> bool {
+    pub(super) fn is_topmost(number: ElementKey) -> bool {
         OPEN_DIALOGS.with(|open| open.borrow().last() == Some(&number))
     }
 
@@ -154,6 +153,10 @@ mod browser {
     clippy::too_many_lines,
     reason = "one widget: the focus handling, dismissal and markup share the dialog's state"
 )]
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn Dialog(
     #[prop(into)] title: Signal<String>,
@@ -163,7 +166,7 @@ pub fn Dialog(
     #[prop(optional)] alert: bool,
     children: Children,
 ) -> impl IntoView {
-    let dialog_number = NEXT_DIALOG_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let dialog_number = ElementKey::next();
     let title_id = format!("dialog-{dialog_number}-title");
     let description_id = description
         .is_some()

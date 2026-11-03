@@ -498,6 +498,25 @@ fn form_dialog(open: RwSignal<bool>) -> impl IntoView {
     }
 }
 
+fn choice_list() -> AnyView {
+    let priority = RwSignal::new(String::new());
+    let options: Vec<ChoiceOption> = PRIORITIES
+        .iter()
+        .map(|priority| ChoiceOption::new(*priority, *priority))
+        .collect();
+    view! {
+        <div class="max-w-xs">
+            <ChoiceList
+                options=options
+                current=priority
+                label="Priority"
+                on_choose=Callback::new(move |chosen: String| priority.set(chosen))
+            />
+        </div>
+    }
+    .into_any()
+}
+
 fn priority_dialog(open: RwSignal<bool>, priority: RwSignal<String>) -> impl IntoView {
     let options: Vec<ChoiceOption> = PRIORITIES
         .iter()
@@ -1195,6 +1214,7 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Filter Chips", filter_chips())}
             {section("Menus", menus())}
             {section("Dialogs", dialogs())}
+            {section("Choice List", choice_list())}
             {section("Popovers", super::popovers::popovers())}
             {section("Toasts", toasts())}
             {section("Alerts", alerts())}

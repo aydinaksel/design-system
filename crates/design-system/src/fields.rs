@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use leptos::context::Provider;
 use leptos::ev::{BeforeUnloadEvent, KeyboardEvent, MouseEvent};
@@ -21,14 +20,13 @@ use crate::editing::{
     SaveOutcome, ATTENTION_MILLISECONDS, FIRST_CONTROL_SELECTOR, FIRST_INVALID_CONTROL_SELECTOR,
     SAVED_HIGHLIGHT_MILLISECONDS,
 };
+use crate::element_key::ElementKey;
 use crate::field_actions::{field_actions_view, FieldAction};
 use crate::icons;
 use crate::loading_state::LoadingState;
 use crate::tone::Tone;
 use crate::tooltip::Tooltip;
 use crate::typography::LABEL_CLASS;
-
-static NEXT_FIELD_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
@@ -191,7 +189,7 @@ impl FieldEditor {
 
 #[derive(Clone, Copy)]
 struct RowStatus {
-    number: u64,
+    number: ElementKey,
     changed: Signal<bool>,
     invalid: Signal<bool>,
     revert: Callback<()>,
@@ -206,7 +204,7 @@ struct SectionContext {
 
 #[derive(Clone, Copy)]
 struct ActiveEditor {
-    section_number: u64,
+    section_number: ElementKey,
     has_changes: Signal<bool>,
     discard: Callback<()>,
     draw_attention: Callback<()>,
@@ -288,7 +286,7 @@ fn navigating_anchor(event: &MouseEvent) -> Option<HtmlAnchorElement> {
 
 #[derive(Clone, Copy)]
 struct EditSession {
-    number: u64,
+    number: ElementKey,
     state: RwSignal<SectionState>,
     error: RwSignal<Option<String>>,
     errors_revealed: RwSignal<bool>,
@@ -666,7 +664,7 @@ pub fn FieldSection(
     #[prop(optional, into)] loading: Signal<bool>,
     children: Children,
 ) -> impl IntoView {
-    let section_number = NEXT_FIELD_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let section_number = ElementKey::next();
     let heading_id = title
         .as_ref()
         .map(|_| format!("field-section-{section_number}-heading"));
@@ -873,7 +871,7 @@ struct RowIds {
 }
 
 impl RowIds {
-    fn new(number: u64, has_help: bool, has_editor: bool) -> Self {
+    fn new(number: ElementKey, has_help: bool, has_editor: bool) -> Self {
         Self {
             control: format!("field-{number}"),
             label: format!("field-{number}-label"),
@@ -945,7 +943,7 @@ pub fn FieldRow(
     children: Children,
 ) -> impl IntoView {
     let row: NodeRef<Div> = NodeRef::new();
-    let row_number = NEXT_FIELD_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let row_number = ElementKey::next();
     let ids = RowIds::new(row_number, help.is_some(), editor.is_some());
     let context = use_context::<SectionContext>();
     let state = context.map_or_else(
@@ -1114,15 +1112,19 @@ mod tests {
 
     #[test]
     fn describes_a_row_by_its_help_and_error() {
-        let ids = RowIds::new(7, true, true);
+        let key = ElementKey::next();
+        let ids = RowIds::new(key, true, true);
         assert_eq!(
-            ids.description().as_deref(),
-            Some("field-7-help field-7-error")
+            ids.description(),
+            Some(format!("field-{key}-help field-{key}-error"))
         );
     }
 
     #[test]
     fn leaves_a_plain_row_undescribed() {
-        assert_eq!(RowIds::new(7, false, false).description(), None);
+        assert_eq!(
+            RowIds::new(ElementKey::next(), false, false).description(),
+            None
+        );
     }
 }

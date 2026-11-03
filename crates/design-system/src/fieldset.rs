@@ -1,18 +1,19 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use leptos::prelude::*;
 
 use crate::controls::FieldElementIds;
+use crate::element_key::ElementKey;
 
-static NEXT_FIELDSET_NUMBER: AtomicU64 = AtomicU64::new(0);
-
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn Fieldset(
     #[prop(optional, into)] legend: Option<String>,
     #[prop(optional, into)] disabled: Signal<bool>,
     children: Children,
 ) -> impl IntoView {
-    let fieldset_number = NEXT_FIELDSET_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let fieldset_number = ElementKey::next();
     let legend_id = legend
         .as_ref()
         .map(|_| format!("fieldset-{fieldset_number}-legend"));
@@ -42,13 +43,17 @@ pub fn Fieldset(
     .into_any()
 }
 
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn Field(
     #[prop(into)] label: String,
     #[prop(optional, into)] description: Option<ViewFn>,
     children: Children,
 ) -> impl IntoView {
-    let field_number = NEXT_FIELDSET_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let field_number = ElementKey::next();
     let control_id = format!("fieldset-field-{field_number}");
     let label_id = format!("fieldset-field-{field_number}-label");
     let description_id = description

@@ -1,6 +1,5 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use leptos::ev::{Event, KeyboardEvent, MouseEvent};
@@ -9,6 +8,7 @@ use leptos::prelude::*;
 
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
+use crate::element_key::ElementKey;
 use crate::icons;
 use crate::listbox::{LISTBOX_ANCHORING, LISTBOX_PANEL_CLASS, LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS};
 use crate::menu::{moved_position, Movement};
@@ -26,8 +26,6 @@ const HIGHLIGHTED_OPTION_CLASS: &str = "flex cursor-pointer items-baseline justi
 const MESSAGE_CLASS: &str = "px-3 py-1.5 text-gray-500";
 const GROUP_HEADING_CLASS: &str = "px-3 pb-1 pt-1.5 text-xs font-medium text-gray-500";
 const GROUP_SEPARATOR_CLASS: &str = "my-1 h-px bg-gray-200";
-
-static NEXT_COMBOBOX_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ComboboxOption {
@@ -355,6 +353,10 @@ fn abandoned(query: &str) -> Abandoned {
     clippy::too_many_lines,
     reason = "one widget: the debounced search, the key handling, and the listbox belong together"
 )]
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn Combobox(
     selected_value: RwSignal<String>,
@@ -367,7 +369,7 @@ pub fn Combobox(
     #[prop(optional)] display: ComboboxDisplay,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
-    let combobox_number = NEXT_COMBOBOX_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let combobox_number = ElementKey::next();
     let listbox_id = format!("combobox-{combobox_number}-listbox");
     let option_id = move |index: usize| format!("combobox-{combobox_number}-option-{index}");
 

@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use leptos::context::Provider;
@@ -14,12 +13,11 @@ use crate::editing::{
     ATTENTION_MILLISECONDS, FIRST_CONTROL_SELECTOR, FIRST_INVALID_CONTROL_SELECTOR,
     SAVED_HIGHLIGHT_MILLISECONDS,
 };
+use crate::element_key::ElementKey;
 use crate::popover::{
     Dismissal, Popover, PopoverContent, PopoverHeader, PopoverState, PopoverTitle, PopoverTrigger,
 };
 use crate::tone::Tone;
-
-static NEXT_CELL_EDITOR_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const TRIGGER_CLASS: &str = "group -mx-1.5 -my-0.5 inline-flex max-w-[calc(100%+0.75rem)] cursor-pointer items-center rounded-md px-1.5 py-0.5 text-left focus-ring";
 const VALUE_CLASS: &str = "truncate border-b border-dotted border-gray-400 group-hover:border-solid group-hover:border-blue-600 group-hover:text-blue-700";
@@ -129,7 +127,7 @@ where
             hint,
             on_save,
         } = self;
-        let ids = CellIds::new(NEXT_CELL_EDITOR_NUMBER.fetch_add(1, Ordering::Relaxed));
+        let ids = CellIds::new(ElementKey::next());
         let has_hint = hint.is_some();
         let display = StoredValue::new(display);
         let editor = StoredValue::new(editor);
@@ -357,7 +355,7 @@ struct CellIds {
 }
 
 impl CellIds {
-    fn new(number: u64) -> Self {
+    fn new(number: ElementKey) -> Self {
         Self {
             control: format!("cell-{number}"),
             description: format!("cell-{number}-description"),

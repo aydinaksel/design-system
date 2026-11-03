@@ -1,16 +1,14 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use leptos::ev::KeyboardEvent;
+use leptos::html::Div;
 use leptos::prelude::*;
 use leptos_use::use_timeout_fn;
 
+use crate::element_key::ElementKey;
 use crate::icons;
 use crate::menu::{
     is_typeahead_key, moved_position, typeahead_position, Movement,
     TYPEAHEAD_RESET_DELAY_MILLISECONDS,
 };
-
-static NEXT_CHOICE_LIST_NUMBER: AtomicU64 = AtomicU64::new(0);
 
 const LIST_CLASS: &str = "max-h-72 overflow-y-auto overscroll-contain rounded-surface border border-gray-200 bg-white p-1 text-sm focus-ring";
 const OPTION_CLASS: &str =
@@ -57,6 +55,10 @@ impl ChoiceOption {
     clippy::too_many_lines,
     reason = "one widget: the list, its options, and their key handling belong together"
 )]
+#[expect(
+    clippy::must_use_candidate,
+    reason = "the component macro drops attributes on the function it emits"
+)]
 #[component]
 pub fn ChoiceList(
     #[prop(into)] options: Signal<Vec<ChoiceOption>>,
@@ -65,8 +67,18 @@ pub fn ChoiceList(
     #[prop(optional, into)] label: Option<String>,
     #[prop(optional)] autofocus: bool,
 ) -> impl IntoView {
-    let list_number = NEXT_CHOICE_LIST_NUMBER.fetch_add(1, Ordering::Relaxed);
-    let option_id = move |index: usize| format!("choice-list-{list_number}-option-{index}");
+    let list: NodeRef<Div> = NodeRef::new();
+    let list_key = ElementKey::next();
+    let list_id_on_page = move |rendered: Option<web_sys::HtmlDivElement>| {
+        rendered
+            .map(|element| element.id())
+            .filter(|id| !id.is_empty())
+            .unwrap_or_else(|| format!("choice-list-{list_key}"))
+    };
+    let option_id =
+        move |index: usize| format!("{}-option-{index}", list_id_on_page(list.get_untracked()));
+    let tracked_option_id =
+        move |index: usize| format!("{}-option-{index}", list_id_on_page(list.get()));
 
     let current_index = move || {
         let current = current.get_untracked();
@@ -136,7 +148,7 @@ pub fn ChoiceList(
         let Some(index) = highlighted.get() else {
             return;
         };
-        if let Some(element) = document().get_element_by_id(&option_id(index)) {
+        if let Some(element) = document().get_element_by_id(&tracked_option_id(index)) {
             let scrolling = web_sys::ScrollIntoViewOptions::new();
             scrolling.set_block(web_sys::ScrollLogicalPosition::Nearest);
             element.scroll_into_view_with_scroll_into_view_options(&scrolling);
@@ -195,10 +207,12 @@ pub fn ChoiceList(
 
     view! {
         <div
+            node_ref=list
+            id=format!("choice-list-{list_key}")
             role="listbox"
             tabindex="0"
             aria-label=label
-            aria-activedescendant=move || highlighted.get().map(option_id)
+            aria-activedescendant=move || highlighted.get().map(tracked_option_id)
             data-autofocus=autofocus.then_some("")
             class=LIST_CLASS
             on:keydown=on_keydown
