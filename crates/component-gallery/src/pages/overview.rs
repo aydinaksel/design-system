@@ -1121,6 +1121,7 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Filter Chips", filter_chips())}
             {section("Menus", menus())}
             {section("Dialogs", dialogs())}
+            {section("Popovers", super::popovers::popovers())}
             {section("Toasts", toasts())}
             {section("Alerts", alerts())}
             {section("Meters", meters())}
@@ -1130,6 +1131,7 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Fieldsets", fieldsets())}
             {section("Form Controls", form_controls())}
             {section("Field Sections", field_sections())}
+            {section("Cell Editing", super::cell_editing::cell_editing())}
             {section("Images and Cards", images())}
         </main>
     }

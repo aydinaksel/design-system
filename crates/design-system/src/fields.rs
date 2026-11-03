@@ -5,18 +5,20 @@ use leptos::ev::{BeforeUnloadEvent, KeyboardEvent, MouseEvent};
 use leptos::html::{Button, Div, Section};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::{
-    Element, HtmlAnchorElement, HtmlElement, Node, ScrollIntoViewOptions, ScrollLogicalPosition,
-};
+use leptos::web_sys::{Element, HtmlAnchorElement, ScrollIntoViewOptions, ScrollLogicalPosition};
 use leptos_use::{
-    use_event_listener, use_event_listener_with_options, use_timeout_fn, use_window,
-    UseEventListenerOptions,
+    use_event_listener, use_event_listener_with_options, use_window, UseEventListenerOptions,
 };
 
 use crate::alert::Alert;
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::confirm_dialog::ConfirmDialog;
 use crate::controls::FieldElementIds;
+use crate::editing::{
+    focus_first, focus_is_within_or_lost, saves_on_enter, timer, FieldSave, PendingSave,
+    SaveOutcome, ATTENTION_MILLISECONDS, FIRST_CONTROL_SELECTOR, FIRST_INVALID_CONTROL_SELECTOR,
+    SAVED_HIGHLIGHT_MILLISECONDS,
+};
 use crate::field_actions::{field_actions_view, FieldAction};
 use crate::icons;
 use crate::tone::Tone;
@@ -25,12 +27,6 @@ use crate::typography::LABEL_CLASS;
 
 static NEXT_FIELD_NUMBER: AtomicU64 = AtomicU64::new(0);
 
-const MINIMUM_SAVING_MILLISECONDS: f64 = 300.0;
-const SAVED_HIGHLIGHT_MILLISECONDS: f64 = 1600.0;
-const ATTENTION_MILLISECONDS: f64 = 1200.0;
-const FIRST_CONTROL_SELECTOR: &str = "input:not([disabled]), textarea:not([disabled]), button[role=combobox]:not([disabled]), button[role=switch]:not([disabled])";
-const FIRST_INVALID_CONTROL_SELECTOR: &str = "[aria-invalid=true]";
-const UNFINISHED_SAVE_MESSAGE: &str = "The save did not finish. Try again.";
 const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-[0.5625rem]";
 const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-surface-inner after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-start sm:gap-4 motion-safe:transition-colors";
 const HELP_TRIGGER_CLASS: &str = "cursor-help rounded-sm underline decoration-gray-300 decoration-dotted underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400";
@@ -55,60 +51,6 @@ enum SectionState {
 impl SectionState {
     fn is_open(self) -> bool {
         matches!(self, Self::Editing | Self::Saving)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum SaveOutcome {
-    Succeeded,
-    Failed(String),
-    Unchanged,
-    Invalid,
-}
-
-#[must_use = "the section stays in its saving state until the save reports an outcome"]
-pub struct FieldSave {
-    outcome: RwSignal<Option<SaveOutcome>>,
-    reported: bool,
-}
-
-impl FieldSave {
-    fn new(outcome: RwSignal<Option<SaveOutcome>>) -> Self {
-        Self {
-            outcome,
-            reported: false,
-        }
-    }
-
-    fn report(mut self, result: SaveOutcome) {
-        self.reported = true;
-        self.outcome.try_set(Some(result));
-    }
-
-    pub fn succeeded(self) {
-        self.report(SaveOutcome::Succeeded);
-    }
-
-    pub fn failed(self, message: impl Into<String>) {
-        self.report(SaveOutcome::Failed(message.into()));
-    }
-
-    pub fn unchanged(self) {
-        self.report(SaveOutcome::Unchanged);
-    }
-
-    pub fn invalid(self) {
-        self.report(SaveOutcome::Invalid);
-    }
-}
-
-impl Drop for FieldSave {
-    fn drop(&mut self) {
-        if !self.reported {
-            self.outcome.try_set(Some(SaveOutcome::Failed(
-                UNFINISHED_SAVE_MESSAGE.to_owned(),
-            )));
-        }
     }
 }
 
@@ -234,18 +176,6 @@ pub fn FieldGrid(children: Children) -> impl IntoView {
         .into_any()
 }
 
-fn saves_on_enter(event: &KeyboardEvent) -> bool {
-    let Some(element) = event
-        .target()
-        .and_then(|target| target.dyn_into::<Element>().ok())
-    else {
-        return false;
-    };
-    let tag = element.tag_name().to_ascii_lowercase();
-    let is_select = element.get_attribute("role").as_deref() == Some("combobox");
-    tag == "input" || (tag == "button" && is_select)
-}
-
 fn saved_announcement(title: Option<&str>) -> String {
     title.map_or_else(
         || "Changes saved.".to_owned(),
@@ -273,24 +203,6 @@ fn discard_warning(count: usize, title: Option<&str>) -> String {
         Some(title) => format!("{subject} {changes} to {title} {verb} lost if you continue."),
         None => format!("{subject} {changes} {verb} lost if you continue."),
     }
-}
-
-fn focus_first(container: &Element, selector: &str) {
-    let control = container
-        .query_selector(selector)
-        .ok()
-        .flatten()
-        .and_then(|element| element.dyn_into::<HtmlElement>().ok());
-    if let Some(control) = control {
-        control.focus().unwrap_or_default();
-    }
-}
-
-fn focus_is_within_or_lost(container: &Element) -> bool {
-    document().active_element().is_none_or(|active| {
-        let active: &Node = &active;
-        active.node_name().eq_ignore_ascii_case("body") || container.contains(Some(active))
-    })
 }
 
 fn is_same_document(anchor: &HtmlAnchorElement) -> bool {
@@ -324,8 +236,7 @@ struct EditSession {
     state: RwSignal<SectionState>,
     error: RwSignal<Option<String>>,
     errors_revealed: RwSignal<bool>,
-    outcome: RwSignal<Option<SaveOutcome>>,
-    minimum_elapsed: RwSignal<bool>,
+    pending: PendingSave,
     attention: RwSignal<bool>,
     discard_prompt_open: RwSignal<bool>,
     rows: RwSignal<Vec<RowStatus>>,
@@ -333,7 +244,6 @@ struct EditSession {
     section: NodeRef<Section>,
     edit_button: NodeRef<Button>,
     on_save: Callback<FieldSave>,
-    start_minimum_timer: Callback<()>,
     start_highlight_timer: Callback<()>,
     start_attention_timer: Callback<()>,
 }
@@ -471,11 +381,8 @@ impl EditSession {
             self.close(SectionState::Viewing);
             return;
         }
-        self.outcome.set(None);
-        self.minimum_elapsed.set(false);
         self.state.set(SectionState::Saving);
-        self.start_minimum_timer.run(());
-        self.on_save.run(FieldSave::new(self.outcome));
+        self.on_save.run(self.pending.begin());
     }
 
     fn resolve(self, result: SaveOutcome) {
@@ -525,11 +432,6 @@ impl EditSession {
             _ => {}
         }
     }
-}
-
-fn timer(callback: impl Fn() + Clone + Send + Sync + 'static, milliseconds: f64) -> Callback<()> {
-    let start = use_timeout_fn(move |()| callback(), milliseconds).start;
-    Callback::new(move |()| start(()))
 }
 
 fn guard_navigation(
@@ -725,54 +627,35 @@ pub fn FieldSection(
     };
 
     let editing = editing.filter(|editing| editing.allowed);
-    let session = editing.as_ref().map(|editing| {
-        let minimum_elapsed = RwSignal::new(false);
-        EditSession {
-            number: section_number,
-            state,
-            error,
-            errors_revealed,
-            outcome: RwSignal::new(None),
-            minimum_elapsed,
-            attention,
-            discard_prompt_open: RwSignal::new(false),
-            rows,
-            scope: use_context::<EditingScope>(),
-            section,
-            edit_button: NodeRef::new(),
-            on_save: editing.on_save,
-            start_minimum_timer: timer(
-                move || minimum_elapsed.set(true),
-                MINIMUM_SAVING_MILLISECONDS,
-            ),
-            start_highlight_timer: timer(
-                move || {
-                    if state.get_untracked() == SectionState::Saved {
-                        state.set(SectionState::Viewing);
-                    }
-                },
-                SAVED_HIGHLIGHT_MILLISECONDS,
-            ),
-            start_attention_timer: timer(move || attention.set(false), ATTENTION_MILLISECONDS),
-        }
+    let session = editing.as_ref().map(|editing| EditSession {
+        number: section_number,
+        state,
+        error,
+        errors_revealed,
+        pending: PendingSave::new(),
+        attention,
+        discard_prompt_open: RwSignal::new(false),
+        rows,
+        scope: use_context::<EditingScope>(),
+        section,
+        edit_button: NodeRef::new(),
+        on_save: editing.on_save,
+        start_highlight_timer: timer(
+            move || {
+                if state.get_untracked() == SectionState::Saved {
+                    state.set(SectionState::Viewing);
+                }
+            },
+            SAVED_HIGHLIGHT_MILLISECONDS,
+        ),
+        start_attention_timer: timer(move || attention.set(false), ATTENTION_MILLISECONDS),
     });
 
     if let Some(session) = session {
-        Effect::new(move |_| {
-            if state.get() != SectionState::Saving {
-                return;
-            }
-            let Some(result) = session.outcome.get() else {
-                return;
-            };
-            let waits_for_minimum =
-                !matches!(result, SaveOutcome::Unchanged | SaveOutcome::Invalid);
-            if waits_for_minimum && !session.minimum_elapsed.get() {
-                return;
-            }
-            session.outcome.set(None);
-            session.resolve(result);
-        });
+        session.pending.resolve_with(
+            move || state.get() == SectionState::Saving,
+            move |result| session.resolve(result),
+        );
         on_cleanup(move || session.release());
     }
 

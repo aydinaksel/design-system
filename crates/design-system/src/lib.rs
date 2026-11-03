@@ -17,6 +17,7 @@ pub mod currency;
 pub mod date_picker;
 pub mod detail_header;
 pub mod dialog;
+pub mod editing;
 pub mod field_actions;
 pub mod field_values;
 pub mod fields;
@@ -35,6 +36,7 @@ pub mod meter;
 pub mod mode_switch;
 pub mod not_found;
 pub mod page_header;
+pub mod popover;
 pub mod radio_group;
 pub mod search_input;
 pub mod shell;
@@ -68,13 +70,14 @@ pub use currency::Currency;
 pub use date_picker::DatePicker;
 pub use detail_header::{DetailHeader, DocumentStatus, IdentifierKind};
 pub use dialog::{use_dialog_close, Dialog, DialogSize};
+pub use editing::FieldSave;
 pub use field_actions::FieldAction;
 pub use field_values::{
     address_actions, address_value, missing_value, multiline_value, partner_value, text_value,
     value_skeleton,
 };
 pub use fields::{
-    provide_editing_scope, FieldEditor, FieldGrid, FieldRow, FieldSave, FieldSection, HeadingLevel,
+    provide_editing_scope, FieldEditor, FieldGrid, FieldRow, FieldSection, HeadingLevel,
     SectionEditing,
 };
 pub use fieldset::{Field, Fieldset};
@@ -90,6 +93,10 @@ pub use meter::Meter;
 pub use mode_switch::{selected_mode, ModeSwitch, PageMode};
 pub use not_found::NotFoundPage;
 pub use page_header::PageHeader;
+pub use popover::{
+    use_popover, Dismissal, Popover, PopoverAlign, PopoverContent, PopoverDescription,
+    PopoverHeader, PopoverState, PopoverTitle, PopoverTrigger,
+};
 pub use radio_group::{RadioGroup, RadioLayout, RadioOption};
 pub use search_input::{SearchInput, SearchSize};
 pub use shell::shell;

@@ -1,5 +1,7 @@
 pub mod calendar;
+pub mod cell_editing;
 pub mod overview;
+pub mod popovers;
 pub mod sidebar;
 pub mod tables;
 

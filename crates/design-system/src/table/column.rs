@@ -9,10 +9,6 @@ use crate::currency::Currency;
 /// searching (written once, generically, inside `DataTable`); `render` is the
 /// actual cell view and stays fully custom. Both closures are `Send + Sync` so
 /// the column can live in default reactive storage under multi-threaded SSR.
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "the flags are independent column capabilities, not states of one machine"
-)]
 pub struct Column<Row: Send + Sync + 'static> {
     pub key: &'static str,
     pub header: &'static str,
@@ -20,7 +16,6 @@ pub struct Column<Row: Send + Sync + 'static> {
     pub sortable: bool,
     pub searchable: bool,
     pub filterable: bool,
-    pub editable: bool,
     pub value: Arc<dyn Fn(&Row) -> CellValue + Send + Sync>,
     pub render: Arc<dyn Fn(&Row) -> AnyView + Send + Sync>,
 }
@@ -34,7 +29,6 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
             sortable: self.sortable,
             searchable: self.searchable,
             filterable: self.filterable,
-            editable: self.editable,
             value: Arc::clone(&self.value),
             render: Arc::clone(&self.render),
         }
@@ -56,7 +50,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            editable: false,
             value: Arc::new(move |row| CellValue::Text(value_accessor(row))),
             render: Arc::new(move |row| accessor(row).into_any()),
         }
@@ -77,7 +70,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            editable: false,
             value: Arc::new(move |row| match value_accessor(row) {
                 Some(number) => CellValue::Int(i64::from(number)),
                 None => CellValue::Empty,
@@ -101,7 +93,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            editable: false,
             value: Arc::new(move |row| match value_accessor(row) {
                 Some(quantity) => CellValue::Number(quantity),
                 None => CellValue::Empty,
@@ -155,7 +146,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            editable: false,
             value: Arc::new(move |row| match value_accessor(row) {
                 Some(amount) => CellValue::Number(amount),
                 None => CellValue::Empty,
@@ -180,7 +170,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            editable: false,
             value: Arc::new(move |row| {
                 use rust_decimal::prelude::ToPrimitive;
                 match value_accessor(row).and_then(|amount| amount.to_f64()) {
@@ -210,7 +199,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            editable: false,
             value: Arc::new(move |row| CellValue::Text(value_accessor(row))),
             render: Arc::new(move |row| {
                 let target = href(row);
@@ -239,7 +227,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            editable: false,
             value: Arc::new(|_| CellValue::Empty),
             render: Arc::new(render),
         }
@@ -272,12 +259,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
     #[must_use]
     pub fn filterable(mut self) -> Self {
         self.filterable = true;
-        self
-    }
-
-    #[must_use]
-    pub fn editable(mut self) -> Self {
-        self.editable = true;
         self
     }
 }

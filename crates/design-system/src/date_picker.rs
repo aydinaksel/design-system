@@ -5,6 +5,7 @@ use leptos_use::{use_calendar_with_options, CalendarDate, UseCalendarOptions, Us
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::controls::{field_control_id, field_description_id, with_field_error};
 use crate::icons;
+use crate::popover::{Popover, PopoverContent, PopoverState, PopoverTrigger};
 
 const WEEKDAY_LABELS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_BUTTON: &str =
@@ -32,18 +33,18 @@ pub fn DatePicker(
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
-    let is_open = RwSignal::new(false);
+    let popover = PopoverState::new();
     let placeholder = placeholder.unwrap_or_else(|| DEFAULT_PLACEHOLDER.to_owned());
     let clear_label = clear_label.unwrap_or_else(|| DEFAULT_CLEAR_LABEL.to_owned());
     let selected_date = Signal::derive(move || value.with(|text| parsed_date(text)));
-    let trigger_class = move || {
+    let trigger_class = Signal::derive(move || {
         let base = button_class(ButtonTone::Secondary, ButtonSize::Standard);
         if invalid.get() {
             format!("{base} {INVALID_TRIGGER_CLASS}")
         } else {
             base
         }
-    };
+    });
     let trigger_text = move || match selected_date.get() {
         Some(date) => {
             view! { <span class="tabular-nums">{date.format(DATE_FORMAT).to_string()}</span> }
@@ -73,41 +74,29 @@ pub fn DatePicker(
     });
 
     view! {
-        <div class="relative inline-flex items-center gap-1">
-            <button
-                type="button"
-                id=field_control_id()
-                aria-describedby=field_description_id()
-                aria-invalid=move || invalid.get().to_string()
-                aria-haspopup="dialog"
-                aria-expanded=move || is_open.get().to_string()
-                class=trigger_class
-                prop:disabled=move || disabled.get()
-                on:click=move |_| is_open.update(|open| *open = !*open)
-            >
-                {icons::icon(icons::LucideGlyph::CalendarDays, "h-4 w-4 shrink-0 opacity-70")}
-                {trigger_text}
-            </button>
+        <div class="inline-flex items-center gap-1">
+            <Popover state=popover>
+                <PopoverTrigger
+                    class=trigger_class
+                    disabled=disabled
+                    attr:id=field_control_id()
+                    attr:aria-describedby=field_description_id()
+                    attr:aria-invalid=move || invalid.get().to_string()
+                >
+                    {icons::icon(icons::LucideGlyph::CalendarDays, "h-4 w-4 shrink-0 opacity-70")}
+                    {trigger_text}
+                </PopoverTrigger>
+                <PopoverContent>
+                    <CalendarPanel
+                        selected_date=selected_date.get_untracked()
+                        on_select=Callback::new(move |chosen: NaiveDate| {
+                            value.set(chosen.format(DATE_FORMAT).to_string());
+                            popover.close();
+                        })
+                    />
+                </PopoverContent>
+            </Popover>
             {clear_button}
-            {move || {
-                is_open
-                    .get()
-                    .then(|| {
-                        view! {
-                            <div
-                                class="fixed inset-0 z-10"
-                                on:click=move |_| is_open.set(false)
-                            ></div>
-                            <CalendarPanel
-                                selected_date=selected_date.get_untracked()
-                                is_open=is_open
-                                on_select=Callback::new(move |chosen: NaiveDate| {
-                                    value.set(chosen.format(DATE_FORMAT).to_string());
-                                })
-                            />
-                        }
-                    })
-            }}
         </div>
     }
     .into_any()
@@ -116,7 +105,6 @@ pub fn DatePicker(
 #[component]
 fn CalendarPanel(
     selected_date: Option<NaiveDate>,
-    is_open: RwSignal<bool>,
     on_select: Callback<NaiveDate>,
 ) -> impl IntoView {
     let options = UseCalendarOptions::default().initial_date(selected_date);
@@ -136,10 +124,7 @@ fn CalendarPanel(
             .unwrap_or_default()
     };
 
-    let select_day = move |chosen: NaiveDate| {
-        is_open.set(false);
-        on_select.run(chosen);
-    };
+    let select_day = move |chosen: NaiveDate| on_select.run(chosen);
 
     let day_cells = move || {
         dates
@@ -149,8 +134,14 @@ fn CalendarPanel(
                 let chosen: NaiveDate = *calendar_date;
                 let label = calendar_date.format("%-d").to_string();
                 let class = day_class(calendar_date, selected_date);
+                let autofocus = starts_focused(calendar_date, selected_date).then_some("");
                 view! {
-                    <button type="button" class=class on:click=move |_| select_day(chosen)>
+                    <button
+                        type="button"
+                        class=class
+                        data-autofocus=autofocus
+                        on:click=move |_| select_day(chosen)
+                    >
                         {label}
                     </button>
                 }
@@ -159,11 +150,12 @@ fn CalendarPanel(
     };
 
     view! {
-        <div class="absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-surface border border-gray-200 bg-white p-3 shadow-lg">
+        <div>
             <div class="mb-2 flex items-center justify-between">
                 <button
                     type="button"
                     class="cursor-pointer rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                    aria-label="Previous Month"
                     on:click=move |_| previous_month()
                 >
                     {icons::icon(icons::LucideGlyph::ChevronLeft, "h-4 w-4")}
@@ -172,6 +164,7 @@ fn CalendarPanel(
                 <button
                     type="button"
                     class="cursor-pointer rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                    aria-label="Next Month"
                     on:click=move |_| next_month()
                 >
                     {icons::icon(icons::LucideGlyph::ChevronRight, "h-4 w-4")}
@@ -202,6 +195,13 @@ fn CalendarPanel(
         </div>
     }
     .into_any()
+}
+
+fn starts_focused(calendar_date: CalendarDate, selected_date: Option<NaiveDate>) -> bool {
+    match selected_date {
+        Some(selected) => calendar_date.is_selected(&selected),
+        None => calendar_date.is_today(),
+    }
 }
 
 fn day_class(calendar_date: CalendarDate, selected_date: Option<NaiveDate>) -> String {
