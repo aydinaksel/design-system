@@ -6,7 +6,7 @@ use crate::controls::{field_control_id, field_description_id, field_label_id};
 
 static NEXT_RADIO_GROUP_NUMBER: AtomicU64 = AtomicU64::new(0);
 
-const RADIO_CLASS: &str = "mt-0.5 size-4 shrink-0 cursor-pointer appearance-none rounded-full border border-gray-300 bg-white transition-all hover:border-gray-400 checked:border-[5px] checked:border-blue-600 checked:hover:border-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:checked:border-gray-300 motion-reduce:transition-none";
+const RADIO_CLASS: &str = "mt-0.5 size-4 shrink-0 cursor-pointer appearance-none rounded-full border border-gray-300 bg-white transition-all hover:border-gray-400 checked:border-[5px] checked:border-blue-600 checked:hover:border-blue-700 focus-ring disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:checked:border-gray-300 motion-reduce:transition-none";
 const OPTION_LABEL_CLASS: &str = "block text-sm font-medium text-gray-900";
 const OPTION_DESCRIPTION_CLASS: &str = "block text-xs text-gray-500";
 

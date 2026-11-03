@@ -48,7 +48,7 @@ pub fn FileDropZone(
             IDLE_CLASS
         };
         format!(
-            "flex cursor-pointer flex-col items-center gap-1 rounded-surface border-2 border-dashed px-6 py-6 text-center text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 {state}"
+            "flex cursor-pointer flex-col items-center gap-1 rounded-surface border-2 border-dashed px-6 py-6 text-center text-sm transition-colors focus-ring-within {state}"
         )
     };
     let description_view = description

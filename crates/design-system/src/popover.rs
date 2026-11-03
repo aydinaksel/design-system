@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use leptos::context::Provider;
-use leptos::ev::{FocusEvent, KeyboardEvent, MouseEvent};
+use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::{Button, Div};
 use leptos::portal::Portal;
 use leptos::prelude::*;
@@ -21,8 +21,7 @@ const DEFAULT_WIDTH_CLASS: &str = "w-72";
 const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal rounded-surface border border-gray-200 bg-white p-3 text-left text-sm text-gray-900 shadow-lg focus:outline-none motion-safe:animate-fade-in motion-safe:transition-shadow";
 const UNPLACED_STYLE: &str = "left:0;top:0;opacity:0";
 const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
-const FOCUSABLE_SELECTOR: &str =
-    "button:not([disabled]), [href], select:not([disabled]), [tabindex]:not([tabindex='-1'])";
+const TABBABLE_SELECTOR: &str = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PopoverAlign {
@@ -36,7 +35,6 @@ pub enum PopoverAlign {
 pub enum Dismissal {
     Escape,
     OutsideClick,
-    FocusLeft,
     TriggerClick,
 }
 
@@ -113,7 +111,7 @@ fn focus_initial(panel: &HtmlElement) {
     let target = [
         AUTOFOCUS_SELECTOR,
         FIRST_CONTROL_SELECTOR,
-        FOCUSABLE_SELECTOR,
+        TABBABLE_SELECTOR,
     ]
     .into_iter()
     .find_map(|selector| panel.query_selector(selector).ok().flatten())
@@ -121,6 +119,53 @@ fn focus_initial(panel: &HtmlElement) {
     match target {
         Some(control) => control.focus().unwrap_or_default(),
         None => panel.focus().unwrap_or_default(),
+    }
+}
+
+fn is_tabbable(element: &HtmlElement) -> bool {
+    let rendered = element.get_client_rects().length() > 0;
+    let visible = window()
+        .get_computed_style(element)
+        .ok()
+        .flatten()
+        .and_then(|style| style.get_property_value("visibility").ok())
+        .is_none_or(|visibility| visibility != "hidden");
+    let inert = element.closest("[inert]").ok().flatten().is_some();
+    rendered && visible && !inert
+}
+
+fn tabbable_elements(panel: &HtmlElement) -> Vec<HtmlElement> {
+    let Ok(nodes) = panel.query_selector_all(TABBABLE_SELECTOR) else {
+        return Vec::new();
+    };
+    (0..nodes.length())
+        .filter_map(|position| nodes.item(position))
+        .filter_map(|node| node.dyn_into::<HtmlElement>().ok())
+        .filter(is_tabbable)
+        .collect()
+}
+
+fn keep_tab_inside(panel: &HtmlElement, event: &KeyboardEvent) {
+    let tabbables = tabbable_elements(panel);
+    let (Some(first), Some(last)) = (tabbables.first(), tabbables.last()) else {
+        event.prevent_default();
+        return;
+    };
+    let active = document().active_element();
+    let is_active = |element: &HtmlElement| {
+        active
+            .as_ref()
+            .is_some_and(|active| active.is_same_node(Some(element)))
+    };
+    let on_panel_itself = is_active(panel);
+    let wraps_to = if event.shift_key() {
+        (is_active(first) || on_panel_itself).then_some(last)
+    } else {
+        is_active(last).then_some(first)
+    };
+    if let Some(target) = wraps_to {
+        event.prevent_default();
+        target.focus().unwrap_or_default();
     }
 }
 
@@ -367,17 +412,21 @@ pub fn PopoverContent(
     };
     let state = context.state;
     let on_keydown = move |event: KeyboardEvent| {
-        if event.key() != "Escape" || event.default_prevented() {
+        if event.default_prevented() {
             return;
         }
-        event.prevent_default();
-        event.stop_propagation();
-        context.dismiss(Dismissal::Escape);
-    };
-    let on_focusout = move |event: FocusEvent| {
-        let leaving_for = event.related_target();
-        if leaving_for.is_some() && !state.contains(leaving_for) {
-            context.dismiss(Dismissal::FocusLeft);
+        match event.key().as_str() {
+            "Escape" => {
+                event.prevent_default();
+                event.stop_propagation();
+                context.dismiss(Dismissal::Escape);
+            }
+            "Tab" => {
+                if let Some(panel) = state.panel.get_untracked() {
+                    keep_tab_inside(&panel, &event);
+                }
+            }
+            _ => {}
         }
     };
     let panel = move || {
@@ -400,7 +449,6 @@ pub fn PopoverContent(
                             .map_or_else(|| UNPLACED_STYLE.to_owned(), Placement::style)
                     }
                     on:keydown=on_keydown
-                    on:focusout=on_focusout
                 >
                     {children()}
                 </div>

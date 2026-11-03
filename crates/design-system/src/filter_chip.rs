@@ -4,9 +4,9 @@ use crate::button::{button_icon_class, ButtonSize, SHARED_CLASS};
 use crate::icons;
 
 const UNSELECTED_CLASS: &str =
-    "border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:ring-gray-400";
+    "border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50";
 const SELECTED_CLASS: &str =
-    "border border-blue-300 bg-blue-50 text-blue-700 shadow-sm hover:bg-blue-100 focus-visible:ring-blue-500";
+    "border border-blue-300 bg-blue-50 text-blue-700 shadow-sm hover:bg-blue-100";
 
 fn chip_class(selected: bool, size: ButtonSize) -> String {
     let tone = if selected {

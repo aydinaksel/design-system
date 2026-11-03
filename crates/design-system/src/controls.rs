@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-pub(crate) const CONTROL_CLASS: &str = "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-500";
+pub(crate) const CONTROL_CLASS: &str = "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-500";
 
 #[derive(Clone, Debug)]
 pub(crate) struct FieldElementIds {
@@ -125,7 +125,7 @@ pub fn Textarea(
     .into_any()
 }
 
-const SWITCH_TRACK_CLASS: &str = "group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-gray-200 transition-colors duration-200 ease-in-out hover:bg-gray-300 aria-checked:bg-blue-600 aria-checked:hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none";
+const SWITCH_TRACK_CLASS: &str = "group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-gray-200 transition-colors duration-200 ease-in-out hover:bg-gray-300 aria-checked:bg-blue-600 aria-checked:hover:bg-blue-700 focus-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none";
 const SWITCH_KNOB_CLASS: &str = "pointer-events-none inline-block size-4 translate-x-1 rounded-full bg-white shadow transition-transform duration-200 ease-in-out group-aria-checked:translate-x-6 motion-reduce:transition-none";
 
 #[expect(

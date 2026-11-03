@@ -51,7 +51,7 @@ optional = true
 
 [dependencies.web-sys]
 version = "0.3"
-features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "MediaQueryList", "Navigator", "Clipboard", "KeyboardEvent", "Selection", "EventTarget", "MouseEvent", "ScrollIntoViewOptions", "ScrollLogicalPosition", "Location", "HtmlAnchorElement", "BeforeUnloadEvent", "DataTransfer", "DragEvent", "File", "FileList", "HtmlInputElement"]
+features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "MediaQueryList", "Navigator", "Clipboard", "KeyboardEvent", "Selection", "EventTarget", "MouseEvent", "ScrollIntoViewOptions", "ScrollLogicalPosition", "Location", "HtmlAnchorElement", "BeforeUnloadEvent", "NodeList", "DomRectList", "CssStyleDeclaration", "DataTransfer", "DragEvent", "File", "FileList", "HtmlInputElement"]
 
 [dev-dependencies]
 leptos_router = { version = "0.8", features = ["ssr"] }

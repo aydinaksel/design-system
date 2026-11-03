@@ -165,7 +165,7 @@ fn GalleryThumbnails(
             view! {
                 <button
                     class=format!(
-                        "shrink-0 w-16 h-16 rounded overflow-hidden bg-white cursor-pointer {border_class}",
+                        "shrink-0 w-16 h-16 rounded overflow-hidden bg-white cursor-pointer focus-ring {border_class}",
                     )
                     title=image.label
                     on:click=move |_| selected_image.set(index)

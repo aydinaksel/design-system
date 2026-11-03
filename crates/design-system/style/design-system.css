@@ -4,6 +4,7 @@
   --radius-surface: 0.75rem;
   --radius-surface-inner: calc(var(--radius-surface) - 1px);
   --radius-item: calc(var(--radius-surface) - 0.25rem);
+  --color-focus: var(--color-blue-600);
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-field-saved: field-saved 1600ms ease-out;
@@ -49,4 +50,25 @@
   background-size: 200% 100%;
   background-clip: text;
   color: transparent;
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+@utility focus-ring-inset {
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+}
+
+@utility focus-ring-within {
+  &:has(:focus-visible) {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
 }

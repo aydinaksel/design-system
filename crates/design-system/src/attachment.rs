@@ -197,7 +197,7 @@ fn media_view(
 
 fn open_view(open: Option<AttachmentOpen>, title: &str) -> Option<AnyView> {
     let label = format!("Open {title}");
-    let overlay_class = "absolute inset-0 z-0 rounded-surface-inner focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+    let overlay_class = "absolute inset-0 z-0 rounded-surface-inner focus-ring";
     open.map(|open| match open {
         AttachmentOpen::Link(href) => {
             view! { <a href=href aria-label=label class=overlay_class></a> }.into_any()

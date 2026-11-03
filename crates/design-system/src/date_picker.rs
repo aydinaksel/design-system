@@ -13,7 +13,7 @@ const DAY_BUTTON: &str =
 const DATE_FORMAT: &str = "%Y-%m-%d";
 const DEFAULT_PLACEHOLDER: &str = "Select Date";
 const DEFAULT_CLEAR_LABEL: &str = "Clear Date";
-const INVALID_TRIGGER_CLASS: &str = "border-red-400 focus-visible:ring-red-500";
+const INVALID_TRIGGER_CLASS: &str = "border-red-400";
 
 fn parsed_date(text: &str) -> Option<NaiveDate> {
     NaiveDate::parse_from_str(text.trim(), DATE_FORMAT).ok()

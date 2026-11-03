@@ -21,12 +21,12 @@ use crate::tone::Tone;
 
 static NEXT_CELL_EDITOR_NUMBER: AtomicU64 = AtomicU64::new(0);
 
-const TRIGGER_CLASS: &str = "group -mx-1.5 -my-0.5 inline-flex max-w-[calc(100%+0.75rem)] cursor-pointer items-center rounded-md px-1.5 py-0.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+const TRIGGER_CLASS: &str = "group -mx-1.5 -my-0.5 inline-flex max-w-[calc(100%+0.75rem)] cursor-pointer items-center rounded-md px-1.5 py-0.5 text-left focus-ring";
 const VALUE_CLASS: &str = "truncate border-b border-dotted border-gray-400 group-hover:border-solid group-hover:border-blue-600 group-hover:text-blue-700";
 const EMPTY_VALUE_CLASS: &str = "text-gray-400 group-hover:text-blue-700";
 const EMPTY_VALUE_LABEL: &str = "+ Add";
 const CONTENT_WIDTH_CLASS: &str = "w-72";
-const ATTENTION_CLASS: &str = "ring-2 ring-blue-500 ring-offset-2";
+const ATTENTION_CLASS: &str = "ring-2 ring-focus ring-offset-2";
 
 type Display<Value> = Arc<dyn Fn(&Value) -> String + Send + Sync>;
 type EditorView<Value> = Arc<dyn Fn(RwSignal<Value>) -> AnyView + Send + Sync>;
