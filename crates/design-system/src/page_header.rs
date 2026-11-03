@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 
-use crate::clipboard::CopyIconButton;
+use crate::button::{ButtonSize, ButtonTone};
+use crate::clipboard::CopyButton;
 
 #[expect(
     clippy::must_use_candidate,
@@ -24,7 +25,11 @@ pub fn PageHeader(
                             .map(|document_number| {
                                 view! {
                                     <span>{move || document_number.get()}</span>
-                                    <CopyIconButton value=document_number />
+                                    <CopyButton
+                                        value=document_number
+                                        tone=ButtonTone::Ghost
+                                        size=ButtonSize::Dense
+                                    />
                                 }
                             })}
                     </h1>

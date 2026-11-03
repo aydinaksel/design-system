@@ -5,9 +5,9 @@ use design_system::{
     use_dialog_close, Alert, Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia,
     AttachmentOpen, AttachmentOrientation, AttachmentSize, AttachmentState, BusyOverlay,
     ButtonGroup, ButtonSize, ButtonTone, Card, CardGrid, Checkbox, ChoiceList, ChoiceOption,
-    Combobox, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton, CopyIconButton,
-    CopyLinkButton, DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldEditor,
-    FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
+    Combobox, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton, CopyLinkButton,
+    DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldEditor, FieldGrid,
+    FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
     ImageGallery, ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter,
     OverflowMenu, PageHeader, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput,
     SearchSize, SectionEditing, Switch, Textarea, Tone, Tooltip, TotalsBar,
@@ -98,13 +98,17 @@ fn badges_and_hints() -> AnyView {
                 <span class="text-sm text-gray-700 underline decoration-dotted">"Hover Me"</span>
             </Tooltip>
             <span class="inline-flex items-center gap-1 text-sm text-gray-700">
-                "TRVT-048" <CopyIconButton value="TRVT-048".to_string() />
+                "TRVT-048"
+                <CopyButton
+                    value="TRVT-048".to_string()
+                    tone=ButtonTone::Ghost
+                    size=ButtonSize::Dense
+                />
             </span> <span class="inline-flex items-center gap-2">
                 <CopyButton
                     value="TRVT-048".to_string()
-                    glyph=LucideGlyph::Copy
                     label="Copy SKU"
-                    copied_label="SKU Copied"
+                    confirmation="SKU Copied"
                 />
                 <CopyLinkButton />
             </span>

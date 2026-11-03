@@ -1,39 +1,39 @@
 use leptos::prelude::*;
-use leptos_use::{use_clipboard, UseClipboardReturn};
 
-use crate::button::{icon_button_class, ButtonSize, ButtonTone};
+use crate::button::{button_icon_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::icons;
+use crate::tooltip::{Tooltip, TooltipAlign};
+
+#[cfg(feature = "hydrate")]
+const COPY_FAILED_TITLE: &str = "Copy Failed";
+#[cfg(feature = "hydrate")]
+const COPY_FAILED_DESCRIPTION: &str = "The browser did not allow access to the clipboard.";
 
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
 )]
 #[component]
-pub fn CopyIconButton(#[prop(into)] value: Signal<String>) -> impl IntoView {
-    let UseClipboardReturn { copied, copy, .. } = use_clipboard();
-
+pub fn CopyButton(
+    #[prop(into)] value: Signal<String>,
+    #[prop(default = "Copy")] label: &'static str,
+    #[prop(default = "Copied")] confirmation: &'static str,
+    #[prop(default = icons::LucideGlyph::Copy)] glyph: icons::LucideGlyph,
+    #[prop(optional)] tone: ButtonTone,
+    #[prop(optional)] size: ButtonSize,
+    #[prop(optional)] tooltip_align: TooltipAlign,
+) -> impl IntoView {
     view! {
-        <button
-            type="button"
-            class="shrink-0 cursor-pointer hover:opacity-70"
-            title="Copy"
-            on:click={
-                let copy = copy.clone();
-                move |_| copy(&value.get_untracked())
-            }
-        >
-            {move || {
-                if copied.get() {
-                    icons::labelled_icon(
-                        icons::LucideGlyph::Check,
-                        "block h-3.5 w-3.5 text-green-600",
-                        "Copied",
-                    )
-                } else {
-                    icons::icon(icons::LucideGlyph::Copy, "block h-3.5 w-3.5")
-                }
-            }}
-        </button>
+        <Tooltip label=label align=tooltip_align>
+            <button
+                type="button"
+                class=icon_button_class(tone, size)
+                aria-label=label
+                on:click=move |_| copy_with_toast(&value.get_untracked(), confirmation)
+            >
+                {icons::icon(glyph, button_icon_class(size))}
+            </button>
+        </Tooltip>
     }
     .into_any()
 }
@@ -50,40 +50,6 @@ fn current_address() -> String {
     String::new()
 }
 
-#[expect(
-    clippy::must_use_candidate,
-    reason = "the component macro drops attributes on the function it emits"
-)]
-#[component]
-pub fn CopyButton(
-    #[prop(into)] value: Signal<String>,
-    glyph: icons::LucideGlyph,
-    label: &'static str,
-    copied_label: &'static str,
-) -> impl IntoView {
-    let UseClipboardReturn { copied, copy, .. } = use_clipboard();
-    let current_label = move || if copied.get() { copied_label } else { label };
-
-    view! {
-        <button
-            type="button"
-            class=icon_button_class(ButtonTone::Secondary, ButtonSize::Standard)
-            title=current_label
-            aria-label=current_label
-            on:click=move |_| copy(&value.get_untracked())
-        >
-            {move || {
-                if copied.get() {
-                    icons::icon(icons::LucideGlyph::Check, "h-4 w-4 text-green-600")
-                } else {
-                    icons::icon(glyph, "h-4 w-4 opacity-70")
-                }
-            }}
-        </button>
-    }
-    .into_any()
-}
-
 #[component]
 pub fn CopyLinkButton() -> impl IntoView {
     view! {
@@ -91,7 +57,7 @@ pub fn CopyLinkButton() -> impl IntoView {
             value=Signal::derive(current_address)
             glyph=icons::LucideGlyph::Link
             label="Copy Link"
-            copied_label="Link Copied"
+            confirmation="Link Copied"
         />
     }
     .into_any()
@@ -104,8 +70,18 @@ pub fn CopyLinkButton() -> impl IntoView {
 pub fn copy_with_toast(text: &str, confirmation: &'static str) {
     #[cfg(feature = "hydrate")]
     if let Some(window) = web_sys::window() {
-        drop(window.navigator().clipboard().write_text(text));
-        crate::toast::notify_success(confirmation);
+        let write =
+            wasm_bindgen_futures::JsFuture::from(window.navigator().clipboard().write_text(text));
+        leptos::task::spawn_local(async move {
+            if write.await.is_ok() {
+                crate::toast::notify_success(confirmation);
+            } else {
+                crate::toast::notify_failure(
+                    COPY_FAILED_TITLE,
+                    Some(COPY_FAILED_DESCRIPTION.to_string()),
+                );
+            }
+        });
     }
 }
 

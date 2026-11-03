@@ -62,7 +62,7 @@ pub use button_group::ButtonGroup;
 pub use catalog::{Card, CardGrid, ResponsiveImage, ResponsiveSource};
 pub use checkbox::Checkbox;
 pub use choice_list::{ChoiceList, ChoiceOption};
-pub use clipboard::{copy_with_toast, CopyButton, CopyIconButton, CopyLinkButton};
+pub use clipboard::{copy_with_toast, CopyButton, CopyLinkButton};
 pub use combobox::{Combobox, ComboboxDisplay, ComboboxOption, ComboboxSearch, ComboboxSource};
 pub use confirm_dialog::ConfirmDialog;
 pub use controls::{Input, InputKind, Switch, Textarea};

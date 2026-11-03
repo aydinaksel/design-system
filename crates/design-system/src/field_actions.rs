@@ -1,9 +1,12 @@
 use leptos::prelude::*;
 
-use crate::button::{icon_button_class, ButtonSize, ButtonTone};
-use crate::clipboard::copy_with_toast;
+use crate::button::{button_icon_class, icon_button_class, ButtonSize, ButtonTone};
+use crate::clipboard::CopyButton;
 use crate::icons;
 use crate::tooltip::{Tooltip, TooltipAlign};
+
+const ACTION_TONE: ButtonTone = ButtonTone::Ghost;
+const ACTION_SIZE: ButtonSize = ButtonSize::Compact;
 
 enum FieldActionTarget {
     Link(String),
@@ -47,33 +50,34 @@ impl FieldAction {
             glyph,
             target,
         } = self;
-        let class = icon_button_class(ButtonTone::Ghost, ButtonSize::Compact);
-        let glyph_view = icons::icon(glyph, "h-4 w-4 text-gray-500");
-        let control = match target {
+        match target {
             FieldActionTarget::Link(href) => view! {
-                <a href=href target="_blank" rel="noreferrer" class=class aria-label=label>
-                    {glyph_view}
-                </a>
+                <Tooltip label=label align=align>
+                    <a
+                        href=href
+                        target="_blank"
+                        rel="noreferrer"
+                        class=icon_button_class(ACTION_TONE, ACTION_SIZE)
+                        aria-label=label
+                    >
+                        {icons::icon(glyph, button_icon_class(ACTION_SIZE))}
+                    </a>
+                </Tooltip>
             }
             .into_any(),
             FieldActionTarget::Copy { text, confirmation } => view! {
-                <button
-                    type="button"
-                    class=class
-                    aria-label=label
-                    on:click=move |_| copy_with_toast(&text, confirmation)
-                >
-                    {glyph_view}
-                </button>
+                <CopyButton
+                    value=text
+                    label=label
+                    confirmation=confirmation
+                    glyph=glyph
+                    tone=ACTION_TONE
+                    size=ACTION_SIZE
+                    tooltip_align=align
+                />
             }
             .into_any(),
-        };
-        view! {
-            <Tooltip label=label align=align>
-                {control}
-            </Tooltip>
         }
-        .into_any()
     }
 }
 
@@ -91,8 +95,5 @@ pub(crate) fn field_actions_view(actions: Vec<FieldAction>) -> Option<AnyView> {
             action.render(align)
         })
         .collect::<Vec<_>>();
-    Some(
-        view! { <div class="flex shrink-0 items-center gap-0.5">{rendered}</div> }
-            .into_any(),
-    )
+    Some(view! { <div class="flex shrink-0 items-center gap-0.5">{rendered}</div> }.into_any())
 }

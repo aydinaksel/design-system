@@ -503,6 +503,7 @@ dependencies = [
  "serde_json",
  "table-query",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
