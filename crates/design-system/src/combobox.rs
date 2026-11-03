@@ -24,6 +24,8 @@ const OPTION_CLASS: &str =
     "flex cursor-pointer items-baseline justify-between gap-4 rounded-item px-3 py-1.5 text-gray-700";
 const HIGHLIGHTED_OPTION_CLASS: &str = "flex cursor-pointer items-baseline justify-between gap-4 rounded-item bg-gray-100 px-3 py-1.5 text-gray-900";
 const MESSAGE_CLASS: &str = "px-3 py-1.5 text-gray-500";
+const GROUP_HEADING_CLASS: &str = "px-3 pb-1 pt-1.5 text-xs font-medium text-gray-500";
+const GROUP_SEPARATOR_CLASS: &str = "my-1 h-px bg-gray-200";
 
 static NEXT_COMBOBOX_NUMBER: AtomicU64 = AtomicU64::new(0);
 
@@ -55,6 +57,37 @@ impl ComboboxOption {
     #[must_use]
     pub fn display(&self) -> String {
         selection_display(&self.value, &self.label)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ComboboxGroup {
+    heading: Option<String>,
+    options: Vec<ComboboxOption>,
+}
+
+impl ComboboxGroup {
+    #[must_use]
+    pub fn new(options: Vec<ComboboxOption>) -> Self {
+        Self {
+            heading: None,
+            options,
+        }
+    }
+
+    #[must_use]
+    pub fn with_heading(self, heading: impl Into<String>) -> Self {
+        Self {
+            heading: Some(heading.into()),
+            ..self
+        }
+    }
+
+    fn matching(&self, search: &str, display: ComboboxDisplay) -> Self {
+        Self {
+            heading: self.heading.clone(),
+            options: matching_options(&self.options, search, display),
+        }
     }
 }
 
@@ -165,6 +198,7 @@ impl ComboboxSearch {
 
 pub enum ComboboxSource {
     List(Vec<ComboboxOption>),
+    Groups(Vec<ComboboxGroup>),
     Search(ComboboxSearch),
 }
 
@@ -180,28 +214,43 @@ impl From<Vec<ComboboxOption>> for ComboboxSource {
     }
 }
 
+impl From<Vec<ComboboxGroup>> for ComboboxSource {
+    fn from(groups: Vec<ComboboxGroup>) -> Self {
+        Self::Groups(groups)
+    }
+}
+
 impl ComboboxSource {
     fn lookup(&self, text: &str, display: ComboboxDisplay) -> Lookup {
         match self {
-            Self::List(options) => Lookup::Ready(matching_options(options, text, display)),
+            Self::List(options) => Lookup::Ready(vec![ComboboxGroup::new(matching_options(
+                options, text, display,
+            ))]),
+            Self::Groups(groups) => Lookup::Ready(
+                groups
+                    .iter()
+                    .map(|group| group.matching(text, display))
+                    .filter(|group| !group.options.is_empty())
+                    .collect(),
+            ),
             Self::Search(search) => search.lookup(text),
         }
     }
 
     fn opens_on_focus(&self) -> bool {
         match self {
-            Self::List(_) => true,
+            Self::List(_) | Self::Groups(_) => true,
             Self::Search(search) => search.suggestions.is_some(),
         }
     }
 
     fn filters_locally(&self) -> bool {
-        matches!(self, Self::List(_))
+        matches!(self, Self::List(_) | Self::Groups(_))
     }
 
     fn suggestions_heading(&self) -> Option<String> {
         match self {
-            Self::List(_) => None,
+            Self::List(_) | Self::Groups(_) => None,
             Self::Search(search) => search
                 .suggestions
                 .as_ref()
@@ -212,7 +261,7 @@ impl ComboboxSource {
 
 enum Lookup {
     Nothing,
-    Ready(Vec<ComboboxOption>),
+    Ready(Vec<ComboboxGroup>),
     Pending {
         pending: OptionsFuture,
         suggesting: bool,
@@ -274,7 +323,18 @@ fn matching_options(
 enum Results {
     Idle,
     Searching,
-    Loaded(Vec<ComboboxOption>),
+    Loaded(Vec<ComboboxGroup>),
+}
+
+fn lacks_options(groups: &[ComboboxGroup]) -> bool {
+    groups.iter().all(|group| group.options.is_empty())
+}
+
+fn grouped_options(groups: &[ComboboxGroup]) -> Vec<ComboboxOption> {
+    groups
+        .iter()
+        .flat_map(|group| group.options.iter().cloned())
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -337,7 +397,7 @@ pub fn Combobox(
     });
 
     let options = Memo::new(move |_| match results.get() {
-        Results::Loaded(options) => options,
+        Results::Loaded(groups) => grouped_options(&groups),
         Results::Idle | Results::Searching => Vec::new(),
     });
 
@@ -355,8 +415,8 @@ pub fn Combobox(
     let search = move |search_text: String| {
         let request = latest_request.get_value().wrapping_add(1);
         latest_request.set_value(request);
-        let loaded = move |loaded: Vec<ComboboxOption>| {
-            highlighted.set((!loaded.is_empty()).then_some(0));
+        let loaded = move |loaded: Vec<ComboboxGroup>| {
+            highlighted.set((!lacks_options(&loaded)).then_some(0));
             results.set(Results::Loaded(loaded));
         };
         match source.with_value(|source| source.lookup(&search_text, display)) {
@@ -376,10 +436,13 @@ pub fn Combobox(
                 showing_suggestions.set(suggesting);
                 results.set(Results::Searching);
                 show();
+                let heading = suggesting
+                    .then(|| suggestions_heading.get_value())
+                    .flatten();
                 leptos::task::spawn_local(async move {
                     let options = pending.await.unwrap_or_default();
                     if latest_request.get_value() == request {
-                        loaded(options);
+                        loaded(vec![ComboboxGroup { heading, options }]);
                     }
                 });
             }
@@ -496,11 +559,12 @@ pub fn Combobox(
     let listbox_id = StoredValue::new(listbox_id);
     let empty_message = StoredValue::new(empty_message);
 
-    let option_rows = move |loaded: Vec<ComboboxOption>| {
+    let option_rows = move |first_index: usize, loaded: Vec<ComboboxOption>| {
         loaded
             .into_iter()
             .enumerate()
-            .map(|(index, option)| {
+            .map(move |(position, option)| {
+                let index = first_index.saturating_add(position);
                 let is_highlighted = move || highlighted.get() == Some(index);
                 let display_value = display.shows_value().then(|| {
                     view! {
@@ -536,6 +600,34 @@ pub fn Combobox(
                                     </span>
                                 }
                             })}
+                    </div>
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    let group_views = move |groups: Vec<ComboboxGroup>| {
+        let mut first_index = 0;
+        groups
+            .into_iter()
+            .enumerate()
+            .map(|(position, group)| {
+                let separator = (position > 0).then(|| {
+                    view! { <div aria-hidden="true" class=GROUP_SEPARATOR_CLASS></div> }
+                });
+                let heading_view = group.heading.clone().map(|heading| {
+                    view! { <div aria-hidden="true" class=GROUP_HEADING_CLASS>{heading}</div> }
+                });
+                let option_count = group.options.len();
+                let rows = option_rows(first_index, group.options);
+                first_index = first_index.saturating_add(option_count);
+                view! {
+                    {separator}
+                    <div
+                        role=group.heading.is_some().then_some("group")
+                        aria-label=group.heading
+                    >
+                        {heading_view}
+                        {rows}
                     </div>
                 }
             })
@@ -609,34 +701,14 @@ pub fn Combobox(
                         }
                             .into_any()
                     }
-                    Results::Loaded(loaded) if loaded.is_empty() && showing_suggestions.get() => {
+                    Results::Loaded(groups) if lacks_options(&groups) && showing_suggestions.get() => {
                         return ().into_any();
                     }
-                    Results::Loaded(loaded) if loaded.is_empty() => {
+                    Results::Loaded(groups) if lacks_options(&groups) => {
                         view! { <div class=MESSAGE_CLASS>{empty_message.get_value()}</div> }
                             .into_any()
                     }
-                    Results::Loaded(loaded) => {
-                        let heading = showing_suggestions
-                            .get()
-                            .then(|| suggestions_heading.get_value())
-                            .flatten()
-                            .map(|heading| {
-                                view! {
-                                    <div
-                                        aria-hidden="true"
-                                        class="px-3 pb-1 pt-1.5 text-xs font-medium text-gray-500"
-                                    >
-                                        {heading}
-                                    </div>
-                                }
-                            });
-                        view! {
-                            {heading}
-                            {option_rows(loaded)}
-                        }
-                            .into_any()
-                    }
+                    Results::Loaded(groups) => group_views(groups).into_any(),
                 };
                 view! {
                     <div
@@ -749,7 +821,7 @@ mod tests {
         let source = ComboboxSource::from(options());
         assert!(source.opens_on_focus());
         assert!(
-            matches!(source.lookup("it", ComboboxDisplay::ValueAndLabel), Lookup::Ready(found) if found.len() == 2)
+            matches!(source.lookup("it", ComboboxDisplay::ValueAndLabel), Lookup::Ready(found) if grouped_options(&found).len() == 2)
         );
     }
 
@@ -768,6 +840,56 @@ mod tests {
             matching_options(&options(), " ", ComboboxDisplay::ValueAndLabel).len(),
             3
         );
+    }
+
+    fn recent_then_everything() -> ComboboxSource {
+        ComboboxSource::from(vec![
+            ComboboxGroup::new(vec![ComboboxOption::new("TR", "Turkey")]).with_heading("Recent"),
+            ComboboxGroup::new(options()),
+        ])
+    }
+
+    fn looked_up_values(source: &ComboboxSource, text: &str) -> Vec<Vec<String>> {
+        let Lookup::Ready(groups) = source.lookup(text, ComboboxDisplay::ValueAndLabel) else {
+            panic!("a grouped list answers without loading");
+        };
+        groups
+            .iter()
+            .map(|group| {
+                group
+                    .options
+                    .iter()
+                    .map(|option| option.value.clone())
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn groups_keep_a_recent_option_in_the_full_list_too() {
+        assert_eq!(
+            looked_up_values(&recent_then_everything(), ""),
+            vec![vec!["TR"], vec!["US", "TR", "IT"]]
+        );
+    }
+
+    #[test]
+    fn groups_filter_separately_and_drop_groups_with_no_match() {
+        let source = recent_then_everything();
+        assert_eq!(
+            looked_up_values(&source, "tur"),
+            vec![vec!["TR"], vec!["TR"]]
+        );
+        assert_eq!(looked_up_values(&source, "ital"), vec![vec!["IT"]]);
+    }
+
+    #[test]
+    fn groups_number_their_options_straight_through() {
+        let Lookup::Ready(groups) = recent_then_everything().lookup("", ComboboxDisplay::Label)
+        else {
+            panic!("a grouped list answers without loading");
+        };
+        assert_eq!(grouped_options(&groups).len(), 4);
     }
 
     #[test]

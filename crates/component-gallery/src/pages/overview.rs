@@ -5,9 +5,9 @@ use design_system::{
     use_dialog_close, Alert, Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia,
     AttachmentOpen, AttachmentOrientation, AttachmentSize, AttachmentState, BusyOverlay,
     ButtonGroup, ButtonSize, ButtonTone, Card, CardGrid, Checkbox, ChoiceList, ChoiceOption,
-    Combobox, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton, CopyLinkButton,
-    DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldEditor, FieldGrid,
-    FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
+    Combobox, ComboboxGroup, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton,
+    CopyLinkButton, DatePicker, DetailHeader, Dialog, DialogSize, DropdownMenu, Field, FieldEditor,
+    FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset, FileDropZone, FilterChip, GalleryImage,
     ImageGallery, ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter,
     OverflowMenu, PageHeader, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput,
     SearchSize, SectionEditing, Switch, Textarea, Tone, Tooltip, TotalsBar,
@@ -927,6 +927,38 @@ fn country_list() -> AnyView {
     .into_any()
 }
 
+const RECENT_COUNTRY_CODES: [&str; 2] = ["IT", "PT"];
+
+fn country_option((code, name): &(&str, &str)) -> ComboboxOption {
+    ComboboxOption::new(*code, *name)
+}
+
+fn grouped_country_list() -> AnyView {
+    let country_code = RwSignal::new(String::new());
+    let country_name = RwSignal::new(String::new());
+    let recent: Vec<ComboboxOption> = COUNTRIES
+        .iter()
+        .filter(|(code, _)| RECENT_COUNTRY_CODES.contains(code))
+        .map(country_option)
+        .collect();
+    let everything: Vec<ComboboxOption> = COUNTRIES.iter().map(country_option).collect();
+    let groups = vec![
+        ComboboxGroup::new(recent).with_heading("Recent"),
+        ComboboxGroup::new(everything),
+    ];
+    view! {
+        <Combobox
+            selected_value=country_code
+            selected_label=country_name
+            source=groups
+            placeholder="Country of Origin"
+            empty_message="No country matches."
+            clear_label="Clear Country"
+        />
+    }
+    .into_any()
+}
+
 fn date_picker() -> AnyView {
     let chosen_date = RwSignal::new(String::from("2026-10-15"));
     view! {
@@ -1029,6 +1061,7 @@ fn form_controls() -> AnyView {
                     .into_any(),
             )} {labelled("Combobox, Searches as You Type", customer_search())}
             {labelled("Combobox, Filters a Fixed List", country_list())}
+            {labelled("Combobox, Recent Then Everything", grouped_country_list())}
             {labelled("Date Picker", date_picker())} {labelled("Radio Group", finish_radios())}
             <div class="sm:col-span-2 lg:col-span-3">
                 {labelled("Radio Group, Cards", delivery_radios())}
