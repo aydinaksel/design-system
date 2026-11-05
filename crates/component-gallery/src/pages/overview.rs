@@ -8,10 +8,10 @@ use design_system::{
     Combobox, ComboboxGroup, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton,
     CopyLinkButton, DatePicker, DetailHeader, DetailPage, Dialog, DialogSize, DropdownMenu,
     EmptyState, Field, FieldEditor, FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset,
-    FileDropZone, FilterChip, GalleryImage, ImageGallery, ImageGrid, Input, InputKind, Listbox,
-    ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu, PageHeader, RadioGroup, RadioLayout,
-    RadioOption, ResponsiveImage, SearchInput, SearchSize, SectionEditing, Switch, TabStrip,
-    Textarea, Tone, Tooltip, TotalsBar,
+    FileDropZone, FilterChip, GalleryImage, HelpTerm, ImageGallery, ImageGrid, Input, InputKind,
+    Listbox, ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu, PageHeader, RadioGroup,
+    RadioLayout, RadioOption, ResponsiveImage, SearchInput, SearchSize, SectionEditing, Switch,
+    TabStrip, Textarea, Tone, TotalsBar,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -96,9 +96,9 @@ fn badges_and_hints() -> AnyView {
         .collect_view();
     view! {
         <div class="flex flex-wrap items-center gap-4">
-            {badges} <Tooltip label="A tooltip on hover">
-                <span class="text-sm text-gray-700 underline decoration-dotted">"Hover Me"</span>
-            </Tooltip>
+            {badges} <span class="text-sm text-gray-700">
+                <HelpTerm help="A tooltip on hover">"Hover Me"</HelpTerm>
+            </span>
             <span class="inline-flex items-center gap-1 text-sm text-gray-700">
                 "TRVT-048"
                 <CopyButton

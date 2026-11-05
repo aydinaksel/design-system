@@ -25,14 +25,13 @@ use crate::field_actions::{field_actions_view, FieldAction};
 use crate::icons;
 use crate::loading_state::LoadingState;
 use crate::tone::Tone;
-use crate::tooltip::Tooltip;
+use crate::tooltip::HelpTerm;
 use crate::typography::LABEL_CLASS;
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
 const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-[0.5625rem]";
 const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-surface-inner after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
-const HELP_TRIGGER_CLASS: &str = "cursor-help rounded-sm underline decoration-gray-300 decoration-dotted underline-offset-4 focus-ring";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum HeadingLevel {
@@ -890,36 +889,24 @@ impl RowIds {
 }
 
 fn field_label(label: String, ids: &RowIds, help: Option<String>) -> AnyView {
-    let label_class = help.is_some().then_some("cursor-help");
     let label_element = if ids.error.is_some() {
         view! {
-            <label id=ids.label.clone() for=ids.control.clone() class=label_class>
+            <label id=ids.label.clone() for=ids.control.clone()>
                 {label}
             </label>
         }
         .into_any()
     } else {
-        view! {
-            <span id=ids.label.clone() class=label_class>
-                {label}
-            </span>
-        }
-        .into_any()
+        view! { <span id=ids.label.clone()>{label}</span> }.into_any()
     };
-    let (help_id, trigger_help_id) = (ids.help.clone(), ids.help.clone());
-    match help {
-        Some(help) => view! {
-            <Tooltip label=help.clone()>
-                <span tabindex="0" aria-describedby=trigger_help_id class=HELP_TRIGGER_CLASS>
-                    {label_element}
-                </span>
-            </Tooltip>
-            <span id=help_id class="sr-only">
-                {help}
-            </span>
+    match (help, ids.help.clone()) {
+        (Some(help), Some(help_id)) => view! {
+            <HelpTerm help help_id>
+                {label_element}
+            </HelpTerm>
         }
         .into_any(),
-        None => label_element,
+        _ => label_element,
     }
 }
 
