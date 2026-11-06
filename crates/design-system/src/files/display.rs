@@ -2,24 +2,103 @@ use leptos::html::Img;
 use leptos::prelude::*;
 
 use super::viewer::FileViewer;
-use super::FileKind;
-use super::{name_parts, stem_head_and_ending, StoredFile};
+use super::{name_parts, stem_head_and_ending, FileKind, StoredFile};
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::empty_state::EmptyState;
 use crate::icons::{self, LucideGlyph};
 use crate::tooltip::{Tooltip, TooltipAlign};
 
-const ROW_CLASS: &str = "relative flex min-w-0 items-center gap-3 rounded-surface border border-gray-200 bg-white p-2 transition-colors hover:border-gray-300";
-const TILE_CLASS: &str = "relative flex min-w-0 flex-col overflow-hidden rounded-surface border border-gray-200 bg-white transition-colors hover:border-gray-300";
+const ROW_CLASS: &str = "relative flex min-w-0 items-center gap-3 rounded-surface border bg-white p-2 transition-colors";
+const TILE_CLASS: &str =
+    "relative flex min-w-0 flex-col overflow-hidden rounded-surface border bg-white transition-colors";
+const SETTLED_BORDER_CLASS: &str = "border-gray-200 hover:border-gray-300";
+const FAILED_BORDER_CLASS: &str = "border-red-200 bg-red-50/40";
 const OPEN_OVERLAY_CLASS: &str =
     "absolute inset-0 z-0 cursor-pointer rounded-surface-inner focus-ring";
-const ROW_MEDIA_CLASS: &str =
-    "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100";
+const ROW_MEDIA_CLASS: &str = "pointer-events-none relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100";
 const TILE_MEDIA_CLASS: &str =
-    "flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-gray-100";
+    "pointer-events-none relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-gray-100";
+const BUSY_OVERLAY_CLASS: &str =
+    "absolute inset-0 flex items-center justify-center bg-white/60 text-gray-500";
 const GRID_CLASS: &str = "grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3";
+const LIST_CLASS: &str = "flex flex-col gap-2";
 const NAME_CLASS: &str = "font-medium text-gray-900";
+const DETAIL_CLASS: &str = "block truncate text-xs text-gray-500";
+const FAILED_DETAIL_CLASS: &str = "block truncate text-xs text-red-700";
 const DEFAULT_EMPTY_MESSAGE: &str = "No files yet.";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FileLayout {
+    #[default]
+    List,
+    Grid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum ItemState {
+    Stored,
+    Waiting,
+    Uploading,
+    Removing,
+    Failed(String),
+}
+
+impl ItemState {
+    fn tag(&self) -> &'static str {
+        match self {
+            Self::Stored => "stored",
+            Self::Waiting => "waiting",
+            Self::Uploading => "uploading",
+            Self::Removing => "removing",
+            Self::Failed(_) => "failed",
+        }
+    }
+
+    fn busy_message(&self) -> Option<&'static str> {
+        match self {
+            Self::Waiting => Some("Waiting to upload\u{2026}"),
+            Self::Uploading => Some("Uploading\u{2026}"),
+            Self::Removing => Some("Removing\u{2026}"),
+            Self::Stored | Self::Failed(_) => None,
+        }
+    }
+
+    fn border_class(&self) -> &'static str {
+        match self {
+            Self::Failed(_) => FAILED_BORDER_CLASS,
+            Self::Stored | Self::Waiting | Self::Uploading | Self::Removing => SETTLED_BORDER_CLASS,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct FileItem {
+    pub(super) file: StoredFile,
+    pub(super) state: ItemState,
+    pub(super) can_retry: bool,
+    pub(super) can_remove: bool,
+}
+
+#[derive(Clone, Copy, Default)]
+pub(super) struct ItemHandlers {
+    pub(super) retry: Option<Callback<String>>,
+    pub(super) remove: Option<Callback<String>>,
+}
+
+impl FileItem {
+    pub(super) fn stored(file: StoredFile) -> Self {
+        Self {
+            file,
+            state: ItemState::Stored,
+            can_retry: false,
+            can_remove: false,
+        }
+    }
+
+    fn render_key(&self) -> String {
+        format!("{}:{}", self.file.key, self.state.tag())
+    }
+}
 
 #[derive(Clone, Copy)]
 enum MediaSize {
@@ -60,15 +139,10 @@ fn failed_before_hydration(_image: &web_sys::HtmlImageElement) -> bool {
     false
 }
 
-fn media_view(file: &StoredFile, size: MediaSize) -> AnyView {
+fn image_or_icon(file: &StoredFile, size: MediaSize) -> AnyView {
     let kind = file.kind();
     let Some(image_url) = file.image_url().map(str::to_owned) else {
-        return view! {
-            <span class=size.frame_class() aria-hidden="true">
-                {kind_icon(kind, size)}
-            </span>
-        }
-        .into_any();
+        return kind_icon(kind, size);
     };
     let broken = RwSignal::new(false);
     let image: NodeRef<Img> = NodeRef::new();
@@ -81,17 +155,28 @@ fn media_view(file: &StoredFile, size: MediaSize) -> AnyView {
         }
     });
     view! {
+        <Show when=move || !broken.get() fallback=move || kind_icon(kind, size)>
+            <img
+                node_ref=image
+                src=image_url.clone()
+                alt=""
+                loading="lazy"
+                class="h-full w-full object-cover"
+                on:error=move |_| broken.set(true)
+            />
+        </Show>
+    }
+    .into_any()
+}
+
+fn media_view(item: &FileItem, size: MediaSize) -> AnyView {
+    let busy_overlay = item.state.busy_message().map(|_| {
+        view! { <span class=BUSY_OVERLAY_CLASS>{icons::spinner(size.icon_class())}</span> }
+    });
+    view! {
         <span class=size.frame_class() aria-hidden="true">
-            <Show when=move || !broken.get() fallback=move || kind_icon(kind, size)>
-                <img
-                    node_ref=image
-                    src=image_url.clone()
-                    alt=""
-                    loading="lazy"
-                    class="h-full w-full object-cover"
-                    on:error=move |_| broken.set(true)
-                />
-            </Show>
+            {image_or_icon(&item.file, size)}
+            {busy_overlay}
         </span>
     }
     .into_any()
@@ -116,115 +201,240 @@ fn name_view(file: &StoredFile, text_class: &'static str) -> AnyView {
     .into_any()
 }
 
-fn open_overlay(file: &StoredFile, open_key: RwSignal<Option<String>>) -> AnyView {
+fn detail_view(item: &FileItem, settled_details: Option<String>) -> Option<AnyView> {
+    if let ItemState::Failed(reason) = &item.state {
+        return Some(
+            view! {
+                <span class=FAILED_DETAIL_CLASS>
+                    <span class="sr-only">"Failed: "</span>
+                    {reason.clone()}
+                </span>
+            }
+            .into_any(),
+        );
+    }
+    let text = item
+        .state
+        .busy_message()
+        .map(str::to_owned)
+        .or(settled_details)?;
+    Some(view! { <span class=DETAIL_CLASS>{text}</span> }.into_any())
+}
+
+fn open_overlay(item: &FileItem, open_key: RwSignal<Option<String>>) -> Option<AnyView> {
+    if item.state != ItemState::Stored {
+        return None;
+    }
+    let file = &item.file;
     if file.opens_in_viewer() {
         let key = file.key.clone();
         let label = format!("Open {}", file.name);
-        return view! {
-            <button
-                type="button"
-                class=OPEN_OVERLAY_CLASS
-                aria-label=label
-                on:click=move |_| open_key.set(Some(key.clone()))
-            ></button>
-        }
-        .into_any();
+        return Some(
+            view! {
+                <button
+                    type="button"
+                    class=OPEN_OVERLAY_CLASS
+                    aria-label=label
+                    on:click=move |_| open_key.set(Some(key.clone()))
+                ></button>
+            }
+            .into_any(),
+        );
     }
     let label = format!("Download {}", file.name);
+    Some(
+        view! {
+            <a
+                href=file.url.clone()
+                download=file.name.clone()
+                class=OPEN_OVERLAY_CLASS
+                aria-label=label
+            ></a>
+        }
+        .into_any(),
+    )
+}
+
+fn action_button(
+    tooltip: &'static str,
+    label: String,
+    glyph: LucideGlyph,
+    on_click: Callback<String>,
+    key: String,
+) -> AnyView {
     view! {
-        <a
-            href=file.url.clone()
-            download=file.name.clone()
-            class=OPEN_OVERLAY_CLASS
-            aria-label=label
-        ></a>
+        <Tooltip label=tooltip align=TooltipAlign::End>
+            <button
+                type="button"
+                class=icon_button_class(ButtonTone::Ghost, ButtonSize::Compact)
+                aria-label=label
+                on:click=move |_| on_click.run(key.clone())
+            >
+                {icons::icon(glyph, "h-4 w-4")}
+            </button>
+        </Tooltip>
     }
     .into_any()
 }
 
-fn download_button(file: &StoredFile) -> AnyView {
+fn download_link(file: &StoredFile) -> AnyView {
     let label = format!("Download {}", file.name);
     let url = file.url.clone();
     let name = file.name.clone();
     view! {
-        <span class="relative z-10 shrink-0">
-            <Tooltip label="Download" align=TooltipAlign::End>
-                <a
-                    href=url
-                    download=name
-                    class=icon_button_class(ButtonTone::Ghost, ButtonSize::Compact)
-                    aria-label=label
-                >
-                    {icons::icon(LucideGlyph::Download, "h-4 w-4")}
-                </a>
-            </Tooltip>
-        </span>
+        <Tooltip label="Download" align=TooltipAlign::End>
+            <a
+                href=url
+                download=name
+                class=icon_button_class(ButtonTone::Ghost, ButtonSize::Compact)
+                aria-label=label
+            >
+                {icons::icon(LucideGlyph::Download, "h-4 w-4")}
+            </a>
+        </Tooltip>
     }
     .into_any()
 }
 
-fn file_row(file: &StoredFile, open_key: RwSignal<Option<String>>) -> AnyView {
+fn actions_view(
+    item: &FileItem,
+    handlers: ItemHandlers,
+    include_download: bool,
+) -> Option<AnyView> {
+    let name = &item.file.name;
+    let key = &item.file.key;
+    let mut actions: Vec<AnyView> = Vec::new();
+    if let Some(retry) = handlers.retry.filter(|_| item.can_retry) {
+        actions.push(action_button(
+            "Retry",
+            format!("Retry {name}"),
+            LucideGlyph::RotateCw,
+            retry,
+            key.clone(),
+        ));
+    }
+    if include_download && item.state == ItemState::Stored {
+        actions.push(download_link(&item.file));
+    }
+    if let Some(remove) = handlers.remove.filter(|_| item.can_remove) {
+        let (tooltip, verb, glyph) = if matches!(item.state, ItemState::Failed(_)) {
+            ("Dismiss", "Dismiss", LucideGlyph::X)
+        } else {
+            ("Remove", "Remove", LucideGlyph::Trash2)
+        };
+        actions.push(action_button(
+            tooltip,
+            format!("{verb} {name}"),
+            glyph,
+            remove,
+            key.clone(),
+        ));
+    }
+    (!actions.is_empty()).then(|| {
+        view! { <span class="relative z-10 flex shrink-0 items-center gap-1">{actions}</span> }
+            .into_any()
+    })
+}
+
+fn file_row(
+    item: &FileItem,
+    open_key: RwSignal<Option<String>>,
+    handlers: ItemHandlers,
+) -> AnyView {
+    let details = detail_view(item, Some(item.file.details()));
     view! {
-        <li class=ROW_CLASS>
-            {open_overlay(file, open_key)} {media_view(file, MediaSize::Row)}
+        <li
+            class=format!("{ROW_CLASS} {}", item.state.border_class())
+            aria-busy=item.state.busy_message().is_some().to_string()
+        >
+            {open_overlay(item, open_key)}
+            {media_view(item, MediaSize::Row)}
             <span class="pointer-events-none relative min-w-0 flex-1 text-sm">
-                {name_view(file, NAME_CLASS)}
-                <span class="block truncate text-xs text-gray-500">{file.details()}</span>
-            </span> {download_button(file)}
+                {name_view(&item.file, NAME_CLASS)} {details}
+            </span>
+            {actions_view(item, handlers, true)}
         </li>
     }
     .into_any()
 }
 
 fn tile_details(file: &StoredFile) -> Option<String> {
-    let details = if file.kind() == FileKind::Image {
-        file.details_without_type()
-    } else {
-        file.details()
-    };
+    let details = file.tile_details();
     (!details.is_empty()).then_some(details)
 }
 
-fn file_tile(file: &StoredFile, open_key: RwSignal<Option<String>>) -> AnyView {
-    let details = tile_details(file).map(
-        |details| view! { <span class="block truncate text-xs text-gray-500">{details}</span> },
-    );
+fn file_tile(
+    item: &FileItem,
+    open_key: RwSignal<Option<String>>,
+    handlers: ItemHandlers,
+) -> AnyView {
+    let details = detail_view(item, tile_details(&item.file));
     view! {
-        <li class=TILE_CLASS>
-            {open_overlay(file, open_key)} {media_view(file, MediaSize::Tile)}
-            <span class="pointer-events-none relative min-w-0 p-2 text-sm">
-                {name_view(file, NAME_CLASS)} {details}
+        <li
+            class=format!("{TILE_CLASS} {}", item.state.border_class())
+            aria-busy=item.state.busy_message().is_some().to_string()
+        >
+            {open_overlay(item, open_key)}
+            {media_view(item, MediaSize::Tile)}
+            <span class="flex min-w-0 items-center gap-1 p-2">
+                <span class="pointer-events-none relative min-w-0 flex-1 text-sm">
+                    {name_view(&item.file, NAME_CLASS)} {details}
+                </span>
+                {actions_view(item, handlers, false)}
             </span>
         </li>
     }
     .into_any()
 }
 
-fn file_collection(
-    files: Signal<Vec<StoredFile>>,
+type ItemRenderer = fn(&FileItem, RwSignal<Option<String>>, ItemHandlers) -> AnyView;
+
+pub(super) fn file_items(
+    items: Signal<Vec<FileItem>>,
+    layout: FileLayout,
     label: String,
-    empty_message: String,
-    list_class: &'static str,
-    item: fn(&StoredFile, RwSignal<Option<String>>) -> AnyView,
+    open_key: RwSignal<Option<String>>,
+    handlers: ItemHandlers,
 ) -> AnyView {
+    let (list_class, render): (&'static str, ItemRenderer) = match layout {
+        FileLayout::List => (LIST_CLASS, file_row),
+        FileLayout::Grid => (GRID_CLASS, file_tile),
+    };
+    view! {
+        <ul aria-label=label class=list_class>
+            <For
+                each=move || items.get()
+                key=FileItem::render_key
+                children=move |item| render(&item, open_key, handlers)
+            />
+        </ul>
+    }
+    .into_any()
+}
+
+fn read_only_files(
+    files: Signal<Vec<StoredFile>>,
+    layout: FileLayout,
+    label: String,
+    empty_message: Option<String>,
+) -> AnyView {
+    let empty_message = empty_message.unwrap_or_else(|| DEFAULT_EMPTY_MESSAGE.to_owned());
     let open_key: RwSignal<Option<String>> = RwSignal::new(None);
-    let items = move || {
+    let items = Signal::derive(move || files.get().into_iter().map(FileItem::stored).collect());
+    let content = move || {
         if files.with(Vec::is_empty) {
             return view! { <EmptyState title=empty_message.clone() /> }.into_any();
         }
-        view! {
-            <ul aria-label=label.clone() class=list_class>
-                <For
-                    each=move || files.get()
-                    key=|file| file.key.clone()
-                    children=move |file| item(&file, open_key)
-                />
-            </ul>
-        }
-        .into_any()
+        file_items(
+            items,
+            layout,
+            label.clone(),
+            open_key,
+            ItemHandlers::default(),
+        )
     };
     view! {
-        {items}
+        {content}
         <FileViewer files open_key />
     }
     .into_any()
@@ -236,8 +446,7 @@ pub fn FileList(
     #[prop(into)] label: String,
     #[prop(optional, into)] empty_message: Option<String>,
 ) -> impl IntoView {
-    let empty_message = empty_message.unwrap_or_else(|| DEFAULT_EMPTY_MESSAGE.to_owned());
-    file_collection(files, label, empty_message, "flex flex-col gap-2", file_row)
+    read_only_files(files, FileLayout::List, label, empty_message)
 }
 
 #[component]
@@ -246,8 +455,7 @@ pub fn FileGrid(
     #[prop(into)] label: String,
     #[prop(optional, into)] empty_message: Option<String>,
 ) -> impl IntoView {
-    let empty_message = empty_message.unwrap_or_else(|| DEFAULT_EMPTY_MESSAGE.to_owned());
-    file_collection(files, label, empty_message, GRID_CLASS, file_tile)
+    read_only_files(files, FileLayout::Grid, label, empty_message)
 }
 
 #[must_use]
@@ -257,25 +465,17 @@ pub fn file_cell(file: &StoredFile) -> AnyView {
         kind.glyph(),
         format!("h-4 w-4 shrink-0 {}", kind.icon_color_class()),
     );
+    let link_class = "min-w-0 text-blue-600 hover:text-blue-800 hover:underline";
     let link = if file.opens_in_viewer() {
         view! {
-            <a
-                href=file.url.clone()
-                target="_blank"
-                rel="noopener"
-                class="min-w-0 text-blue-600 hover:text-blue-800 hover:underline"
-            >
+            <a href=file.url.clone() target="_blank" rel="noopener" class=link_class>
                 {name_view(file, "")}
             </a>
         }
         .into_any()
     } else {
         view! {
-            <a
-                href=file.url.clone()
-                download=file.name.clone()
-                class="min-w-0 text-blue-600 hover:text-blue-800 hover:underline"
-            >
+            <a href=file.url.clone() download=file.name.clone() class=link_class>
                 {name_view(file, "")}
             </a>
         }

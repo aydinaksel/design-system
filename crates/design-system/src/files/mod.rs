@@ -4,9 +4,16 @@ use crate::formatting::format_file_size;
 use crate::icons::LucideGlyph;
 
 mod display;
+mod section;
+mod upload;
+mod upload_queue;
 mod viewer;
 
-pub use display::{file_cell, FileGrid, FileList};
+pub use display::{file_cell, FileGrid, FileLayout, FileList};
+pub use section::FileSection;
+pub use upload::{
+    file_remover, file_uploader, FileRemover, FileUploader, RemoveFuture, UploadFuture, UploadRules,
+};
 pub use viewer::FileViewer;
 
 const DATE_FORMAT: &str = "%-d %b %Y";
@@ -64,15 +71,17 @@ impl StoredFile {
             .map_or_else(|| kind.label().to_owned(), str::to_uppercase)
     }
 
+    fn tile_details(&self) -> String {
+        let type_label = (self.kind() != FileKind::Image).then(|| self.type_label());
+        [type_label, self.size_bytes.map(format_file_size)]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(DETAIL_SEPARATOR)
+    }
+
     fn details(&self) -> String {
-        self.details_including(Some(self.type_label()))
-    }
-
-    fn details_without_type(&self) -> String {
-        self.details_including(None)
-    }
-
-    fn details_including(&self, type_label: Option<String>) -> String {
+        let type_label = Some(self.type_label());
         let size = self.size_bytes.map(format_file_size);
         let added_on = self
             .added_on
@@ -135,19 +144,47 @@ impl FileKind {
         }
     }
 
+    const RECOGNIZED: [Self; 8] = [
+        Self::Image,
+        Self::Pdf,
+        Self::Spreadsheet,
+        Self::Document,
+        Self::Email,
+        Self::Archive,
+        Self::Video,
+        Self::Audio,
+    ];
+
+    fn extensions(self) -> &'static [&'static str] {
+        match self {
+            Self::Image => &["jpg", "jpeg", "png", "gif", "webp", "avif", "heic", "svg"],
+            Self::Pdf => &["pdf"],
+            Self::Spreadsheet => &["csv", "xls", "xlsx", "ods"],
+            Self::Document => &["txt", "doc", "docx", "rtf", "odt"],
+            Self::Email => &["eml", "msg"],
+            Self::Archive => &["zip", "gz", "7z", "tar"],
+            Self::Video => &["mp4", "mov", "webm"],
+            Self::Audio => &["mp3", "wav", "m4a"],
+            Self::Other => &[],
+        }
+    }
+
+    fn content_type_pattern(self) -> Option<&'static str> {
+        match self {
+            Self::Image => Some("image/*"),
+            Self::Pdf => Some("application/pdf"),
+            Self::Video => Some("video/*"),
+            Self::Audio => Some("audio/*"),
+            Self::Spreadsheet | Self::Document | Self::Email | Self::Archive | Self::Other => None,
+        }
+    }
+
     fn from_extension(extension: Option<&str>) -> Self {
         let extension = extension.unwrap_or_default().to_ascii_lowercase();
-        match extension.as_str() {
-            "jpg" | "jpeg" | "png" | "gif" | "webp" | "avif" | "heic" | "svg" => Self::Image,
-            "pdf" => Self::Pdf,
-            "csv" | "xls" | "xlsx" | "ods" => Self::Spreadsheet,
-            "txt" | "doc" | "docx" | "rtf" | "odt" => Self::Document,
-            "eml" | "msg" => Self::Email,
-            "zip" | "gz" | "7z" | "tar" => Self::Archive,
-            "mp4" | "mov" | "webm" => Self::Video,
-            "mp3" | "wav" | "m4a" => Self::Audio,
-            _ => Self::Other,
-        }
+        Self::RECOGNIZED
+            .into_iter()
+            .find(|kind| kind.extensions().contains(&extension.as_str()))
+            .unwrap_or(Self::Other)
     }
 
     #[must_use]
@@ -167,6 +204,20 @@ impl FileKind {
             Self::Video => "Video",
             Self::Audio => "Audio",
             Self::Other => "File",
+        }
+    }
+
+    fn plural_label(self) -> &'static str {
+        match self {
+            Self::Image => "images",
+            Self::Pdf => "PDFs",
+            Self::Spreadsheet => "spreadsheets",
+            Self::Document => "documents",
+            Self::Email => "emails",
+            Self::Archive => "archives",
+            Self::Video => "videos",
+            Self::Audio => "audio files",
+            Self::Other => "files",
         }
     }
 

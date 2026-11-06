@@ -99,6 +99,15 @@ fn rounded_quotient(dividend: u128, divisor: u128) -> u128 {
 
 #[must_use]
 pub fn format_file_size(size_bytes: u64) -> String {
+    file_size_text(size_bytes, false)
+}
+
+#[must_use]
+pub fn format_file_size_with_tenths(size_bytes: u64) -> String {
+    file_size_text(size_bytes, true)
+}
+
+fn file_size_text(size_bytes: u64, always_tenths: bool) -> String {
     let Some((unit, unit_bytes)) = FILE_SIZE_UNITS
         .into_iter()
         .find(|(_, unit_bytes)| size_bytes >= *unit_bytes)
@@ -112,7 +121,9 @@ pub fn format_file_size(size_bytes: u64) -> String {
     );
     let whole = tenths.checked_div(TENTHS_PER_UNIT).unwrap_or_default();
     let fraction = tenths.checked_rem(TENTHS_PER_UNIT).unwrap_or_default();
-    if whole >= WHOLE_UNITS_SHOWN_WITHOUT_DECIMAL {
+    if always_tenths {
+        format!("{whole}.{fraction} {unit}")
+    } else if whole >= WHOLE_UNITS_SHOWN_WITHOUT_DECIMAL {
         let rounded_whole = rounded_quotient(tenths, TENTHS_PER_UNIT);
         format!("{rounded_whole} {unit}")
     } else if fraction == 0 {
@@ -136,6 +147,12 @@ mod tests {
         assert_eq!(format_file_size(16_462_643), "16 MB");
         assert_eq!(format_file_size(1_048_575), "1024 KB");
         assert_eq!(format_file_size(u64::MAX), "17179869184 GB");
+    }
+
+    #[test]
+    fn sizes_a_file_to_a_tenth_when_asked() {
+        assert_eq!(format_file_size_with_tenths(10_905_190), "10.4 MB");
+        assert_eq!(format_file_size_with_tenths(1024), "1.0 KB");
     }
 
     #[test]

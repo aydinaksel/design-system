@@ -1,6 +1,11 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use chrono::NaiveDate;
 use design_system::table::{CellValue, Column, DataTable};
-use design_system::{file_cell, FileGrid, FileList, PageHeader, StoredFile};
+use design_system::{
+    file_cell, file_remover, file_uploader, FileGrid, FileKind, FileLayout, FileList, FileRemover,
+    FileSection, FileUploader, PageHeader, StoredFile, UploadRules,
+};
 use leptos::prelude::*;
 
 use super::section;
@@ -122,6 +127,7 @@ pub fn FilesPage() -> impl IntoView {
     view! {
         <main class="mx-auto max-w-screen-2xl space-y-10 px-6 py-8">
             <PageHeader title="Files" />
+            {uploading_sections()}
             {section(
                 "Documents on a Record",
                 view! {
@@ -156,6 +162,163 @@ pub fn FilesPage() -> impl IntoView {
                     .into_any(),
             )}
         </main>
+    }
+    .into_any()
+}
+
+#[cfg(feature = "ssr")]
+const SIMULATED_UPLOAD_MILLISECONDS: u64 = 1200;
+#[cfg(feature = "ssr")]
+const SIMULATED_REMOVAL_MILLISECONDS: u64 = 600;
+const TEN_MEGABYTES: u64 = 10_485_760;
+
+static NEXT_UPLOADED_NUMBER: AtomicU64 = AtomicU64::new(0);
+
+#[server]
+pub async fn simulate_upload(name: String) -> Result<(), ServerFnError> {
+    tokio::time::sleep(std::time::Duration::from_millis(
+        SIMULATED_UPLOAD_MILLISECONDS,
+    ))
+    .await;
+    if name.contains("fail") {
+        return Err(ServerFnError::new("The server turned this file away."));
+    }
+    Ok(())
+}
+
+#[server]
+pub async fn simulate_removal(name: String) -> Result<(), ServerFnError> {
+    tokio::time::sleep(std::time::Duration::from_millis(
+        SIMULATED_REMOVAL_MILLISECONDS,
+    ))
+    .await;
+    if name.contains("locked") {
+        return Err(ServerFnError::new("It is attached to an open invoice."));
+    }
+    Ok(())
+}
+
+fn server_message(error: ServerFnError) -> String {
+    match error {
+        ServerFnError::ServerError(message) => message,
+        other => other.to_string(),
+    }
+}
+
+fn uploaded_copy(file: &web_sys::File) -> StoredFile {
+    let number = NEXT_UPLOADED_NUMBER.fetch_add(1, Ordering::Relaxed);
+    let url = web_sys::Url::create_object_url_with_blob(file).unwrap_or_default();
+    StoredFile {
+        content_type: Some(file.type_()).filter(|content_type| !content_type.is_empty()),
+        size_bytes: format!("{:.0}", file.size()).parse().ok(),
+        added_by: Some("You".to_owned()),
+        added_on: Some(chrono::Local::now().date_naive()),
+        ..StoredFile::new(format!("uploaded-{number}"), file.name(), url)
+    }
+}
+
+fn gallery_uploader() -> FileUploader {
+    file_uploader(|file: web_sys::File| async move {
+        simulate_upload(file.name()).await.map_err(server_message)?;
+        Ok::<_, String>(uploaded_copy(&file))
+    })
+}
+
+fn gallery_remover() -> FileRemover {
+    file_remover(|file: StoredFile| async move {
+        simulate_removal(file.name).await.map_err(server_message)
+    })
+}
+
+fn attached_documents() -> Vec<StoredFile> {
+    vec![
+        added(
+            StoredFile::new(
+                "attached-delivery-note",
+                "delivery-note-DN-10482.pdf",
+                SAMPLE_PDF_PATH,
+            ),
+            1094,
+            "Aydin",
+            3,
+        ),
+        added(
+            StoredFile::new(
+                "attached-locked",
+                "locked-supplier-invoice.pdf",
+                SAMPLE_PDF_PATH,
+            ),
+            48_230,
+            "Stephanie",
+            2,
+        ),
+    ]
+}
+
+fn uploading_sections() -> AnyView {
+    let documents = Signal::stored(attached_documents());
+    let no_photos = Signal::stored(Vec::<StoredFile>::new());
+    let no_statement = Signal::stored(Vec::<StoredFile>::new());
+    let locked = Signal::stored(true);
+    view! {
+        {section(
+            "Upload Documents",
+            view! {
+                <div class="max-w-xl">
+                    <FileSection
+                        files=documents
+                        label="Delivery Documents"
+                        rules=UploadRules::accepting([FileKind::Pdf, FileKind::Image])
+                            .up_to(TEN_MEGABYTES)
+                        upload=gallery_uploader()
+                        remove=gallery_remover()
+                    />
+                </div>
+            }
+                .into_any(),
+        )}
+        {section(
+            "Upload Photos",
+            view! {
+                <FileSection
+                    files=no_photos
+                    label="Delivery Photos"
+                    layout=FileLayout::Grid
+                    rules=UploadRules::accepting([FileKind::Image]).up_to(TEN_MEGABYTES)
+                    upload=gallery_uploader()
+                    remove=gallery_remover()
+                />
+            }
+                .into_any(),
+        )}
+        {section(
+            "Upload One File",
+            view! {
+                <div class="max-w-xl">
+                    <FileSection
+                        files=no_statement
+                        label="Bank Statement"
+                        rules=UploadRules::accepting([FileKind::Spreadsheet]).one_file()
+                        upload=gallery_uploader()
+                    />
+                </div>
+            }
+                .into_any(),
+        )}
+        {section(
+            "Uploads Disabled",
+            view! {
+                <div class="max-w-xl">
+                    <FileSection
+                        files=no_statement
+                        label="Locked Documents"
+                        upload=gallery_uploader()
+                        disabled=locked
+                    />
+                </div>
+            }
+                .into_any(),
+        )}
     }
     .into_any()
 }
