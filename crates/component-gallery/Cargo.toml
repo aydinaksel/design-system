@@ -22,7 +22,6 @@ web-sys = { version = "0.3", features = ["File"] }
 
 [dependencies.chrono]
 version = "0.4"
-optional = true
 
 [dependencies.leptos_axum]
 version = "0.8"
@@ -66,7 +65,6 @@ ssr = [
     "design-system/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
-    "dep:chrono",
     "dep:leptos_axum",
     "dep:axum",
     "dep:tokio",

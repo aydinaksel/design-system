@@ -86,9 +86,57 @@ pub fn format_quantity(quantity: f64) -> String {
     }
 }
 
+const FILE_SIZE_UNITS: [(&str, u64); 3] = [("GB", 1_073_741_824), ("MB", 1_048_576), ("KB", 1024)];
+const TENTHS_PER_UNIT: u128 = 10;
+const WHOLE_UNITS_SHOWN_WITHOUT_DECIMAL: u128 = 10;
+
+fn rounded_quotient(dividend: u128, divisor: u128) -> u128 {
+    dividend
+        .saturating_add(divisor.checked_div(2).unwrap_or_default())
+        .checked_div(divisor)
+        .unwrap_or_default()
+}
+
+#[must_use]
+pub fn format_file_size(size_bytes: u64) -> String {
+    let Some((unit, unit_bytes)) = FILE_SIZE_UNITS
+        .into_iter()
+        .find(|(_, unit_bytes)| size_bytes >= *unit_bytes)
+    else {
+        return format!("{size_bytes} B");
+    };
+    let unit_bytes = u128::from(unit_bytes);
+    let tenths = rounded_quotient(
+        u128::from(size_bytes).saturating_mul(TENTHS_PER_UNIT),
+        unit_bytes,
+    );
+    let whole = tenths.checked_div(TENTHS_PER_UNIT).unwrap_or_default();
+    let fraction = tenths.checked_rem(TENTHS_PER_UNIT).unwrap_or_default();
+    if whole >= WHOLE_UNITS_SHOWN_WITHOUT_DECIMAL {
+        let rounded_whole = rounded_quotient(tenths, TENTHS_PER_UNIT);
+        format!("{rounded_whole} {unit}")
+    } else if fraction == 0 {
+        format!("{whole} {unit}")
+    } else {
+        format!("{whole}.{fraction} {unit}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sizes_a_file_in_the_largest_unit_it_reaches() {
+        assert_eq!(format_file_size(0), "0 B");
+        assert_eq!(format_file_size(1023), "1023 B");
+        assert_eq!(format_file_size(1024), "1 KB");
+        assert_eq!(format_file_size(2_516_582), "2.4 MB");
+        assert_eq!(format_file_size(15_728_640), "15 MB");
+        assert_eq!(format_file_size(16_462_643), "16 MB");
+        assert_eq!(format_file_size(1_048_575), "1024 KB");
+        assert_eq!(format_file_size(u64::MAX), "17179869184 GB");
+    }
 
     #[test]
     fn money_is_grouped_with_commas() {

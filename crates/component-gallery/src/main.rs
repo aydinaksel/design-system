@@ -1,8 +1,11 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use axum::http::header::CONTENT_TYPE;
+    use axum::routing::get;
     use axum::Router;
     use component_gallery::app::{shell, App};
+    use component_gallery::pages::files::SAMPLE_PDF_PATH;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use tracing::{event, Level};
@@ -19,7 +22,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket_address = leptos_options.site_addr;
     let route_list = generate_route_list(App);
 
+    let sample_pdf = include_bytes!("../assets/sample-delivery-note.pdf");
     let router = Router::new()
+        .route(
+            SAMPLE_PDF_PATH,
+            get(
+                move || async move { ([(CONTENT_TYPE, "application/pdf")], sample_pdf.as_slice()) },
+            ),
+        )
         .leptos_routes(&leptos_options, route_list, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())

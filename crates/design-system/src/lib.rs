@@ -24,6 +24,7 @@ pub mod field_values;
 pub mod fields;
 pub mod fieldset;
 pub mod file_drop_zone;
+pub mod files;
 pub mod filter_chip;
 pub mod form_dialog;
 pub mod formatting;
@@ -87,6 +88,7 @@ pub use fields::{
 };
 pub use fieldset::{Field, Fieldset};
 pub use file_drop_zone::FileDropZone;
+pub use files::{file_cell, FileGrid, FileKind, FileList, FileViewer, StoredFile};
 pub use filter_chip::FilterChip;
 pub use form_dialog::FormDialog;
 pub use gallery::{GalleryImage, ImageGallery, ImageGrid};

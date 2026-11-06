@@ -19,14 +19,16 @@ pub enum DialogSize {
     #[default]
     Medium,
     Large,
+    FullScreen,
 }
 
 impl DialogSize {
-    const fn width_class(self) -> &'static str {
+    const fn panel_class(self) -> &'static str {
         match self {
             Self::Small => "max-w-sm",
             Self::Medium => "max-w-md",
             Self::Large => "max-w-2xl",
+            Self::FullScreen => "flex h-[calc(100dvh-2rem)] max-w-none flex-col",
         }
     }
 }
@@ -279,7 +281,7 @@ pub fn Dialog(
                             aria-labelledby=title_id.get_value()
                             aria-describedby=description_id.get_value()
                             tabindex="-1"
-                            class=format!("{PANEL_CLASS} {}", size.width_class())
+                            class=format!("{PANEL_CLASS} {}", size.panel_class())
                             on:keydown=on_keydown
                         >
                             {content
