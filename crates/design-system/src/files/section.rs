@@ -1,88 +1,23 @@
 use leptos::ev::{BeforeUnloadEvent, ClipboardEvent, DragEvent};
 use leptos::html::Input;
 use leptos::prelude::*;
-use leptos::wasm_bindgen::JsValue;
 use leptos_use::{use_event_listener, use_window};
 
-use super::display::{file_items, FileItem, FileLayout, ItemHandlers, ItemState};
+use super::arrange::{
+    arrange_items, arrange_toolbar, arranged, Arranging, FileArranger, FileCategory,
+};
+use super::display::{file_items, list_class, FileItem, FileLayout, ItemHandlers, ItemState};
+use super::drop_target::{files_in, offer_drop, pasted_files, DropTarget};
+use super::removal::Removals;
+use super::toolbar::{category_chips, drop_zone_view, toolbar_view};
 use super::upload::{FileRemover, FileUploader, UploadRules};
 use super::upload_queue::UploadQueue;
 use super::viewer::FileViewer;
 use super::StoredFile;
-use crate::button::{button_class, ButtonSize, ButtonTone};
-use crate::confirm_dialog::ConfirmDialog;
-use crate::icons::{self, LucideGlyph};
-use crate::toast::notify_failure;
 
-const DROP_ZONE_CLASS: &str = "flex w-full cursor-pointer flex-col items-center gap-1 rounded-surface border-2 border-dashed border-gray-300 bg-white px-6 py-8 text-center text-sm transition-colors hover:border-gray-400 focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 const DROP_OVERLAY_CLASS: &str = "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-surface border-2 border-dashed border-blue-500 bg-blue-50/90 text-sm font-medium text-blue-700";
 const SECTION_CLASS: &str = "relative space-y-3 rounded-surface transition-shadow";
 const PAGE_DRAG_CLASS: &str = "ring-2 ring-blue-200 ring-offset-4";
-const FILES_TRANSFER_TYPE: &str = "Files";
-
-fn carries_files(event: &DragEvent) -> bool {
-    event.data_transfer().is_some_and(|transfer| {
-        transfer
-            .types()
-            .includes(&JsValue::from_str(FILES_TRANSFER_TYPE), 0)
-    })
-}
-
-fn files_in(list: Option<web_sys::FileList>) -> Vec<web_sys::File> {
-    list.map(|list| {
-        (0..list.length())
-            .filter_map(|index| list.get(index))
-            .collect()
-    })
-    .unwrap_or_default()
-}
-
-fn set_drop_effect(event: &DragEvent, effect: &str) {
-    if let Some(transfer) = event.data_transfer() {
-        transfer.set_drop_effect(effect);
-    }
-}
-
-fn watch_page_drags(page_drag_depth: RwSignal<u32>) {
-    drop(use_event_listener(
-        use_window(),
-        leptos::ev::dragenter,
-        move |event: DragEvent| {
-            if carries_files(&event) {
-                page_drag_depth.update(|depth| *depth = depth.saturating_add(1));
-            }
-        },
-    ));
-    drop(use_event_listener(
-        use_window(),
-        leptos::ev::dragleave,
-        move |event: DragEvent| {
-            if carries_files(&event) {
-                page_drag_depth.update(|depth| *depth = depth.saturating_sub(1));
-            }
-        },
-    ));
-    drop(use_event_listener(
-        use_window(),
-        leptos::ev::dragover,
-        move |event: DragEvent| {
-            if carries_files(&event) && !event.default_prevented() {
-                event.prevent_default();
-                set_drop_effect(&event, "none");
-            }
-        },
-    ));
-    drop(use_event_listener(
-        use_window(),
-        leptos::ev::drop,
-        move |event: DragEvent| {
-            page_drag_depth.set(0);
-            if carries_files(&event) && !event.default_prevented() {
-                event.prevent_default();
-            }
-        },
-    ));
-}
 
 fn warn_before_leaving(queue: UploadQueue) {
     drop(use_event_listener(
@@ -98,151 +33,145 @@ fn warn_before_leaving(queue: UploadQueue) {
 }
 
 #[derive(Clone, Copy)]
-struct Removals {
-    remover: StoredValue<Option<FileRemover>>,
-    removing: RwSignal<Vec<String>>,
-    removed: RwSignal<Vec<String>>,
-    confirming: RwSignal<Option<StoredFile>>,
-    confirm_open: RwSignal<bool>,
+pub(super) struct Presentation {
+    pub(super) primary: bool,
+    pub(super) categories: StoredValue<Vec<FileCategory>>,
+    pub(super) filter: RwSignal<Option<String>>,
 }
 
-impl Removals {
-    fn new(remover: Option<FileRemover>) -> Self {
-        Self {
-            remover: StoredValue::new(remover),
-            removing: RwSignal::new(Vec::new()),
-            removed: RwSignal::new(Vec::new()),
-            confirming: RwSignal::new(None),
-            confirm_open: RwSignal::new(false),
-        }
+impl Presentation {
+    fn category_label(self, key: &str) -> Option<String> {
+        self.categories.with_value(|categories| {
+            categories
+                .iter()
+                .find(|category| category.key == key)
+                .map(|category| category.label.clone())
+        })
     }
 
-    fn allowed(self) -> bool {
-        self.remover.with_value(Option::is_some)
+    fn shows(self, file: &StoredFile) -> bool {
+        self.filter.with(|filter| {
+            filter
+                .as_ref()
+                .is_none_or(|category| file.category.as_ref() == Some(category))
+        })
     }
+}
 
-    fn ask(self, file: StoredFile) {
-        self.confirming.set(Some(file));
-        self.confirm_open.set(true);
-    }
+#[derive(Clone, Copy)]
+pub(super) struct SectionState {
+    files: Signal<Vec<StoredFile>>,
+    pub(super) queue: UploadQueue,
+    removals: Removals,
+    pub(super) arranging: Arranging,
+    pub(super) presentation: Presentation,
+}
 
-    fn confirmed(self, queue: UploadQueue) {
-        let Some(file) = self.confirming.get_untracked() else {
-            return;
-        };
-        let Some(removal) = self
-            .remover
-            .with_value(|remover| remover.as_ref().map(|remove| remove(file.clone())))
-        else {
-            return;
-        };
-        let key = file.key;
-        let name = file.name;
-        self.removing.update(|keys| keys.push(key.clone()));
-        leptos::task::spawn_local(async move {
-            let outcome = removal.await;
-            self.removing
-                .try_update(|keys| keys.retain(|removing| *removing != key));
-            match outcome {
-                Ok(()) => {
-                    self.removed.try_update(|keys| keys.push(key.clone()));
-                    queue.forget_uploaded(&key);
-                }
-                Err(reason) => notify_failure(format!("Couldn't Remove {name}"), Some(reason)),
+impl SectionState {
+    fn defer_to_fresh_files(self) {
+        let files = self.files;
+        Effect::new(move |previous: Option<()>| {
+            files.track();
+            if previous.is_some() {
+                self.arranging.saved.set(None);
+                self.removals.forget_removed();
             }
         });
     }
-}
 
-fn section_items(
-    files: Signal<Vec<StoredFile>>,
-    queue: UploadQueue,
-    removals: Removals,
-) -> Vec<FileItem> {
-    let removed = removals.removed.get();
-    let removing = removals.removing.get();
-    let can_remove = removals.allowed();
-    let stored: Vec<StoredFile> = files
-        .get()
-        .into_iter()
-        .filter(|file| !removed.contains(&file.key))
-        .collect();
-    let stored_keys: Vec<String> = stored.iter().map(|file| file.key.clone()).collect();
-    stored
-        .into_iter()
-        .map(FileItem::stored)
-        .chain(queue.items(&stored_keys))
-        .filter(|item| !removed.contains(&item.file.key))
-        .map(|item| match item.state {
-            ItemState::Stored if removing.contains(&item.file.key) => FileItem {
-                state: ItemState::Removing,
-                ..item
-            },
-            ItemState::Stored => FileItem { can_remove, ..item },
-            ItemState::Waiting
-            | ItemState::Uploading
-            | ItemState::Removing
-            | ItemState::Failed(_) => item,
-        })
-        .collect()
-}
-
-fn drop_zone_view(hint: String, disabled: Signal<bool>, open_picker: Callback<()>) -> AnyView {
-    view! {
-        <button
-            type="button"
-            class=DROP_ZONE_CLASS
-            prop:disabled=move || disabled.get()
-            on:click=move |_| open_picker.run(())
-        >
-            {icons::icon(LucideGlyph::Upload, "h-5 w-5 text-gray-400")}
-            <span class="font-medium text-gray-700">"Drop Files Here, or Browse"</span>
-            <span class="text-xs text-gray-500">{hint}</span>
-        </button>
-    }
-    .into_any()
-}
-
-fn toolbar_view(hint: String, disabled: Signal<bool>, open_picker: Callback<()>) -> AnyView {
-    view! {
-        <div class="flex items-center justify-between gap-3">
-            <p class="text-xs text-gray-500">{hint}</p>
-            <button
-                type="button"
-                class=format!(
-                    "{} disabled:cursor-not-allowed",
-                    button_class(ButtonTone::Secondary, ButtonSize::Compact),
-                )
-                prop:disabled=move || disabled.get()
-                on:click=move |_| open_picker.run(())
-            >
-                {icons::icon(LucideGlyph::Upload, "h-4 w-4 shrink-0 opacity-70")}
-                "Add Files"
-            </button>
-        </div>
-    }
-    .into_any()
-}
-
-fn removal_dialog(removals: Removals, queue: UploadQueue) -> AnyView {
-    let name = move || {
-        removals
-            .confirming
+    pub(super) fn stored_in_order(self) -> Vec<StoredFile> {
+        let removed = self.removals.removed_keys();
+        let visible: Vec<StoredFile> = self
+            .files
             .get()
-            .map(|file| file.name)
-            .unwrap_or_default()
-    };
-    view! {
-        <ConfirmDialog
-            open=removals.confirm_open
-            title=Signal::derive(move || format!("Remove {}?", name()))
-            body="It will be removed for everyone who can see this record."
-            confirm_label="Remove"
-            tone=ButtonTone::Danger
-            on_confirm=Callback::new(move |()| removals.confirmed(queue))
-        />
+            .into_iter()
+            .filter(|file| !removed.contains(&file.key))
+            .collect();
+        self.arranging.saved.with(|saved| match saved {
+            Some(arrangement) => arranged(visible, arrangement),
+            None => visible,
+        })
     }
-    .into_any()
+
+    fn stored_item(self, file: StoredFile, primary_key: Option<&str>) -> FileItem {
+        let removing = self.removals.is_removing(&file.key);
+        let category_label = file
+            .category
+            .as_deref()
+            .and_then(|key| self.presentation.category_label(key));
+        FileItem {
+            state: if removing {
+                ItemState::Removing
+            } else {
+                ItemState::Stored
+            },
+            can_remove: self.removals.allowed() && !removing,
+            primary: primary_key == Some(file.key.as_str()),
+            category_label,
+            ..FileItem::stored(file)
+        }
+    }
+
+    fn items(self) -> Vec<FileItem> {
+        let removed = self.removals.removed_keys();
+        let stored = self.stored_in_order();
+        let primary_key = self
+            .presentation
+            .primary
+            .then(|| stored.first().map(|file| file.key.clone()))
+            .flatten();
+        let stored_keys: Vec<String> = stored.iter().map(|file| file.key.clone()).collect();
+        let stored_items: Vec<FileItem> = stored
+            .into_iter()
+            .filter(|file| self.presentation.shows(file))
+            .map(|file| self.stored_item(file, primary_key.as_deref()))
+            .collect();
+        let local_items = self
+            .queue
+            .items(&stored_keys)
+            .into_iter()
+            .filter(|item| !removed.contains(&item.file.key));
+        stored_items.into_iter().chain(local_items).collect()
+    }
+
+    fn has_anything(self) -> bool {
+        !self.stored_in_order().is_empty() || !self.queue.is_empty()
+    }
+
+    pub(super) fn category_counts(self) -> Vec<(FileCategory, usize)> {
+        let stored = self.stored_in_order();
+        self.presentation.categories.with_value(|categories| {
+            categories
+                .iter()
+                .map(|category| {
+                    let count = stored
+                        .iter()
+                        .filter(|file| file.category.as_deref() == Some(category.key.as_str()))
+                        .count();
+                    (category.clone(), count)
+                })
+                .filter(|(_, count)| *count > 0)
+                .collect()
+        })
+    }
+
+    fn handlers(self, items: Signal<Vec<FileItem>>) -> ItemHandlers {
+        let remove = move |key: String| {
+            if self.queue.dismiss(&key) {
+                return;
+            }
+            let stored = items.with_untracked(|items| {
+                stored_files(items).into_iter().find(|file| file.key == key)
+            });
+            if let Some(file) = stored {
+                self.removals.ask(file);
+            }
+        };
+        ItemHandlers {
+            retry: Some(Callback::new(move |key: String| self.queue.retry(&key))),
+            remove: Some(Callback::new(remove)),
+        }
+    }
 }
 
 fn stored_files(items: &[FileItem]) -> Vec<StoredFile> {
@@ -251,27 +180,6 @@ fn stored_files(items: &[FileItem]) -> Vec<StoredFile> {
         .filter(|item| item.state == ItemState::Stored)
         .map(|item| item.file.clone())
         .collect()
-}
-
-fn item_handlers(
-    queue: UploadQueue,
-    removals: Removals,
-    items: Signal<Vec<FileItem>>,
-) -> ItemHandlers {
-    let remove = move |key: String| {
-        if queue.dismiss(&key) {
-            return;
-        }
-        let stored = items
-            .with_untracked(|items| stored_files(items).into_iter().find(|file| file.key == key));
-        if let Some(file) = stored {
-            removals.ask(file);
-        }
-    };
-    ItemHandlers {
-        retry: Some(Callback::new(move |key: String| queue.retry(&key))),
-        remove: Some(Callback::new(remove)),
-    }
 }
 
 fn hidden_picker(
@@ -301,6 +209,58 @@ fn hidden_picker(
     .into_any()
 }
 
+struct ContentParts {
+    state: SectionState,
+    items: Signal<Vec<FileItem>>,
+    layout: FileLayout,
+    label: String,
+    hint: String,
+    disabled: Signal<bool>,
+    open_picker: Callback<()>,
+    open_key: RwSignal<Option<String>>,
+}
+
+fn section_content(parts: ContentParts) -> AnyView {
+    let ContentParts {
+        state,
+        items,
+        layout,
+        label,
+        hint,
+        disabled,
+        open_picker,
+        open_key,
+    } = parts;
+    let presentation = state.presentation;
+    let handlers = state.handlers(items);
+    let content = move || {
+        if state.arranging.is_active() {
+            return view! {
+                {arrange_toolbar(state.arranging)}
+                {arrange_items(
+                    state.arranging,
+                    layout,
+                    label.clone(),
+                    presentation.primary,
+                    presentation.categories,
+                    list_class(layout),
+                )}
+            }
+            .into_any();
+        }
+        if !state.has_anything() {
+            return drop_zone_view(hint.clone(), disabled, open_picker);
+        }
+        view! {
+            {toolbar_view(hint.clone(), &state, disabled, open_picker)}
+            {category_chips(&state)}
+            {file_items(items, layout, label.clone(), open_key, handlers)}
+        }
+        .into_any()
+    };
+    view! { {content} }.into_any()
+}
+
 #[component]
 pub fn FileSection(
     #[prop(into)] files: Signal<Vec<StoredFile>>,
@@ -309,83 +269,74 @@ pub fn FileSection(
     #[prop(optional)] rules: UploadRules,
     upload: FileUploader,
     #[prop(optional)] remove: Option<FileRemover>,
+    #[prop(optional)] arrange: Option<FileArranger>,
+    #[prop(optional)] primary: bool,
+    #[prop(optional)] categories: Vec<FileCategory>,
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
     let hint = rules.hint();
     let accept = rules.accept_attribute();
     let multiple = rules.multiple();
-    let queue = UploadQueue::new(upload, rules);
-    let removals = Removals::new(remove);
+    let state = SectionState {
+        files,
+        queue: UploadQueue::new(upload, rules),
+        removals: Removals::new(remove),
+        arranging: Arranging::new(arrange),
+        presentation: Presentation {
+            primary,
+            categories: StoredValue::new(categories),
+            filter: RwSignal::new(None),
+        },
+    };
+    state.defer_to_fresh_files();
+    state.arranging.follow_pointer();
+    warn_before_leaving(state.queue);
+    let drop_target = DropTarget::new();
     let open_key: RwSignal<Option<String>> = RwSignal::new(None);
-    let page_drag_depth = RwSignal::new(0_u32);
-    let section_drag_depth = RwSignal::new(0_u32);
     let input: NodeRef<Input> = NodeRef::new();
-    watch_page_drags(page_drag_depth);
-    warn_before_leaving(queue);
 
-    let items = Signal::derive(move || section_items(files, queue, removals));
+    let items = Signal::derive(move || state.items());
     let viewable = Signal::derive(move || items.with(|items| stored_files(items)));
-    let handlers = item_handlers(queue, removals, items);
     let open_picker = Callback::new(move |()| {
         if let Some(element) = input.get_untracked() {
             element.click();
         }
     });
+    let accepting = move || !disabled.get() && !state.arranging.is_active();
     let deliver = move |files: Vec<web_sys::File>| {
-        if !files.is_empty() && !disabled.get_untracked() {
-            queue.add(files);
+        let accepting_now = !disabled.get_untracked() && !state.arranging.is_active_untracked();
+        if !files.is_empty() && accepting_now {
+            state.queue.add(files);
         }
     };
     let section_class = move || {
-        let page_drag =
-            page_drag_depth.get() > 0 && section_drag_depth.get() == 0 && !disabled.get();
+        let highlight = drop_target.files_elsewhere_on_page() && accepting();
         format!(
             "{SECTION_CLASS} {}",
-            if page_drag { PAGE_DRAG_CLASS } else { "" }
+            if highlight { PAGE_DRAG_CLASS } else { "" }
         )
     };
-    let dragging_over = move || section_drag_depth.get() > 0 && !disabled.get();
-    let toolbar_hint = hint.clone();
-    let content = move || {
-        if items.with(Vec::is_empty) {
-            return drop_zone_view(hint.clone(), disabled, open_picker);
-        }
-        view! {
-            {toolbar_view(toolbar_hint.clone(), disabled, open_picker)}
-            {file_items(items, layout, label.clone(), open_key, handlers)}
-        }
-        .into_any()
-    };
+    let dragging_over = move || drop_target.files_over_section() && accepting();
+    let content = section_content(ContentParts {
+        state,
+        items,
+        layout,
+        label,
+        hint,
+        disabled,
+        open_picker,
+        open_key,
+    });
 
     view! {
         <div
             class=section_class
-            on:dragenter=move |event: DragEvent| {
-                if carries_files(&event) {
-                    event.prevent_default();
-                    section_drag_depth.update(|depth| *depth = depth.saturating_add(1));
-                }
-            }
-            on:dragover=move |event: DragEvent| {
-                if carries_files(&event) {
-                    event.prevent_default();
-                    set_drop_effect(&event, if disabled.get_untracked() { "none" } else { "copy" });
-                }
-            }
-            on:dragleave=move |event: DragEvent| {
-                if carries_files(&event) {
-                    section_drag_depth.update(|depth| *depth = depth.saturating_sub(1));
-                }
-            }
-            on:drop=move |event: DragEvent| {
-                section_drag_depth.set(0);
-                if carries_files(&event) {
-                    event.prevent_default();
-                    deliver(files_in(event.data_transfer().and_then(|transfer| transfer.files())));
-                }
-            }
+            on:dragenter=move |event: DragEvent| drop_target.enter(&event)
+            on:dragover=move |event: DragEvent| offer_drop(&event, accepting())
+            on:dragleave=move |event: DragEvent| drop_target.leave(&event)
+            on:drop=move |event: DragEvent| deliver(drop_target.dropped(&event))
             on:paste=move |event: ClipboardEvent| {
-                let pasted = files_in(event.clipboard_data().and_then(|data| data.files()));
+                let pasted = pasted_files(&event);
                 if !pasted.is_empty() {
                     event.prevent_default();
                     deliver(pasted);
@@ -396,9 +347,12 @@ pub fn FileSection(
             <Show when=dragging_over>
                 <div class=DROP_OVERLAY_CLASS>"Drop to Attach"</div>
             </Show>
+            <p class="sr-only" aria-live="polite">
+                {move || state.arranging.announcement.get()}
+            </p>
             {hidden_picker(input, accept, multiple, deliver)}
             <FileViewer files=viewable open_key />
-            {removal_dialog(removals, queue)}
+            {state.removals.dialog(state.queue)}
         </div>
     }
     .into_any()

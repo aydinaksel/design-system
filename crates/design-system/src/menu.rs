@@ -9,7 +9,7 @@ use leptos_use::use_timeout_fn;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::icons;
-use crate::placement::{Alignment, AnchoredPanel, Anchoring};
+use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
 
 const ITEM_MARKER_CLASS: &str = "menu-item";
 pub(crate) const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-item px-3 py-1.5 text-left text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-none";
@@ -24,6 +24,7 @@ const PANEL_OPEN_CLASS: &str = "visible opacity-100 transition-opacity";
 const PANEL_CLOSED_CLASS: &str = "invisible opacity-0 transition-[opacity,visibility]";
 const ANCHORING: Anchoring = Anchoring {
     alignment: Alignment::End,
+    side: PreferredSide::Below,
     gap_pixels: 4.0,
     matches_trigger_width: false,
     reserved_height_pixels: 0.0,

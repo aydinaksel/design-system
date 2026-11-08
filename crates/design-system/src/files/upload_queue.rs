@@ -147,6 +147,15 @@ impl UploadQueue {
             .with_untracked(|entries| entries.iter().any(LocalUpload::is_unfinished))
     }
 
+    pub(super) fn is_busy(self) -> bool {
+        self.entries
+            .with(|entries| entries.iter().any(LocalUpload::is_unfinished))
+    }
+
+    pub(super) fn is_empty(self) -> bool {
+        self.entries.with(Vec::is_empty)
+    }
+
     pub(super) fn items(self, stored_keys: &[String]) -> Vec<FileItem> {
         self.entries.with(|entries| {
             entries

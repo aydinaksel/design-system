@@ -89,8 +89,9 @@ pub use fields::{
 pub use fieldset::{Field, Fieldset};
 pub use file_drop_zone::FileDropZone;
 pub use files::{
-    file_cell, file_remover, file_uploader, FileGrid, FileKind, FileLayout, FileList, FileRemover,
-    FileSection, FileUploader, FileViewer, StoredFile, UploadRules,
+    file_arranger, file_cell, file_remover, file_uploader, Arrangement, FileArranger, FileCategory,
+    FileGrid, FileKind, FileLayout, FileList, FileRemover, FileSection, FileUploader, FileViewer,
+    StoredFile, UploadRules,
 };
 pub use filter_chip::FilterChip;
 pub use form_dialog::FormDialog;

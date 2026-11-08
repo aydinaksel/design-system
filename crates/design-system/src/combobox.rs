@@ -367,6 +367,7 @@ pub fn Combobox(
     #[prop(into)] clear_label: String,
     #[prop(optional, into)] invalid: Signal<bool>,
     #[prop(optional)] display: ComboboxDisplay,
+    #[prop(optional, into)] label: Option<String>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
     let combobox_number = ElementKey::next();
@@ -645,6 +646,7 @@ pub fn Combobox(
                     node_ref=input
                     id=field_control_id()
                     aria-describedby=field_description_id()
+                    aria-label=label
                     role="combobox"
                     aria-autocomplete="list"
                     aria-expanded=move || open.get().to_string()

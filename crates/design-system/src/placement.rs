@@ -16,9 +16,17 @@ pub(crate) enum Alignment {
     End,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum PreferredSide {
+    #[default]
+    Below,
+    Above,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct Anchoring {
     pub(crate) alignment: Alignment,
+    pub(crate) side: PreferredSide,
     pub(crate) gap_pixels: f64,
     pub(crate) matches_trigger_width: bool,
     pub(crate) reserved_height_pixels: f64,
@@ -101,10 +109,14 @@ fn place(trigger: Bounds, panel: Extent, viewport: Extent, anchoring: Anchoring)
     let fits_below = trigger.bottom + gap + height <= viewport.height - VIEWPORT_MARGIN_PIXELS;
     let fits_above = trigger.top - gap - height >= VIEWPORT_MARGIN_PIXELS;
     let more_room_above = trigger.top > viewport.height - trigger.bottom;
-    let edge = if fits_below || (!fits_above && !more_room_above) {
-        VerticalEdge::Top(trigger.bottom + gap)
-    } else {
+    let opens_above = match anchoring.side {
+        PreferredSide::Below => !fits_below && (fits_above || more_room_above),
+        PreferredSide::Above => fits_above || (!fits_below && more_room_above),
+    };
+    let edge = if opens_above {
         VerticalEdge::Bottom(viewport.height - trigger.top + gap)
+    } else {
+        VerticalEdge::Top(trigger.bottom + gap)
     };
     let preferred_left = match anchoring.alignment {
         Alignment::Start => trigger.left,
@@ -288,6 +300,26 @@ mod tests {
             anchoring(Alignment::Start),
         );
         assert_eq!(placement.edge, VerticalEdge::Bottom(106.0));
+    }
+
+    #[test]
+    fn opens_above_when_asked_and_there_is_room() {
+        let above = Anchoring {
+            side: PreferredSide::Above,
+            ..anchoring(Alignment::Start)
+        };
+        let placement = place(trigger_at(100.0, 400.0), PANEL, VIEWPORT, above);
+        assert_eq!(placement.edge, VerticalEdge::Bottom(406.0));
+    }
+
+    #[test]
+    fn falls_below_when_asked_for_above_without_room() {
+        let above = Anchoring {
+            side: PreferredSide::Above,
+            ..anchoring(Alignment::Start)
+        };
+        let placement = place(trigger_at(100.0, 100.0), PANEL, VIEWPORT, above);
+        assert_eq!(placement.edge, VerticalEdge::Top(138.0));
     }
 
     #[test]

@@ -10,12 +10,13 @@ use crate::menu::{
     is_typeahead_key, moved_position, typeahead_position, Movement,
     TYPEAHEAD_RESET_DELAY_MILLISECONDS,
 };
-use crate::placement::{Alignment, AnchoredPanel, Anchoring};
+use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
 
 pub(crate) const LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS: f64 = 240.0;
 pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
 pub(crate) const LISTBOX_ANCHORING: Anchoring = Anchoring {
     alignment: Alignment::Start,
+    side: PreferredSide::Below,
     gap_pixels: 4.0,
     matches_trigger_width: true,
     reserved_height_pixels: 0.0,
@@ -55,6 +56,7 @@ pub fn Listbox(
     #[prop(into)] options: Signal<Vec<ListboxOption>>,
     selected: RwSignal<String>,
     #[prop(optional, into)] placeholder: Option<String>,
+    #[prop(optional, into)] label: Option<String>,
     #[prop(optional, into)] invalid: Signal<bool>,
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
@@ -203,6 +205,7 @@ pub fn Listbox(
                 type="button"
                 node_ref=trigger
                 id=field_control_id()
+                aria-label=label
                 aria-describedby=field_description_id()
                 role="combobox"
                 aria-haspopup="listbox"

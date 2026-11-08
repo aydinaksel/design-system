@@ -3,12 +3,17 @@ use chrono::NaiveDate;
 use crate::formatting::format_file_size;
 use crate::icons::LucideGlyph;
 
+mod arrange;
 mod display;
+mod drop_target;
+mod removal;
 mod section;
+mod toolbar;
 mod upload;
 mod upload_queue;
 mod viewer;
 
+pub use arrange::{file_arranger, ArrangeFuture, Arrangement, FileArranger, FileCategory};
 pub use display::{file_cell, FileGrid, FileLayout, FileList};
 pub use section::FileSection;
 pub use upload::{
@@ -29,6 +34,7 @@ pub struct StoredFile {
     pub size_bytes: Option<u64>,
     pub added_by: Option<String>,
     pub added_on: Option<NaiveDate>,
+    pub category: Option<String>,
 }
 
 impl StoredFile {
@@ -43,6 +49,7 @@ impl StoredFile {
             size_bytes: None,
             added_by: None,
             added_on: None,
+            category: None,
         }
     }
 

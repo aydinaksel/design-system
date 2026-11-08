@@ -3,8 +3,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use chrono::NaiveDate;
 use design_system::table::{CellValue, Column, DataTable};
 use design_system::{
-    file_cell, file_remover, file_uploader, FileGrid, FileKind, FileLayout, FileList, FileRemover,
-    FileSection, FileUploader, PageHeader, StoredFile, UploadRules,
+    file_arranger, file_cell, file_remover, file_uploader, Arrangement, FileArranger, FileCategory,
+    FileGrid, FileKind, FileLayout, FileList, FileRemover, FileSection, FileUploader, PageHeader,
+    StoredFile, UploadRules,
 };
 use leptos::prelude::*;
 
@@ -127,6 +128,7 @@ pub fn FilesPage() -> impl IntoView {
     view! {
         <main class="mx-auto max-w-screen-2xl space-y-10 px-6 py-8">
             <PageHeader title="Files" />
+            {arranging_section()}
             {uploading_sections()}
             {section(
                 "Documents on a Record",
@@ -316,6 +318,116 @@ fn uploading_sections() -> AnyView {
                         disabled=locked
                     />
                 </div>
+            }
+                .into_any(),
+        )}
+    }
+    .into_any()
+}
+
+#[cfg(feature = "ssr")]
+const SIMULATED_ARRANGEMENT_MILLISECONDS: u64 = 700;
+
+#[server]
+pub async fn simulate_arrangement(primary_name: String) -> Result<(), ServerFnError> {
+    tokio::time::sleep(std::time::Duration::from_millis(
+        SIMULATED_ARRANGEMENT_MILLISECONDS,
+    ))
+    .await;
+    if primary_name.contains("locked") {
+        return Err(ServerFnError::new(
+            "A locked photo can't become the primary one.",
+        ));
+    }
+    Ok(())
+}
+
+fn stone_categories() -> Vec<FileCategory> {
+    vec![
+        FileCategory::new("swatch", "Swatch"),
+        FileCategory::new("slab", "Full Slab"),
+        FileCategory::new("close-up", "Close-up"),
+        FileCategory::new("installed", "Installed"),
+    ]
+}
+
+fn categorized(file: StoredFile, category: &str) -> StoredFile {
+    StoredFile {
+        category: Some(category.to_owned()),
+        ..file
+    }
+}
+
+fn product_photos() -> Vec<StoredFile> {
+    vec![
+        categorized(
+            swatch_photo("travertine-swatch", "travertine-swatch.jpg", "e8e0d0"),
+            "swatch",
+        ),
+        categorized(
+            swatch_photo("travertine-slab", "travertine-full-slab.jpg", "ddd2bd"),
+            "slab",
+        ),
+        categorized(
+            swatch_photo("travertine-detail", "travertine-close-up.jpg", "cfc3a8"),
+            "close-up",
+        ),
+        categorized(
+            swatch_photo("travertine-kitchen", "travertine-kitchen.jpg", "b9ab8f"),
+            "installed",
+        ),
+        swatch_photo("locked-photo", "locked-photo.jpg", "8b9a7a"),
+    ]
+}
+
+fn gallery_arranger(photos: StoredValue<Vec<StoredFile>>) -> FileArranger {
+    file_arranger(move |arrangement: Vec<Arrangement>| {
+        let primary_name = arrangement
+            .first()
+            .and_then(|placed| {
+                photos.with_value(|photos| {
+                    photos
+                        .iter()
+                        .find(|photo| photo.key == placed.key)
+                        .map(|photo| photo.name.clone())
+                })
+            })
+            .unwrap_or_default();
+        async move {
+            simulate_arrangement(primary_name)
+                .await
+                .map_err(server_message)
+        }
+    })
+}
+
+fn arranging_section() -> AnyView {
+    let photos = product_photos();
+    let photo_lookup = StoredValue::new(photos.clone());
+    let server_photos = RwSignal::new(photos);
+    let colleague_reorders = move |_| server_photos.update(|photos| photos.reverse());
+    view! {
+        {section(
+            "Arrange Product Photos",
+            view! {
+                <button
+                    type="button"
+                    class="mb-4 cursor-pointer text-xs text-blue-600 hover:underline"
+                    on:click=colleague_reorders
+                >
+                    "Simulate a Colleague's Reorder"
+                </button>
+                <FileSection
+                    files=server_photos
+                    label="Product Photos"
+                    layout=FileLayout::Grid
+                    rules=UploadRules::accepting([FileKind::Image]).up_to(TEN_MEGABYTES)
+                    upload=gallery_uploader()
+                    remove=gallery_remover()
+                    arrange=gallery_arranger(photo_lookup)
+                    primary=true
+                    categories=stone_categories()
+                />
             }
                 .into_any(),
         )}

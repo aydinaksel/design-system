@@ -1,12 +1,17 @@
-use leptos::html::Img;
+use leptos::ev::{FocusEvent, MouseEvent};
+use leptos::html::{Img, Span};
 use leptos::prelude::*;
+use leptos::wasm_bindgen::JsCast;
 
 use super::viewer::FileViewer;
+use super::DETAIL_SEPARATOR;
 use super::{name_parts, stem_head_and_ending, FileKind, StoredFile};
+use crate::badge::badge;
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::empty_state::EmptyState;
 use crate::icons::{self, LucideGlyph};
-use crate::tooltip::{Tooltip, TooltipAlign};
+use crate::tone::Tone;
+use crate::tooltip::{focus_is_visible, Tooltip, TooltipAlign, TooltipControl};
 
 const ROW_CLASS: &str = "relative flex min-w-0 items-center gap-3 rounded-surface border bg-white p-2 transition-colors";
 const TILE_CLASS: &str =
@@ -20,9 +25,10 @@ const TILE_MEDIA_CLASS: &str =
     "pointer-events-none relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-gray-100";
 const BUSY_OVERLAY_CLASS: &str =
     "absolute inset-0 flex items-center justify-center bg-white/60 text-gray-500";
-const GRID_CLASS: &str = "grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3";
+const GRID_CLASS: &str =
+    "grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))]";
 const LIST_CLASS: &str = "flex flex-col gap-2";
-const NAME_CLASS: &str = "font-medium text-gray-900";
+pub(super) const NAME_CLASS: &str = "font-medium text-gray-900";
 const DETAIL_CLASS: &str = "block truncate text-xs text-gray-500";
 const FAILED_DETAIL_CLASS: &str = "block truncate text-xs text-red-700";
 const DEFAULT_EMPTY_MESSAGE: &str = "No files yet.";
@@ -77,6 +83,8 @@ pub(super) struct FileItem {
     pub(super) state: ItemState,
     pub(super) can_retry: bool,
     pub(super) can_remove: bool,
+    pub(super) primary: bool,
+    pub(super) category_label: Option<String>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -92,6 +100,8 @@ impl FileItem {
             state: ItemState::Stored,
             can_retry: false,
             can_remove: false,
+            primary: false,
+            category_label: None,
         }
     }
 
@@ -169,20 +179,96 @@ fn image_or_icon(file: &StoredFile, size: MediaSize) -> AnyView {
     .into_any()
 }
 
+const ACTIONS_SELECTOR: &str = "[data-file-actions]";
+
+fn on_file_actions(event: &web_sys::Event) -> bool {
+    event
+        .target()
+        .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+        .and_then(|element| element.closest(ACTIONS_SELECTOR).ok().flatten())
+        .is_some()
+}
+
+#[derive(Clone, Copy)]
+struct NameTooltip {
+    control: TooltipControl,
+    anchor: NodeRef<Span>,
+}
+
+impl NameTooltip {
+    fn new() -> Self {
+        Self {
+            control: TooltipControl::new(),
+            anchor: NodeRef::new(),
+        }
+    }
+
+    fn is_cut_off(self) -> bool {
+        self.anchor
+            .get_untracked()
+            .and_then(|name| name.first_element_child())
+            .is_some_and(|head| head.scroll_width() > head.client_width())
+    }
+
+    fn pointer_over(self, event: &MouseEvent) {
+        if on_file_actions(event) || !self.is_cut_off() {
+            self.control.hide();
+        } else {
+            self.control.show_after_delay();
+        }
+    }
+
+    fn focused(self, event: &FocusEvent) {
+        if focus_is_visible(event) && !on_file_actions(event) && self.is_cut_off() {
+            self.control.show_now();
+        }
+    }
+
+    fn bubble(self, name: &str) -> AnyView {
+        self.control.bubble(
+            Signal::stored(name.to_owned()),
+            self.anchor,
+            TooltipAlign::Center,
+        )
+    }
+}
+
+fn primary_badge(item: &FileItem) -> Option<AnyView> {
+    item.primary.then(|| badge("Primary", Tone::Informative))
+}
+
+fn with_category(item: &FileItem, details: Option<String>) -> Option<String> {
+    let parts: Vec<String> = [item.category_label.clone(), details]
+        .into_iter()
+        .flatten()
+        .filter(|part| !part.is_empty())
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(DETAIL_SEPARATOR))
+}
+
 fn media_view(item: &FileItem, size: MediaSize) -> AnyView {
+    let tile_badge = matches!(size, MediaSize::Tile)
+        .then(|| primary_badge(item))
+        .flatten()
+        .map(|badge| view! { <span class="absolute left-2 top-2">{badge}</span> });
     let busy_overlay = item.state.busy_message().map(|_| {
         view! { <span class=BUSY_OVERLAY_CLASS>{icons::spinner(size.icon_class())}</span> }
     });
     view! {
         <span class=size.frame_class() aria-hidden="true">
             {image_or_icon(&item.file, size)}
+            {tile_badge}
             {busy_overlay}
         </span>
     }
     .into_any()
 }
 
-fn name_view(file: &StoredFile, text_class: &'static str) -> AnyView {
+pub(super) fn name_view(
+    file: &StoredFile,
+    text_class: &'static str,
+    anchor: NodeRef<Span>,
+) -> AnyView {
     let (stem, extension) = name_parts(&file.name);
     let (head, ending) = stem_head_and_ending(stem);
     let head = head.to_owned();
@@ -193,7 +279,7 @@ fn name_view(file: &StoredFile, text_class: &'static str) -> AnyView {
             .unwrap_or_default(),
     );
     view! {
-        <span class=format!("flex min-w-0 {text_class}") title=file.name.clone()>
+        <span node_ref=anchor class=format!("flex min-w-0 {text_class}") title=file.name.clone()>
             <span class="truncate">{head}</span>
             <span class="shrink-0 whitespace-pre">{kept_ending}</span>
         </span>
@@ -331,8 +417,12 @@ fn actions_view(
         ));
     }
     (!actions.is_empty()).then(|| {
-        view! { <span class="relative z-10 flex shrink-0 items-center gap-1">{actions}</span> }
-            .into_any()
+        view! {
+            <span data-file-actions="" class="relative z-10 flex shrink-0 items-center gap-1">
+                {actions}
+            </span>
+        }
+        .into_any()
     })
 }
 
@@ -341,18 +431,28 @@ fn file_row(
     open_key: RwSignal<Option<String>>,
     handlers: ItemHandlers,
 ) -> AnyView {
-    let details = detail_view(item, Some(item.file.details()));
+    let name_tooltip = NameTooltip::new();
+    let details = detail_view(item, with_category(item, Some(item.file.details())));
+    let row_badge = primary_badge(item);
     view! {
         <li
             class=format!("{ROW_CLASS} {}", item.state.border_class())
             aria-busy=item.state.busy_message().is_some().to_string()
+            on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
+            on:mouseleave=move |_| name_tooltip.control.hide()
+            on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
+            on:focusout=move |_| name_tooltip.control.hide()
         >
             {open_overlay(item, open_key)}
             {media_view(item, MediaSize::Row)}
             <span class="pointer-events-none relative min-w-0 flex-1 text-sm">
-                {name_view(&item.file, NAME_CLASS)} {details}
+                <span class="flex min-w-0 items-center gap-2">
+                    {name_view(&item.file, NAME_CLASS, name_tooltip.anchor)} {row_badge}
+                </span>
+                {details}
             </span>
             {actions_view(item, handlers, true)}
+            {name_tooltip.bubble(&item.file.name)}
         </li>
     }
     .into_any()
@@ -368,21 +468,47 @@ fn file_tile(
     open_key: RwSignal<Option<String>>,
     handlers: ItemHandlers,
 ) -> AnyView {
-    let details = detail_view(item, tile_details(&item.file));
+    let name_tooltip = NameTooltip::new();
+    let details = detail_view(item, with_category(item, tile_details(&item.file)));
     view! {
         <li
             class=format!("{TILE_CLASS} {}", item.state.border_class())
             aria-busy=item.state.busy_message().is_some().to_string()
+            on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
+            on:mouseleave=move |_| name_tooltip.control.hide()
+            on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
+            on:focusout=move |_| name_tooltip.control.hide()
         >
             {open_overlay(item, open_key)}
             {media_view(item, MediaSize::Tile)}
             <span class="flex min-w-0 items-center gap-1 p-2">
                 <span class="pointer-events-none relative min-w-0 flex-1 text-sm">
-                    {name_view(&item.file, NAME_CLASS)} {details}
+                    {name_view(&item.file, NAME_CLASS, name_tooltip.anchor)} {details}
                 </span>
                 {actions_view(item, handlers, false)}
             </span>
+            {name_tooltip.bubble(&item.file.name)}
         </li>
+    }
+    .into_any()
+}
+
+pub(super) fn list_class(layout: FileLayout) -> &'static str {
+    match layout {
+        FileLayout::List => LIST_CLASS,
+        FileLayout::Grid => GRID_CLASS,
+    }
+}
+
+pub(super) fn arrange_media(file: &StoredFile, layout: FileLayout) -> AnyView {
+    let size = match layout {
+        FileLayout::List => MediaSize::Row,
+        FileLayout::Grid => MediaSize::Tile,
+    };
+    view! {
+        <span class=size.frame_class() aria-hidden="true">
+            {image_or_icon(file, size)}
+        </span>
     }
     .into_any()
 }
@@ -469,14 +595,14 @@ pub fn file_cell(file: &StoredFile) -> AnyView {
     let link = if file.opens_in_viewer() {
         view! {
             <a href=file.url.clone() target="_blank" rel="noopener" class=link_class>
-                {name_view(file, "")}
+                {name_view(file, "", NodeRef::new())}
             </a>
         }
         .into_any()
     } else {
         view! {
             <a href=file.url.clone() download=file.name.clone() class=link_class>
-                {name_view(file, "")}
+                {name_view(file, "", NodeRef::new())}
             </a>
         }
         .into_any()
