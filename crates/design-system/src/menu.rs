@@ -10,6 +10,7 @@ use leptos_use::use_timeout_fn;
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::icons;
 use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
+use crate::tooltip::{focus_is_visible, Tooltip, TooltipControl, TooltipPosition};
 
 const ITEM_MARKER_CLASS: &str = "menu-item";
 pub(crate) const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-item px-3 py-1.5 text-left text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-none";
@@ -313,17 +314,19 @@ pub fn RowActions(
     #[prop(optional)] entries: Vec<MenuEntry>,
 ) -> impl IntoView {
     let compact_ghost = icon_button_class(ButtonTone::Ghost, ButtonSize::Compact);
+    let edit_class = compact_ghost.clone();
     let edit_button = on_edit.map(|on_edit| {
         view! {
-            <button
-                type="button"
-                class=compact_ghost.clone()
-                aria-label=edit_label
-                title=edit_label
-                on:click=move |_| on_edit.run(())
-            >
-                {icons::icon(icons::LucideGlyph::Pencil, "h-4 w-4 text-gray-500")}
-            </button>
+            <Tooltip label=edit_label>
+                <button
+                    type="button"
+                    class=edit_class
+                    aria-label=edit_label
+                    on:click=move |_| on_edit.run(())
+                >
+                    {icons::icon(icons::LucideGlyph::Pencil, "h-4 w-4 text-gray-500")}
+                </button>
+            </Tooltip>
         }
     });
     let overflow = (!entries.is_empty()).then(|| {
@@ -464,6 +467,10 @@ pub(crate) fn menu(
         .map(|entry| menu_entry(state, entry))
         .collect_view();
 
+    let trigger_tooltip = TooltipControl::enabled_when(Signal::derive(move || {
+        accessible_label.is_some() && !state.open.get()
+    }));
+    let trigger = state.trigger;
     view! {
         <div class="relative" node_ref=wrapper on:focusout=on_wrapper_focusout>
             <button
@@ -471,7 +478,15 @@ pub(crate) fn menu(
                 node_ref=state.trigger
                 aria-haspopup="menu"
                 aria-label=accessible_label
-                title=accessible_label
+                on:mouseenter=move |_| trigger_tooltip.show_after_delay()
+                on:mouseleave=move |_| trigger_tooltip.hide()
+                on:pointerdown=move |_| trigger_tooltip.hide()
+                on:focusin=move |event: FocusEvent| {
+                    if focus_is_visible(&event) {
+                        trigger_tooltip.show_now();
+                    }
+                }
+                on:focusout=move |_| trigger_tooltip.hide()
                 aria-expanded=move || state.open.get().to_string()
                 class=format!("{trigger_class} {TRIGGER_OPEN_CLASS}")
                 on:keydown=on_trigger_keydown
@@ -489,6 +504,12 @@ pub(crate) fn menu(
             >
                 {trigger_content}
             </button>
+            {trigger_tooltip
+                .bubble(
+                    Signal::stored(accessible_label.unwrap_or_default().to_owned()),
+                    move || trigger.get_untracked().map(Into::into),
+                    TooltipPosition::default(),
+                )}
             <div
                 role="menu"
                 tabindex="-1"

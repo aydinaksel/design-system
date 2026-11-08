@@ -1,7 +1,6 @@
 use leptos::ev::{FocusEvent, MouseEvent};
 use leptos::html::{Img, Span};
 use leptos::prelude::*;
-use leptos::wasm_bindgen::JsCast;
 
 use super::viewer::FileViewer;
 use super::DETAIL_SEPARATOR;
@@ -11,7 +10,7 @@ use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::empty_state::EmptyState;
 use crate::icons::{self, LucideGlyph};
 use crate::tone::Tone;
-use crate::tooltip::{focus_is_visible, Tooltip, TooltipAlign, TooltipControl};
+use crate::tooltip::{OverflowTooltip, Tooltip, TooltipAlign};
 
 const ROW_CLASS: &str = "relative flex min-w-0 items-center gap-3 rounded-surface border bg-white p-2 transition-colors";
 const TILE_CLASS: &str =
@@ -181,58 +180,6 @@ fn image_or_icon(file: &StoredFile, size: MediaSize) -> AnyView {
 
 const ACTIONS_SELECTOR: &str = "[data-file-actions]";
 
-fn on_file_actions(event: &web_sys::Event) -> bool {
-    event
-        .target()
-        .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
-        .and_then(|element| element.closest(ACTIONS_SELECTOR).ok().flatten())
-        .is_some()
-}
-
-#[derive(Clone, Copy)]
-struct NameTooltip {
-    control: TooltipControl,
-    anchor: NodeRef<Span>,
-}
-
-impl NameTooltip {
-    fn new() -> Self {
-        Self {
-            control: TooltipControl::new(),
-            anchor: NodeRef::new(),
-        }
-    }
-
-    fn is_cut_off(self) -> bool {
-        self.anchor
-            .get_untracked()
-            .and_then(|name| name.first_element_child())
-            .is_some_and(|head| head.scroll_width() > head.client_width())
-    }
-
-    fn pointer_over(self, event: &MouseEvent) {
-        if on_file_actions(event) || !self.is_cut_off() {
-            self.control.hide();
-        } else {
-            self.control.show_after_delay();
-        }
-    }
-
-    fn focused(self, event: &FocusEvent) {
-        if focus_is_visible(event) && !on_file_actions(event) && self.is_cut_off() {
-            self.control.show_now();
-        }
-    }
-
-    fn bubble(self, name: &str) -> AnyView {
-        self.control.bubble(
-            Signal::stored(name.to_owned()),
-            self.anchor,
-            TooltipAlign::Center,
-        )
-    }
-}
-
 fn primary_badge(item: &FileItem) -> Option<AnyView> {
     item.primary.then(|| badge("Primary", Tone::Informative))
 }
@@ -279,7 +226,7 @@ pub(super) fn name_view(
             .unwrap_or_default(),
     );
     view! {
-        <span node_ref=anchor class=format!("flex min-w-0 {text_class}") title=file.name.clone()>
+        <span node_ref=anchor class=format!("flex min-w-0 {text_class}")>
             <span class="truncate">{head}</span>
             <span class="shrink-0 whitespace-pre">{kept_ending}</span>
         </span>
@@ -431,7 +378,7 @@ fn file_row(
     open_key: RwSignal<Option<String>>,
     handlers: ItemHandlers,
 ) -> AnyView {
-    let name_tooltip = NameTooltip::new();
+    let name_tooltip = OverflowTooltip::ignoring(ACTIONS_SELECTOR);
     let details = detail_view(item, with_category(item, Some(item.file.details())));
     let row_badge = primary_badge(item);
     view! {
@@ -439,9 +386,9 @@ fn file_row(
             class=format!("{ROW_CLASS} {}", item.state.border_class())
             aria-busy=item.state.busy_message().is_some().to_string()
             on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
-            on:mouseleave=move |_| name_tooltip.control.hide()
+            on:mouseleave=move |_| name_tooltip.hide()
             on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
-            on:focusout=move |_| name_tooltip.control.hide()
+            on:focusout=move |_| name_tooltip.hide()
         >
             {open_overlay(item, open_key)}
             {media_view(item, MediaSize::Row)}
@@ -468,16 +415,16 @@ fn file_tile(
     open_key: RwSignal<Option<String>>,
     handlers: ItemHandlers,
 ) -> AnyView {
-    let name_tooltip = NameTooltip::new();
+    let name_tooltip = OverflowTooltip::ignoring(ACTIONS_SELECTOR);
     let details = detail_view(item, with_category(item, tile_details(&item.file)));
     view! {
         <li
             class=format!("{TILE_CLASS} {}", item.state.border_class())
             aria-busy=item.state.busy_message().is_some().to_string()
             on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
-            on:mouseleave=move |_| name_tooltip.control.hide()
+            on:mouseleave=move |_| name_tooltip.hide()
             on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
-            on:focusout=move |_| name_tooltip.control.hide()
+            on:focusout=move |_| name_tooltip.hide()
         >
             {open_overlay(item, open_key)}
             {media_view(item, MediaSize::Tile)}
@@ -587,6 +534,7 @@ pub fn FileGrid(
 #[must_use]
 pub fn file_cell(file: &StoredFile) -> AnyView {
     let kind = file.kind();
+    let name_tooltip = OverflowTooltip::new();
     let icon = icons::icon(
         kind.glyph(),
         format!("h-4 w-4 shrink-0 {}", kind.icon_color_class()),
@@ -595,17 +543,30 @@ pub fn file_cell(file: &StoredFile) -> AnyView {
     let link = if file.opens_in_viewer() {
         view! {
             <a href=file.url.clone() target="_blank" rel="noopener" class=link_class>
-                {name_view(file, "", NodeRef::new())}
+                {name_view(file, "", name_tooltip.anchor)}
             </a>
         }
         .into_any()
     } else {
         view! {
             <a href=file.url.clone() download=file.name.clone() class=link_class>
-                {name_view(file, "", NodeRef::new())}
+                {name_view(file, "", name_tooltip.anchor)}
             </a>
         }
         .into_any()
     };
-    view! { <span class="flex max-w-xs min-w-0 items-center gap-2">{icon} {link}</span> }.into_any()
+    view! {
+        <span
+            class="flex max-w-xs min-w-0 items-center gap-2"
+            on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
+            on:mouseleave=move |_| name_tooltip.hide()
+            on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
+            on:focusout=move |_| name_tooltip.hide()
+        >
+            {icon}
+            {link}
+            {name_tooltip.bubble(&file.name)}
+        </span>
+    }
+    .into_any()
 }

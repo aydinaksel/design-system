@@ -2,6 +2,7 @@ use leptos::ev::{Event, KeyboardEvent};
 use leptos::prelude::*;
 
 use crate::icons;
+use crate::tooltip::Tooltip;
 
 const DEFAULT_PLACEHOLDER: &str = "Search";
 
@@ -33,8 +34,16 @@ impl SearchSize {
 
     const fn clear_button_class(self) -> &'static str {
         match self {
-            Self::Standard => "absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded p-0.5 text-gray-400 hover:text-gray-700",
-            Self::Compact => "absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded p-0.5 text-gray-400 hover:text-gray-700",
+            Self::Standard | Self::Compact => {
+                "cursor-pointer rounded p-0.5 text-gray-400 hover:text-gray-700"
+            }
+        }
+    }
+
+    const fn clear_position_class(self) -> &'static str {
+        match self {
+            Self::Standard => "absolute right-2 top-1/2 -translate-y-1/2",
+            Self::Compact => "absolute right-1.5 top-1/2 -translate-y-1/2",
         }
     }
 
@@ -100,15 +109,16 @@ pub fn SearchInput(
                 has_something_to_clear()
                     .then(|| {
                         view! {
-                            <button
-                                type="button"
-                                title="Clear Search"
-                                aria-label="Clear Search"
-                                class=size.clear_button_class()
-                                on:click=move |_| clear()
-                            >
-                                {icons::icon(icons::LucideGlyph::X, size.clear_icon_class())}
-                            </button>
+                            <Tooltip label="Clear Search" class=size.clear_position_class()>
+                                <button
+                                    type="button"
+                                    aria-label="Clear Search"
+                                    class=size.clear_button_class()
+                                    on:click=move |_| clear()
+                                >
+                                    {icons::icon(icons::LucideGlyph::X, size.clear_icon_class())}
+                                </button>
+                            </Tooltip>
                         }
                     })
             }}

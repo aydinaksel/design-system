@@ -7,6 +7,7 @@ use crate::clipboard::{copy_current_address_with_toast, copy_with_toast};
 use crate::icons;
 use crate::menu::{DropdownMenu, MenuEntry, MenuItem};
 use crate::tabs::TabsInPageHeader;
+use crate::tooltip::Tooltip;
 
 const PAGE_WIDTH_CLASS: &str = "mx-auto max-w-screen-2xl px-6";
 
@@ -102,14 +103,15 @@ pub fn DetailHeader(
         back_href.get().map(|href| {
             let label = back_label.get().unwrap_or_else(|| "Back".to_string());
             view! {
-                <A
-                    href=href
-                    attr:class=icon_button_class(ButtonTone::Secondary, ButtonSize::Standard)
-                    attr:title=label.clone()
-                    attr:aria-label=label
-                >
-                    {icons::icon(icons::LucideGlyph::ArrowLeft, "h-4 w-4 opacity-70")}
-                </A>
+                <Tooltip label=label.clone()>
+                    <A
+                        href=href
+                        attr:class=icon_button_class(ButtonTone::Secondary, ButtonSize::Standard)
+                        attr:aria-label=label
+                    >
+                        {icons::icon(icons::LucideGlyph::ArrowLeft, "h-4 w-4 opacity-70")}
+                    </A>
+                </Tooltip>
             }
         })
     };

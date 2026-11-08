@@ -5,6 +5,7 @@ use leptos::prelude::*;
 use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::icons;
 use crate::search_input::{SearchInput, SearchSize};
+use crate::tooltip::Tooltip;
 use crate::typography::LABEL_CLASS;
 
 use super::data_table::BODY_MAX_HEIGHT_CLASS;
@@ -216,16 +217,16 @@ impl FacetControls {
                     <div class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 py-2.5 pl-3 pr-2">
                         <h2 class=LABEL_CLASS>"Filters"</h2>
                         <div class="flex items-center gap-2">
-                            {clear_all_button(self.query)}
-                            <button
-                                type="button"
-                                class=HEADER_ICON_BUTTON_CLASS
-                                title="Hide Filters"
-                                aria-label="Hide Filters"
-                                on:click=move |_| self.collapsed.set(true)
-                            >
-                                {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
-                            </button>
+                            {clear_all_button(self.query)} <Tooltip label="Hide Filters">
+                                <button
+                                    type="button"
+                                    class=HEADER_ICON_BUTTON_CLASS
+                                    aria-label="Hide Filters"
+                                    on:click=move |_| self.collapsed.set(true)
+                                >
+                                    {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
+                                </button>
+                            </Tooltip>
                         </div>
                     </div>
                     {self.groups()}

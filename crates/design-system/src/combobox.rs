@@ -13,6 +13,7 @@ use crate::icons;
 use crate::listbox::{LISTBOX_ANCHORING, LISTBOX_PANEL_CLASS, LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS};
 use crate::menu::{moved_position, Movement};
 use crate::placement::{AnchoredPanel, Anchoring};
+use crate::tooltip::Tooltip;
 
 const ANCHORING: Anchoring = Anchoring {
     reserved_height_pixels: LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS,
@@ -679,15 +680,19 @@ pub fn Combobox(
                         .then(|| {
                             let clear_label = clear_label.clone();
                             view! {
-                                <button
-                                    type="button"
-                                    class=icon_button_class(ButtonTone::Ghost, ButtonSize::Compact)
-                                    aria-label=clear_label.clone()
-                                    title=clear_label
-                                    on:click=move |_| clear_selection()
-                                >
-                                    {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
-                                </button>
+                                <Tooltip label=clear_label.clone()>
+                                    <button
+                                        type="button"
+                                        class=icon_button_class(
+                                            ButtonTone::Ghost,
+                                            ButtonSize::Compact,
+                                        )
+                                        aria-label=clear_label
+                                        on:click=move |_| clear_selection()
+                                    >
+                                        {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
+                                    </button>
+                                </Tooltip>
                             }
                         })
                 }}

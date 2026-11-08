@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use leptos::ev::PointerEvent;
+use leptos::ev::{FocusEvent, MouseEvent, PointerEvent};
 use leptos::prelude::*;
 use leptos_use::{use_event_listener, use_window};
 
@@ -14,13 +14,14 @@ use crate::icons::{self, LucideGlyph};
 use crate::listbox::{Listbox, ListboxOption};
 use crate::toast::notify_failure;
 use crate::tone::Tone;
-use crate::tooltip::Tooltip;
+use crate::tooltip::{OverflowTooltip, Tooltip};
 
 pub type ArrangeFuture = Pin<Box<dyn Future<Output = Result<(), String>>>>;
 pub type FileArranger = Arc<dyn Fn(Vec<Arrangement>) -> ArrangeFuture + Send + Sync>;
 
 const KEY_ATTRIBUTE: &str = "data-file-key";
 const KEY_SELECTOR: &str = "[data-file-key]";
+const ARRANGE_CONTROLS_SELECTOR: &str = "button, [aria-hidden=true]";
 const NO_CATEGORY_LABEL: &str = "No Type";
 const ROW_CLASS: &str = "flex min-w-0 items-center gap-2 rounded-surface border bg-white p-2";
 const TILE_CLASS: &str = "flex min-w-0 flex-col overflow-hidden rounded-surface border bg-white";
@@ -340,12 +341,13 @@ pub(super) fn arrange_toolbar(arranging: Arranging) -> AnyView {
 fn step_button(
     arranging: Arranging,
     key: String,
+    file_name: &str,
     tooltip: &'static str,
     glyph: LucideGlyph,
     available: Signal<bool>,
     action: fn(Arranging, &str),
 ) -> AnyView {
-    let label = tooltip;
+    let label = format!("{tooltip}: {file_name}");
     view! {
         <Tooltip label=tooltip>
             <button
@@ -396,6 +398,70 @@ fn category_picker(
     Some(view! { <Listbox options=Signal::stored(options) selected label /> }.into_any())
 }
 
+struct ItemButtons {
+    arranging: Arranging,
+    key: String,
+    file_name: String,
+    layout: FileLayout,
+    show_primary: bool,
+    is_first: Signal<bool>,
+    is_last: Signal<bool>,
+}
+
+impl ItemButtons {
+    fn view(self) -> AnyView {
+        let Self {
+            arranging,
+            key,
+            file_name,
+            layout,
+            show_primary,
+            is_first,
+            is_last,
+        } = self;
+        let (earlier, later) = match layout {
+            FileLayout::List => (LucideGlyph::ArrowUp, LucideGlyph::ArrowDown),
+            FileLayout::Grid => (LucideGlyph::ArrowLeft, LucideGlyph::ArrowRight),
+        };
+        let not_first = Signal::derive(move || !is_first.get());
+        let not_last = Signal::derive(move || !is_last.get());
+        let make_primary = show_primary.then(|| {
+            step_button(
+                arranging,
+                key.clone(),
+                &file_name,
+                "Make Primary",
+                LucideGlyph::Star,
+                not_first,
+                Arranging::make_primary,
+            )
+        });
+        view! {
+            <span class="flex shrink-0 items-center gap-1">
+                {step_button(
+                    arranging,
+                    key.clone(),
+                    &file_name,
+                    "Move Earlier",
+                    earlier,
+                    not_first,
+                    |arranging, key| arranging.step(key, false),
+                )}
+                {step_button(
+                    arranging,
+                    key.clone(),
+                    &file_name,
+                    "Move Later",
+                    later,
+                    not_last,
+                    |arranging, key| arranging.step(key, true),
+                )} {make_primary}
+            </span>
+        }
+        .into_any()
+    }
+}
+
 fn arrange_item(
     arranging: Arranging,
     file: &StoredFile,
@@ -420,10 +486,6 @@ fn arrange_item(
             RESTING_CLASS
         }
     };
-    let (earlier, later) = match layout {
-        FileLayout::List => (LucideGlyph::ArrowUp, LucideGlyph::ArrowDown),
-        FileLayout::Grid => (LucideGlyph::ArrowLeft, LucideGlyph::ArrowRight),
-    };
     let drag_key = key.clone();
     let handle = view! {
         <span
@@ -436,41 +498,31 @@ fn arrange_item(
     };
     let primary_badge =
         move || (show_primary && is_first.get()).then(|| badge("Primary", Tone::Informative));
-    let make_primary = show_primary.then(|| {
-        step_button(
-            arranging,
-            key.clone(),
-            "Make Primary",
-            LucideGlyph::Star,
-            Signal::derive(move || !is_first.get()),
-            Arranging::make_primary,
-        )
-    });
-    let buttons = view! {
-        <span class="flex shrink-0 items-center gap-1">
-            {step_button(
-                arranging,
-                key.clone(),
-                "Move Earlier",
-                earlier,
-                Signal::derive(move || !is_first.get()),
-                |arranging, key| arranging.step(key, false),
-            )}
-            {step_button(
-                arranging,
-                key.clone(),
-                "Move Later",
-                later,
-                Signal::derive(move || !is_last.get()),
-                |arranging, key| arranging.step(key, true),
-            )} {make_primary}
-        </span>
-    };
+    let buttons = ItemButtons {
+        arranging,
+        key: key.clone(),
+        file_name: file.name.clone(),
+        layout,
+        show_primary,
+        is_first,
+        is_last,
+    }
+    .view();
     let picker = category_picker(arranging, file, categories);
-    let name = name_view(file, NAME_CLASS, NodeRef::new());
+    let name_tooltip = OverflowTooltip::ignoring(ARRANGE_CONTROLS_SELECTOR);
+    let name = name_view(file, NAME_CLASS, name_tooltip.anchor);
+    let name_bubble = name_tooltip.bubble(&file.name);
     match layout {
         FileLayout::List => view! {
-            <li data-file-key=key class=move || format!("{ROW_CLASS} {}", border())>
+            <li
+                data-file-key=key
+                class=move || format!("{ROW_CLASS} {}", border())
+                on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
+                on:mouseleave=move |_| name_tooltip.hide()
+                on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
+                on:focusout=move |_| name_tooltip.hide()
+            >
+                {name_bubble}
                 {handle}
                 {arrange_media(file, layout)}
                 <span class="flex min-w-0 flex-1 items-center gap-2 text-sm">
@@ -482,7 +534,15 @@ fn arrange_item(
         }
         .into_any(),
         FileLayout::Grid => view! {
-            <li data-file-key=key class=move || format!("{TILE_CLASS} {}", border())>
+            <li
+                data-file-key=key
+                class=move || format!("{TILE_CLASS} {}", border())
+                on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
+                on:mouseleave=move |_| name_tooltip.hide()
+                on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
+                on:focusout=move |_| name_tooltip.hide()
+            >
+                {name_bubble}
                 <span class="relative">
                     {arrange_media(file, layout)}
                     <span class="absolute left-2 top-2">{primary_badge}</span>

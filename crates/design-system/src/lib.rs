@@ -119,6 +119,6 @@ pub use tabs::{
 };
 pub use toast::{notify_failure, notify_success, ToastProvider};
 pub use tone::{toned_text, Tone};
-pub use tooltip::{HelpTerm, Tooltip, TooltipAlign};
+pub use tooltip::{HelpTerm, Tooltip, TooltipAlign, TooltipSide};
 pub use totals_bar::{total, Total, TotalsBar};
 pub use typography::LABEL_CLASS;

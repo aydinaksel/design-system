@@ -1,6 +1,8 @@
 use lepticons::Icon;
 use leptos::prelude::*;
 
+use crate::tooltip::Tooltip;
+
 pub use lepticons::LucideGlyph;
 
 /// A [Lucide](https://lucide.dev) glyph sized and coloured by the caller's
@@ -30,9 +32,11 @@ pub fn loading_indicator() -> AnyView {
 pub fn labelled_icon(glyph: LucideGlyph, class: impl Into<String>, title: &'static str) -> AnyView {
     let class = class.into();
     view! {
-        <span class="inline-flex" title=title role="img" aria-label=title>
-            <Icon glyph=glyph class=class />
-        </span>
+        <Tooltip label=title>
+            <span class="inline-flex" role="img" aria-label=title>
+                <Icon glyph=glyph class=class />
+            </span>
+        </Tooltip>
     }
     .into_any()
 }

@@ -6,6 +6,7 @@ use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::controls::{field_control_id, field_description_id, with_field_error};
 use crate::icons;
 use crate::popover::{Popover, PopoverContent, PopoverState, PopoverTrigger};
+use crate::tooltip::Tooltip;
 
 const WEEKDAY_LABELS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_BUTTON: &str =
@@ -60,22 +61,23 @@ pub fn DatePicker(
     };
     let clear_button = clearable.then(|| {
         view! {
-            <button
-                type="button"
-                class=move || {
-                    format!(
-                        "{} {}",
-                        icon_button_class(ButtonTone::Ghost, ButtonSize::Standard),
-                        if selected_date.get().is_some() { "" } else { "invisible" },
-                    )
-                }
-                aria-label=clear_label.clone()
-                title=clear_label
-                prop:disabled=move || disabled.get()
-                on:click=move |_| value.set(String::new())
-            >
-                {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
-            </button>
+            <Tooltip label=clear_label.clone()>
+                <button
+                    type="button"
+                    class=move || {
+                        format!(
+                            "{} {}",
+                            icon_button_class(ButtonTone::Ghost, ButtonSize::Standard),
+                            if selected_date.get().is_some() { "" } else { "invisible" },
+                        )
+                    }
+                    aria-label=clear_label.clone()
+                    prop:disabled=move || disabled.get()
+                    on:click=move |_| value.set(String::new())
+                >
+                    {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
+                </button>
+            </Tooltip>
         }
     });
 

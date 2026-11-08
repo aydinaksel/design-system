@@ -21,6 +21,7 @@ pub(crate) enum PreferredSide {
     #[default]
     Below,
     Above,
+    Beside,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -100,7 +101,26 @@ impl Placement {
     }
 }
 
+fn place_beside(trigger: Bounds, panel: Extent, viewport: Extent, gap: f64) -> Placement {
+    let fits_right = trigger.right + gap + panel.width <= viewport.width - VIEWPORT_MARGIN_PIXELS;
+    let left = if fits_right {
+        trigger.right + gap
+    } else {
+        trigger.left - gap - panel.width
+    };
+    let centered_top = (trigger.top + trigger.bottom - panel.height) / 2.0;
+    let lowest_top = viewport.height - VIEWPORT_MARGIN_PIXELS - panel.height;
+    Placement {
+        edge: VerticalEdge::Top(centered_top.min(lowest_top).max(VIEWPORT_MARGIN_PIXELS)),
+        left: left.max(VIEWPORT_MARGIN_PIXELS),
+        minimum_width: None,
+    }
+}
+
 fn place(trigger: Bounds, panel: Extent, viewport: Extent, anchoring: Anchoring) -> Placement {
+    if anchoring.side == PreferredSide::Beside {
+        return place_beside(trigger, panel, viewport, anchoring.gap_pixels);
+    }
     let trigger_width = trigger.right - trigger.left;
     let minimum_width = anchoring.matches_trigger_width.then_some(trigger_width);
     let width = panel.width.max(minimum_width.unwrap_or_default());
@@ -110,7 +130,9 @@ fn place(trigger: Bounds, panel: Extent, viewport: Extent, anchoring: Anchoring)
     let fits_above = trigger.top - gap - height >= VIEWPORT_MARGIN_PIXELS;
     let more_room_above = trigger.top > viewport.height - trigger.bottom;
     let opens_above = match anchoring.side {
-        PreferredSide::Below => !fits_below && (fits_above || more_room_above),
+        PreferredSide::Below | PreferredSide::Beside => {
+            !fits_below && (fits_above || more_room_above)
+        }
         PreferredSide::Above => fits_above || (!fits_below && more_room_above),
     };
     let edge = if opens_above {
@@ -320,6 +342,50 @@ mod tests {
         };
         let placement = place(trigger_at(100.0, 100.0), PANEL, VIEWPORT, above);
         assert_eq!(placement.edge, VerticalEdge::Top(138.0));
+    }
+
+    #[test]
+    fn sits_beside_the_trigger_centred_on_it() {
+        let beside = Anchoring {
+            side: PreferredSide::Beside,
+            ..anchoring(Alignment::Start)
+        };
+        let placement = place(trigger_at(100.0, 400.0), PANEL, VIEWPORT, beside);
+        assert_eq!(
+            placement,
+            Placement {
+                edge: VerticalEdge::Top(316.0),
+                left: 226.0,
+                minimum_width: None,
+            }
+        );
+    }
+
+    #[test]
+    fn sits_on_the_left_when_the_right_has_no_room() {
+        let beside = Anchoring {
+            side: PreferredSide::Beside,
+            ..anchoring(Alignment::Start)
+        };
+        let placement = place(trigger_at(800.0, 400.0), PANEL, VIEWPORT, beside);
+        assert_eq!(
+            placement,
+            Placement {
+                edge: VerticalEdge::Top(316.0),
+                left: 506.0,
+                minimum_width: None,
+            }
+        );
+    }
+
+    #[test]
+    fn stays_inside_the_viewport_beside_a_trigger_near_the_bottom() {
+        let beside = Anchoring {
+            side: PreferredSide::Beside,
+            ..anchoring(Alignment::Start)
+        };
+        let placement = place(trigger_at(100.0, 760.0), PANEL, VIEWPORT, beside);
+        assert_eq!(placement.edge, VerticalEdge::Top(592.0));
     }
 
     #[test]

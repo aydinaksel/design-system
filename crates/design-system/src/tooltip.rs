@@ -1,6 +1,7 @@
+use std::cell::Cell;
 use std::time::Duration;
 
-use leptos::ev::{FocusEvent, KeyboardEvent};
+use leptos::ev::{FocusEvent, KeyboardEvent, MouseEvent};
 use leptos::html::Span;
 use leptos::portal::Portal;
 use leptos::prelude::*;
@@ -22,15 +23,32 @@ pub enum TooltipAlign {
     End,
 }
 
-impl TooltipAlign {
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TooltipSide {
+    #[default]
+    Above,
+    Beside,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct TooltipPosition {
+    pub(crate) align: TooltipAlign,
+    pub(crate) side: TooltipSide,
+}
+
+impl TooltipPosition {
     const fn anchoring(self) -> Anchoring {
-        let alignment = match self {
-            Self::Center => Alignment::Center,
-            Self::End => Alignment::End,
+        let alignment = match self.align {
+            TooltipAlign::Center => Alignment::Center,
+            TooltipAlign::End => Alignment::End,
+        };
+        let side = match self.side {
+            TooltipSide::Above => PreferredSide::Above,
+            TooltipSide::Beside => PreferredSide::Beside,
         };
         Anchoring {
             alignment,
-            side: PreferredSide::Above,
+            side,
             gap_pixels: GAP_PIXELS,
             matches_trigger_width: false,
             reserved_height_pixels: 0.0,
@@ -38,24 +56,54 @@ impl TooltipAlign {
     }
 }
 
-pub(crate) fn focus_is_visible(event: &FocusEvent) -> bool {
+fn event_element(event: &web_sys::Event) -> Option<web_sys::Element> {
     event
         .target()
         .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+}
+
+pub(crate) fn focus_is_visible(event: &FocusEvent) -> bool {
+    event_element(event)
         .and_then(|element| element.matches(FOCUS_VISIBLE_SELECTOR).ok())
         .unwrap_or(false)
+}
+
+fn comes_from(event: &web_sys::Event, selector: Option<&str>) -> bool {
+    selector.is_some_and(|selector| {
+        event_element(event)
+            .and_then(|element| element.closest(selector).ok().flatten())
+            .is_some()
+    })
+}
+
+thread_local! {
+    static SHOWING_TOOLTIP: Cell<Option<RwSignal<bool>>> = const { Cell::new(None) };
+}
+
+fn become_the_only_tooltip(visible: RwSignal<bool>) {
+    let previous = SHOWING_TOOLTIP.with(|showing| showing.replace(Some(visible)));
+    if let Some(previous) = previous.filter(|previous| *previous != visible) {
+        previous.try_set(false);
+    }
+    visible.try_set(true);
 }
 
 #[derive(Clone, Copy)]
 pub(crate) struct TooltipControl {
     visible: RwSignal<bool>,
+    enabled: Signal<bool>,
     timer: StoredValue<Option<TimeoutHandle>>,
 }
 
 impl TooltipControl {
     pub(crate) fn new() -> Self {
+        Self::enabled_when(Signal::stored(true))
+    }
+
+    pub(crate) fn enabled_when(enabled: Signal<bool>) -> Self {
         let control = Self {
             visible: RwSignal::new(false),
+            enabled,
             timer: StoredValue::new(None),
         };
         on_cleanup(move || control.cancel_timer());
@@ -70,7 +118,7 @@ impl TooltipControl {
 
     pub(crate) fn show_after_delay(self) {
         let waiting = self.timer.try_with_value(Option::is_some).unwrap_or(false);
-        if waiting || self.visible.get_untracked() {
+        if waiting || self.visible.get_untracked() || !self.enabled.get_untracked() {
             return;
         }
         let visible = self.visible;
@@ -78,7 +126,7 @@ impl TooltipControl {
         let started = set_timeout_with_handle(
             move || {
                 timer.try_set_value(None);
-                visible.try_set(true);
+                become_the_only_tooltip(visible);
             },
             HOVER_DELAY,
         );
@@ -89,7 +137,9 @@ impl TooltipControl {
 
     pub(crate) fn show_now(self) {
         self.cancel_timer();
-        self.visible.set(true);
+        if self.enabled.get_untracked() {
+            become_the_only_tooltip(self.visible);
+        }
     }
 
     pub(crate) fn hide(self) {
@@ -100,21 +150,21 @@ impl TooltipControl {
     pub(crate) fn bubble(
         self,
         label: Signal<String>,
-        anchor: NodeRef<Span>,
-        align: TooltipAlign,
+        anchor: impl Fn() -> Option<web_sys::Element> + Copy + Send + Sync + 'static,
+        position: TooltipPosition,
     ) -> AnyView {
-        let visible = self.visible;
-        view! { {move || visible.get().then(|| bubble_view(label, anchor, align))} }.into_any()
+        let showing = move || self.visible.get() && self.enabled.get();
+        view! { {move || showing().then(|| bubble_view(label, anchor, position))} }.into_any()
     }
 }
 
-fn bubble_view(label: Signal<String>, anchor: NodeRef<Span>, align: TooltipAlign) -> AnyView {
+fn bubble_view(
+    label: Signal<String>,
+    anchor: impl Fn() -> Option<web_sys::Element> + Clone + 'static,
+    position: TooltipPosition,
+) -> AnyView {
     let panel = AnchoredPanel::new();
-    panel.follow(
-        Signal::stored(true),
-        move || anchor.get_untracked().map(Into::into),
-        align.anchoring(),
-    );
+    panel.follow(Signal::stored(true), anchor, position.anchoring());
     view! {
         <Portal>
             <div
@@ -130,6 +180,70 @@ fn bubble_view(label: Signal<String>, anchor: NodeRef<Span>, align: TooltipAlign
     .into_any()
 }
 
+fn overflows(element: &web_sys::Element) -> bool {
+    element.scroll_width() > element.client_width()
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct OverflowTooltip {
+    control: TooltipControl,
+    pub(crate) anchor: NodeRef<Span>,
+    ignored: Option<&'static str>,
+}
+
+impl OverflowTooltip {
+    pub(crate) fn new() -> Self {
+        Self {
+            control: TooltipControl::new(),
+            anchor: NodeRef::new(),
+            ignored: None,
+        }
+    }
+
+    pub(crate) fn ignoring(ignored: &'static str) -> Self {
+        Self {
+            ignored: Some(ignored),
+            ..Self::new()
+        }
+    }
+
+    fn is_cut_off(self) -> bool {
+        self.anchor.get_untracked().is_some_and(|anchor| {
+            overflows(&anchor)
+                || anchor
+                    .first_element_child()
+                    .is_some_and(|first| overflows(&first))
+        })
+    }
+
+    pub(crate) fn pointer_over(self, event: &MouseEvent) {
+        if comes_from(event, self.ignored) || !self.is_cut_off() {
+            self.control.hide();
+        } else {
+            self.control.show_after_delay();
+        }
+    }
+
+    pub(crate) fn focused(self, event: &FocusEvent) {
+        if focus_is_visible(event) && !comes_from(event, self.ignored) && self.is_cut_off() {
+            self.control.show_now();
+        }
+    }
+
+    pub(crate) fn hide(self) {
+        self.control.hide();
+    }
+
+    pub(crate) fn bubble(self, text: &str) -> AnyView {
+        let anchor = self.anchor;
+        self.control.bubble(
+            Signal::stored(text.to_owned()),
+            move || anchor.get_untracked().map(Into::into),
+            TooltipPosition::default(),
+        )
+    }
+}
+
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
@@ -138,10 +252,13 @@ fn bubble_view(label: Signal<String>, anchor: NodeRef<Span>, align: TooltipAlign
 pub fn Tooltip(
     #[prop(into)] label: String,
     #[prop(optional)] align: TooltipAlign,
+    #[prop(optional)] side: TooltipSide,
     #[prop(optional, into)] id: Option<String>,
+    #[prop(into, default = Signal::stored(true))] enabled: Signal<bool>,
+    #[prop(optional)] class: &'static str,
     children: Children,
 ) -> impl IntoView {
-    let control = TooltipControl::new();
+    let control = TooltipControl::enabled_when(enabled);
     let anchor: NodeRef<Span> = NodeRef::new();
     let description = id.map(|id| {
         view! {
@@ -150,10 +267,15 @@ pub fn Tooltip(
             </span>
         }
     });
+    let layout = match side {
+        TooltipSide::Above => "inline-flex",
+        TooltipSide::Beside => "flex flex-col",
+    };
+    let wrapper_class = format!("{layout} {class}");
     view! {
         <span
             node_ref=anchor
-            class="relative inline-flex"
+            class=wrapper_class
             on:mouseenter=move |_| control.show_after_delay()
             on:mouseleave=move |_| control.hide()
             on:pointerdown=move |_| control.hide()
@@ -171,7 +293,12 @@ pub fn Tooltip(
         >
             {children()}
             {description}
-            {control.bubble(Signal::stored(label), anchor, align)}
+            {control
+                .bubble(
+                    Signal::stored(label),
+                    move || anchor.get_untracked().map(Into::into),
+                    TooltipPosition { align, side },
+                )}
         </span>
     }
     .into_any()

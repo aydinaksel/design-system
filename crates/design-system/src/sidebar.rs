@@ -14,6 +14,7 @@ use crate::element_key::ElementKey;
 use crate::icons::{self, LucideGlyph};
 use crate::menu::{menu, MenuEntry};
 use crate::popover::keep_tab_inside;
+use crate::tooltip::{Tooltip, TooltipSide};
 
 const COOKIE_PATH: &str = "/";
 const COOKIE_MAX_AGE_MILLISECONDS: i64 = 365 * 24 * 60 * 60 * 1000;
@@ -388,20 +389,22 @@ pub fn NavigationItem(
         }
     };
 
+    let in_rail = Signal::derive(move || state.is_some_and(|state| state.rail.get()));
     view! {
-        <A
-            href=href
-            attr:class=class
-            attr:title=label
-            on:click=move |_| {
-                if let Some(state) = state {
-                    state.close_drawer();
+        <Tooltip label=label side=TooltipSide::Beside enabled=in_rail>
+            <A
+                href=href
+                attr:class=class
+                on:click=move |_| {
+                    if let Some(state) = state {
+                        state.close_drawer();
+                    }
                 }
-            }
-        >
-            {icons::icon(glyph, ICON_CLASS)}
-            <span class=LABEL_CLASS>{label}</span>
-        </A>
+            >
+                {icons::icon(glyph, ICON_CLASS)}
+                <span class=LABEL_CLASS>{label}</span>
+            </A>
+        </Tooltip>
     }
     .into_any()
 }
@@ -417,13 +420,21 @@ pub fn SidebarUser(
 ) -> impl IntoView {
     let name = name.get_untracked().filter(|name| !name.trim().is_empty());
     let label = name.unwrap_or_else(|| UNNAMED_USER_LABEL.to_owned());
+    let tooltip_label = label.clone();
     let content = view! {
         {icons::icon(LucideGlyph::CircleUserRound, ICON_CLASS)}
         <span class=LABEL_CLASS>{label}</span>
     }
     .into_any();
 
-    menu(USER_TRIGGER_CLASS, None, content, entries)
+    let state = use_context::<SidebarState>();
+    let in_rail = Signal::derive(move || state.is_some_and(|state| state.rail.get()));
+    view! {
+        <Tooltip label=tooltip_label side=TooltipSide::Beside enabled=in_rail>
+            {menu(USER_TRIGGER_CLASS, None, content, entries)}
+        </Tooltip>
+    }
+    .into_any()
 }
 
 #[cfg(test)]

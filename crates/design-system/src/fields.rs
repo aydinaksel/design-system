@@ -25,7 +25,7 @@ use crate::field_actions::{field_actions_view, FieldAction};
 use crate::icons;
 use crate::loading_state::LoadingState;
 use crate::tone::Tone;
-use crate::tooltip::HelpTerm;
+use crate::tooltip::{HelpTerm, Tooltip};
 use crate::typography::LABEL_CLASS;
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
@@ -842,21 +842,22 @@ fn revert_button(
         }
     };
     view! {
-        <button
-            type="button"
-            class=move || {
-                format!(
-                    "{} {}",
-                    icon_button_class(ButtonTone::Ghost, ButtonSize::Compact),
-                    if unsaved.get() { "" } else { "invisible" },
-                )
-            }
-            aria-label=label.clone()
-            title=label
-            on:click=on_click
-        >
-            {icons::icon(icons::LucideGlyph::RotateCcw, "h-4 w-4")}
-        </button>
+        <Tooltip label=label.clone()>
+            <button
+                type="button"
+                class=move || {
+                    format!(
+                        "{} {}",
+                        icon_button_class(ButtonTone::Ghost, ButtonSize::Compact),
+                        if unsaved.get() { "" } else { "invisible" },
+                    )
+                }
+                aria-label=label
+                on:click=on_click
+            >
+                {icons::icon(icons::LucideGlyph::RotateCcw, "h-4 w-4")}
+            </button>
+        </Tooltip>
     }
     .into_any()
 }
