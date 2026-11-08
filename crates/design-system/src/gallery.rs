@@ -1,7 +1,8 @@
 use leptos::ev::KeyboardEvent;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
-use leptos_use::{use_event_listener, use_window};
+use leptos_use_event_listener::use_event_listener;
+use leptos_use_window::use_window;
 
 use crate::icons;
 

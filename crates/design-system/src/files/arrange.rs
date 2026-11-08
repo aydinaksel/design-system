@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use leptos::ev::{FocusEvent, MouseEvent, PointerEvent};
 use leptos::prelude::*;
-use leptos_use::{use_event_listener, use_window};
+use leptos_use_event_listener::use_event_listener;
+use leptos_use_window::use_window;
 
 use super::display::{arrange_media, name_view, FileLayout, NAME_CLASS};
 use super::StoredFile;

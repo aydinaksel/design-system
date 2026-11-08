@@ -6,9 +6,10 @@ use leptos::html::{Button, Div, Section};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::{Element, HtmlAnchorElement, ScrollIntoViewOptions, ScrollLogicalPosition};
-use leptos_use::{
-    use_event_listener, use_event_listener_with_options, use_window, UseEventListenerOptions,
+use leptos_use_event_listener::{
+    use_event_listener, use_event_listener_with_options, UseEventListenerOptions,
 };
+use leptos_use_window::use_window;
 use send_wrapper::SendWrapper;
 
 use crate::alert::Alert;

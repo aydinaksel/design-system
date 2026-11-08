@@ -1,7 +1,7 @@
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Button;
 use leptos::prelude::*;
-use leptos_use::use_timeout_fn;
+use leptos_use_timeout_fn::use_timeout_fn;
 
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
 use crate::element_key::ElementKey;

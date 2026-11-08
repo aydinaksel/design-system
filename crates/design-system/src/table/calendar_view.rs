@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use chrono::NaiveDate;
 use leptos::prelude::*;
-use leptos_use::{use_calendar, UseCalendarReturn};
+use leptos_use_calendar::{use_calendar, UseCalendarReturn};
 
 use super::column::Column;
 use super::data_table::{DataTable, RowAttribute, Search};
@@ -39,7 +40,7 @@ where
         next_month,
         dates,
         ..
-    } = use_calendar();
+    } = use_calendar::<NaiveDate>();
     let selected_day: RwSignal<Option<String>> = RwSignal::new(None);
 
     let visible_month = Signal::derive(move || {

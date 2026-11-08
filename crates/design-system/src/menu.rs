@@ -5,7 +5,7 @@ use leptos::html::{Button, Div};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::{HtmlElement, Node};
-use leptos_use::use_timeout_fn;
+use leptos_use_timeout_fn::use_timeout_fn;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::icons;

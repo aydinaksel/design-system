@@ -1,7 +1,8 @@
 use leptos::ev::{BeforeUnloadEvent, ClipboardEvent, DragEvent};
 use leptos::html::Input;
 use leptos::prelude::*;
-use leptos_use::{use_event_listener, use_window};
+use leptos_use_event_listener::use_event_listener;
+use leptos_use_window::use_window;
 
 use super::arrange::{
     arrange_items, arrange_toolbar, arranged, Arranging, FileArranger, FileCategory,

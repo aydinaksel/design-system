@@ -1,7 +1,7 @@
 use leptos::ev::KeyboardEvent;
 use leptos::html::Div;
 use leptos::prelude::*;
-use leptos_use::use_timeout_fn;
+use leptos_use_timeout_fn::use_timeout_fn;
 
 use crate::element_key::ElementKey;
 use crate::icons;

@@ -5,7 +5,8 @@ use leptos::portal::Portal;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::{EventTarget, HtmlElement, Node};
-use leptos_use::{use_event_listener_with_options, use_window, UseEventListenerOptions};
+use leptos_use_event_listener::{use_event_listener_with_options, UseEventListenerOptions};
+use leptos_use_window::use_window;
 
 use crate::editing::{focus_is_within_or_lost, FIRST_CONTROL_SELECTOR};
 use crate::element_key::ElementKey;

@@ -452,7 +452,8 @@ pub fn Combobox(
             }
         }
     };
-    let debounced_search = leptos_use::use_debounce_fn_with_arg(search, DEBOUNCE_MILLISECONDS);
+    let debounced_search =
+        leptos_use_fn_debounce_throttle::use_debounce_fn_with_arg(search, DEBOUNCE_MILLISECONDS);
     let search_as_typed = move |search_text: String| {
         if filters_locally {
             search(search_text);

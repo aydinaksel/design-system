@@ -1,6 +1,8 @@
 use chrono::{Local, NaiveDate};
 use leptos::prelude::*;
-use leptos_use::{use_calendar_with_options, CalendarDate, UseCalendarOptions, UseCalendarReturn};
+use leptos_use_calendar::{
+    use_calendar_with_options, CalendarDate, UseCalendarOptions, UseCalendarReturn,
+};
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::controls::{field_control_id, field_description_id, with_field_error};
@@ -205,14 +207,17 @@ fn CalendarPanel(
     .into_any()
 }
 
-fn starts_focused(calendar_date: CalendarDate, selected_date: Option<NaiveDate>) -> bool {
+fn starts_focused(
+    calendar_date: CalendarDate<NaiveDate>,
+    selected_date: Option<NaiveDate>,
+) -> bool {
     match selected_date {
         Some(selected) => calendar_date.is_selected(&selected),
         None => calendar_date.is_today(),
     }
 }
 
-fn day_class(calendar_date: CalendarDate, selected_date: Option<NaiveDate>) -> String {
+fn day_class(calendar_date: CalendarDate<NaiveDate>, selected_date: Option<NaiveDate>) -> String {
     let tone = if selected_date.is_some_and(|selected| calendar_date.is_selected(&selected)) {
         "bg-blue-600 font-medium text-white"
     } else if calendar_date.is_today() {

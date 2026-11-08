@@ -5,7 +5,7 @@ use leptos::html::{Aside, Button};
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_location;
-use leptos_use::{use_cookie_with_options, SameSite, UseCookieOptions};
+use leptos_use_cookie::{use_cookie_with_options, SameSite, UseCookieOptions};
 
 use crate::brand::brand;
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};

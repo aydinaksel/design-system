@@ -2,7 +2,7 @@ use leptos::ev::KeyboardEvent;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::{Element, HtmlElement, Node};
-use leptos_use::use_timeout_fn;
+use leptos_use_timeout_fn::use_timeout_fn;
 
 const MINIMUM_SAVING_MILLISECONDS: f64 = 300.0;
 const UNFINISHED_SAVE_MESSAGE: &str = "The save did not finish. Try again.";

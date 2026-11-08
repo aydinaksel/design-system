@@ -1,7 +1,8 @@
 use leptos::ev::{ClipboardEvent, DragEvent};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsValue;
-use leptos_use::{use_event_listener, use_window};
+use leptos_use_event_listener::use_event_listener;
+use leptos_use_window::use_window;
 
 const FILES_TRANSFER_TYPE: &str = "Files";
 

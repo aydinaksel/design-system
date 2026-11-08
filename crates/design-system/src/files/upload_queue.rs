@@ -2,7 +2,8 @@ use std::fmt::Write;
 use std::time::Duration;
 
 use leptos::prelude::*;
-use leptos_use::{use_event_listener, use_window};
+use leptos_use_event_listener::use_event_listener;
+use leptos_use_window::use_window;
 use send_wrapper::SendWrapper;
 
 use super::display::{FileItem, ItemState};

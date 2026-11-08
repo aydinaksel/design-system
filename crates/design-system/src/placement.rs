@@ -1,9 +1,10 @@
 use leptos::html::Div;
 use leptos::prelude::*;
 use leptos::web_sys::Element;
-use leptos_use::{
-    use_event_listener, use_event_listener_with_options, use_window, UseEventListenerOptions,
+use leptos_use_event_listener::{
+    use_event_listener, use_event_listener_with_options, UseEventListenerOptions,
 };
+use leptos_use_window::use_window;
 
 const VIEWPORT_MARGIN_PIXELS: f64 = 8.0;
 const UNPLACED_STYLE: &str = "left:0;top:0;opacity:0";
