@@ -18,6 +18,8 @@ use super::StoredFile;
 const DROP_OVERLAY_CLASS: &str = "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-surface border-2 border-dashed border-blue-500 bg-blue-50/90 text-sm font-medium text-blue-700";
 const SECTION_CLASS: &str = "relative space-y-3 rounded-surface transition-shadow";
 const PAGE_DRAG_CLASS: &str = "ring-2 ring-blue-200 ring-offset-4";
+const CAMERA_ACCEPT: &str = "image/*";
+const REAR_CAMERA: &str = "environment";
 
 fn warn_before_leaving(queue: UploadQueue) {
     drop(use_event_listener(
@@ -182,12 +184,34 @@ fn stored_files(items: &[FileItem]) -> Vec<StoredFile> {
         .collect()
 }
 
-fn hidden_picker(
+struct Picker {
     input: NodeRef<Input>,
     accept: Option<String>,
     multiple: bool,
+    capture: Option<&'static str>,
+}
+
+impl Picker {
+    fn opener(&self) -> Callback<()> {
+        let input = self.input;
+        Callback::new(move |()| {
+            if let Some(element) = input.get_untracked() {
+                element.click();
+            }
+        })
+    }
+}
+
+fn hidden_picker(
+    picker: Picker,
     deliver: impl Fn(Vec<web_sys::File>) + Send + Sync + 'static,
 ) -> AnyView {
+    let Picker {
+        input,
+        accept,
+        multiple,
+        capture,
+    } = picker;
     view! {
         <input
             node_ref=input
@@ -197,6 +221,7 @@ fn hidden_picker(
             aria-hidden="true"
             accept=accept
             multiple=multiple
+            capture=capture
             on:change=move |_| {
                 let Some(element) = input.get() else {
                     return;
@@ -217,6 +242,7 @@ struct ContentParts {
     hint: String,
     disabled: Signal<bool>,
     open_picker: Callback<()>,
+    take_photo: Option<Callback<()>>,
     open_key: RwSignal<Option<String>>,
 }
 
@@ -229,6 +255,7 @@ fn section_content(parts: ContentParts) -> AnyView {
         hint,
         disabled,
         open_picker,
+        take_photo,
         open_key,
     } = parts;
     let presentation = state.presentation;
@@ -249,10 +276,10 @@ fn section_content(parts: ContentParts) -> AnyView {
             .into_any();
         }
         if !state.has_anything() {
-            return drop_zone_view(hint.clone(), disabled, open_picker);
+            return drop_zone_view(hint.clone(), disabled, open_picker, take_photo);
         }
         view! {
-            {toolbar_view(hint.clone(), &state, disabled, open_picker)}
+            {toolbar_view(hint.clone(), &state, disabled, open_picker, take_photo)}
             {category_chips(&state)}
             {file_items(items, layout, label.clone(), open_key, handlers)}
         }
@@ -272,11 +299,22 @@ pub fn FileSection(
     #[prop(optional)] arrange: Option<FileArranger>,
     #[prop(optional)] primary: bool,
     #[prop(optional)] categories: Vec<FileCategory>,
+    #[prop(optional)] camera: bool,
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
     let hint = rules.hint();
-    let accept = rules.accept_attribute();
-    let multiple = rules.multiple();
+    let file_picker = Picker {
+        input: NodeRef::new(),
+        accept: rules.accept_attribute(),
+        multiple: rules.multiple(),
+        capture: None,
+    };
+    let camera_picker = (camera && rules.accepts_photos()).then(|| Picker {
+        input: NodeRef::new(),
+        accept: Some(CAMERA_ACCEPT.to_owned()),
+        multiple: false,
+        capture: Some(REAR_CAMERA),
+    });
     let state = SectionState {
         files,
         queue: UploadQueue::new(upload, rules),
@@ -293,15 +331,11 @@ pub fn FileSection(
     warn_before_leaving(state.queue);
     let drop_target = DropTarget::new();
     let open_key: RwSignal<Option<String>> = RwSignal::new(None);
-    let input: NodeRef<Input> = NodeRef::new();
 
     let items = Signal::derive(move || state.items());
     let viewable = Signal::derive(move || items.with(|items| stored_files(items)));
-    let open_picker = Callback::new(move |()| {
-        if let Some(element) = input.get_untracked() {
-            element.click();
-        }
-    });
+    let open_picker = file_picker.opener();
+    let take_photo = camera_picker.as_ref().map(Picker::opener);
     let accepting = move || !disabled.get() && !state.arranging.is_active();
     let deliver = move |files: Vec<web_sys::File>| {
         let accepting_now = !disabled.get_untracked() && !state.arranging.is_active_untracked();
@@ -325,6 +359,7 @@ pub fn FileSection(
         hint,
         disabled,
         open_picker,
+        take_photo,
         open_key,
     });
 
@@ -350,7 +385,8 @@ pub fn FileSection(
             <p class="sr-only" aria-live="polite">
                 {move || state.arranging.announcement.get()}
             </p>
-            {hidden_picker(input, accept, multiple, deliver)}
+            {hidden_picker(file_picker, deliver)}
+            {camera_picker.map(|picker| hidden_picker(picker, deliver))}
             <FileViewer files=viewable open_key />
             {state.removals.dialog(state.queue)}
         </div>

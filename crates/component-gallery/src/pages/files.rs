@@ -1,11 +1,11 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use chrono::NaiveDate;
 use design_system::table::{CellValue, Column, DataTable};
 use design_system::{
     file_arranger, file_cell, file_remover, file_uploader, Arrangement, FileArranger, FileCategory,
     FileGrid, FileKind, FileLayout, FileList, FileRemover, FileSection, FileUploader, PageHeader,
-    StoredFile, UploadRules,
+    PendingUpload, StoredFile, UploadFailure, UploadRules,
 };
 use leptos::prelude::*;
 
@@ -173,8 +173,22 @@ const SIMULATED_UPLOAD_MILLISECONDS: u64 = 1200;
 #[cfg(feature = "ssr")]
 const SIMULATED_REMOVAL_MILLISECONDS: u64 = 600;
 const TEN_MEGABYTES: u64 = 10_485_760;
+const PHOTO_LONGEST_EDGE_PIXELS: u32 = 2048;
+const FLAKY_ATTEMPTS_PER_SUCCESS: u64 = 3;
+const DROPPED_ATTEMPTS_PER_SUCCESS: u64 = 2;
+const DROPPED_CONNECTION_MESSAGE: &str = "The connection dropped.";
 
 static NEXT_UPLOADED_NUMBER: AtomicU64 = AtomicU64::new(0);
+static FLAKY_CONNECTION: AtomicBool = AtomicBool::new(false);
+static UPLOAD_ATTEMPTS: AtomicU64 = AtomicU64::new(0);
+
+fn connection_drops() -> bool {
+    let attempt = UPLOAD_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+    FLAKY_CONNECTION.load(Ordering::Relaxed)
+        && attempt
+            .checked_rem(FLAKY_ATTEMPTS_PER_SUCCESS)
+            .is_some_and(|remainder| remainder < DROPPED_ATTEMPTS_PER_SUCCESS)
+}
 
 #[server]
 pub async fn simulate_upload(name: String) -> Result<(), ServerFnError> {
@@ -220,9 +234,14 @@ fn uploaded_copy(file: &web_sys::File) -> StoredFile {
 }
 
 fn gallery_uploader() -> FileUploader {
-    file_uploader(|file: web_sys::File| async move {
-        simulate_upload(file.name()).await.map_err(server_message)?;
-        Ok::<_, String>(uploaded_copy(&file))
+    file_uploader(|pending: PendingUpload| async move {
+        if connection_drops() {
+            return Err(UploadFailure::Interrupted(
+                DROPPED_CONNECTION_MESSAGE.to_owned(),
+            ));
+        }
+        simulate_upload(pending.file.name()).await?;
+        Ok(uploaded_copy(&pending.file))
     })
 }
 
@@ -262,6 +281,19 @@ fn uploading_sections() -> AnyView {
     let no_photos = Signal::stored(Vec::<StoredFile>::new());
     let no_statement = Signal::stored(Vec::<StoredFile>::new());
     let locked = Signal::stored(true);
+    let flaky = RwSignal::new(false);
+    let toggle_connection = move |_| {
+        let now_flaky = !flaky.get_untracked();
+        FLAKY_CONNECTION.store(now_flaky, Ordering::Relaxed);
+        flaky.set(now_flaky);
+    };
+    let connection_label = move || {
+        if flaky.get() {
+            "Restore the Connection"
+        } else {
+            "Simulate a Flaky Connection"
+        }
+    };
     view! {
         {section(
             "Upload Documents",
@@ -282,13 +314,27 @@ fn uploading_sections() -> AnyView {
         {section(
             "Upload Photos",
             view! {
+                <p class="mb-2 max-w-xl text-sm text-gray-600">
+                    "On a phone, Take Photo opens the camera. Photos shrink to 2048 pixels on their longest side before they upload, and a dropped connection retries on its own."
+                </p>
+                <button
+                    type="button"
+                    class="mb-4 cursor-pointer text-xs text-blue-600 hover:underline"
+                    aria-pressed=move || flaky.get().to_string()
+                    on:click=toggle_connection
+                >
+                    {connection_label}
+                </button>
                 <FileSection
                     files=no_photos
                     label="Delivery Photos"
                     layout=FileLayout::Grid
-                    rules=UploadRules::accepting([FileKind::Image]).up_to(TEN_MEGABYTES)
+                    rules=UploadRules::accepting([FileKind::Image])
+                        .up_to(TEN_MEGABYTES)
+                        .shrinking_photos_to(PHOTO_LONGEST_EDGE_PIXELS)
                     upload=gallery_uploader()
                     remove=gallery_remover()
+                    camera=true
                 />
             }
                 .into_any(),

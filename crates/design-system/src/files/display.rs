@@ -44,6 +44,7 @@ pub(super) enum ItemState {
     Stored,
     Waiting,
     Uploading,
+    Reconnecting,
     Removing,
     Failed(String),
 }
@@ -54,6 +55,7 @@ impl ItemState {
             Self::Stored => "stored",
             Self::Waiting => "waiting",
             Self::Uploading => "uploading",
+            Self::Reconnecting => "reconnecting",
             Self::Removing => "removing",
             Self::Failed(_) => "failed",
         }
@@ -63,6 +65,7 @@ impl ItemState {
         match self {
             Self::Waiting => Some("Waiting to upload\u{2026}"),
             Self::Uploading => Some("Uploading\u{2026}"),
+            Self::Reconnecting => Some("Waiting for a connection\u{2026}"),
             Self::Removing => Some("Removing\u{2026}"),
             Self::Stored | Self::Failed(_) => None,
         }
@@ -71,7 +74,11 @@ impl ItemState {
     fn border_class(&self) -> &'static str {
         match self {
             Self::Failed(_) => FAILED_BORDER_CLASS,
-            Self::Stored | Self::Waiting | Self::Uploading | Self::Removing => SETTLED_BORDER_CLASS,
+            Self::Stored
+            | Self::Waiting
+            | Self::Uploading
+            | Self::Reconnecting
+            | Self::Removing => SETTLED_BORDER_CLASS,
         }
     }
 }

@@ -6,13 +6,67 @@ use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::filter_chip::FilterChip;
 use crate::icons::{self, LucideGlyph};
 
+const TOUCH_ONLY_CLASS: &str = "hidden pointer-coarse:contents";
+const PHONE_EMPTY_CLASS: &str = "hidden flex-col items-center gap-3 rounded-surface border-2 border-dashed border-gray-300 bg-white px-6 py-8 text-center pointer-coarse:flex";
 const DROP_ZONE_CLASS: &str = "flex w-full cursor-pointer flex-col items-center gap-1 rounded-surface border-2 border-dashed border-gray-300 bg-white px-6 py-8 text-center text-sm transition-colors hover:border-gray-400 focus-ring disabled:cursor-not-allowed disabled:opacity-60";
+
+fn large_button(
+    label: &'static str,
+    glyph: LucideGlyph,
+    tone: ButtonTone,
+    disabled: Signal<bool>,
+    on_click: Callback<()>,
+) -> AnyView {
+    view! {
+        <button
+            type="button"
+            class=button_class(tone, ButtonSize::Standard)
+            prop:disabled=move || disabled.get()
+            on:click=move |_| on_click.run(())
+        >
+            {icons::icon(glyph, "h-4 w-4 shrink-0 opacity-70")}
+            {label}
+        </button>
+    }
+    .into_any()
+}
 
 pub(super) fn drop_zone_view(
     hint: String,
     disabled: Signal<bool>,
     open_picker: Callback<()>,
+    take_photo: Option<Callback<()>>,
 ) -> AnyView {
+    let Some(take_photo) = take_photo else {
+        return drop_zone(hint, disabled, open_picker);
+    };
+    view! {
+        <div class="pointer-coarse:hidden">{drop_zone(hint.clone(), disabled, open_picker)}</div>
+        <div class=PHONE_EMPTY_CLASS>
+            {icons::icon(LucideGlyph::Camera, "h-5 w-5 text-gray-400")}
+            <span class="text-xs text-gray-500">{hint}</span>
+            <div class="flex flex-wrap justify-center gap-2">
+                {large_button(
+                    "Take Photo",
+                    LucideGlyph::Camera,
+                    ButtonTone::Primary,
+                    disabled,
+                    take_photo,
+                )}
+                {large_button(
+                    "Choose Files",
+                    LucideGlyph::Upload,
+                    ButtonTone::Secondary,
+                    disabled,
+                    open_picker,
+                )}
+            </div>
+        </div>
+    }
+    .into_any()
+}
+
+fn drop_zone(hint: String, disabled: Signal<bool>, open_picker: Callback<()>) -> AnyView {
     view! {
         <button
             type="button"
@@ -56,8 +110,16 @@ pub(super) fn toolbar_view(
     state: &SectionState,
     disabled: Signal<bool>,
     open_picker: Callback<()>,
+    take_photo: Option<Callback<()>>,
 ) -> AnyView {
     let state = *state;
+    let camera = take_photo.map(|take_photo| {
+        view! {
+            <span class=TOUCH_ONLY_CLASS>
+                {compact_button("Take Photo", LucideGlyph::Camera, disabled, take_photo)}
+            </span>
+        }
+    });
     let arranging = state.arranging;
     let arrange = arranging.enabled().then(|| {
         let unavailable = Signal::derive(move || {
@@ -73,7 +135,8 @@ pub(super) fn toolbar_view(
         <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="text-xs text-gray-500">{hint}</p>
             <div class="flex items-center gap-2">
-                {arrange} {compact_button("Add Files", LucideGlyph::Upload, disabled, open_picker)}
+                {arrange} {camera}
+                {compact_button("Add Files", LucideGlyph::Upload, disabled, open_picker)}
             </div>
         </div>
     }

@@ -9,9 +9,9 @@ use design_system::{
     CopyLinkButton, DatePicker, DetailHeader, DetailPage, Dialog, DialogSize, DropdownMenu,
     EmptyState, Field, FieldEditor, FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset,
     FileDropZone, FilterChip, GalleryImage, HelpTerm, ImageGallery, ImageGrid, Input, InputKind,
-    Listbox, ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu, PageHeader, RadioGroup,
-    RadioLayout, RadioOption, ResponsiveImage, SearchInput, SearchSize, SectionEditing, Switch,
-    TabStrip, Textarea, Tone, TotalsBar,
+    Listbox, ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu, PageHeader, QrCode,
+    QrCodeButton, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput, SearchSize,
+    SectionEditing, Switch, TabStrip, Textarea, Tone, TotalsBar,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -393,6 +393,24 @@ fn attachments() -> AnyView {
                     size=AttachmentSize::Dense
                     media=AttachmentMedia::Icon(LucideGlyph::FileText)
                 />
+            </div>
+        </div>
+    }
+    .into_any()
+}
+
+const DELIVERY_ADDRESS: &str = "https://hermes.chichek.co.uk/deliveries/DN-10482";
+
+fn qr_codes() -> AnyView {
+    view! {
+        <div class="flex flex-wrap items-start gap-8">
+            <QrCodeButton
+                address=DELIVERY_ADDRESS.to_owned()
+                title="Delivery DN-10482"
+                description="Scan with a phone to add photos to this delivery."
+            />
+            <div class="w-32">
+                <QrCode value=DELIVERY_ADDRESS.to_owned() label="QR Code: Delivery DN-10482" />
             </div>
         </div>
     }
@@ -1217,10 +1235,11 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Choice List", choice_list())}
             {section("Popovers", super::popovers::popovers())}
             {section("Toasts", toasts())}
+            {section("QR Codes", qr_codes())}
             {section("Alerts", alerts())}
             {section("Meters", meters())}
-            {section("File Drop Zone", file_drop_zone())}
-            {section("Attachments", attachments())}
+            {section("File Drop Zone, Replaced by Files", file_drop_zone())}
+            {section("Attachments, Replaced by Files", attachments())}
             {section("Detail Pages", detail_pages())}
             {section("Fieldsets", fieldsets())}
             {section("Form Controls", form_controls())}

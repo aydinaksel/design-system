@@ -13,16 +13,19 @@ lepticons = { version = "0.13", default-features = false, features = [
     "account",
     "arrows",
     "cursors",
+    "development",
     "files",
     "layout",
     "navigation",
     "notifications",
+    "photography",
     "text",
     "time",
 ] }
 leptos = { version = "0.8" }
 rust_decimal = { version = "1", default-features = false }
 send_wrapper = "0.6"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 leptos-use = { version = "0.19", default-features = false, features = [
     "use_calendar",
     "use_debounce_fn",
@@ -52,16 +55,20 @@ optional = true
 version = "0.2"
 optional = true
 
+[dependencies.js-sys]
+version = "0.3"
+optional = true
+
 [dependencies.web-sys]
 version = "0.3"
-features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "MediaQueryList", "Navigator", "Clipboard", "KeyboardEvent", "Selection", "EventTarget", "MouseEvent", "ScrollIntoViewOptions", "ScrollLogicalPosition", "Location", "HtmlAnchorElement", "BeforeUnloadEvent", "NodeList", "DomRectList", "CssStyleDeclaration", "DataTransfer", "DragEvent", "File", "FileList", "HtmlInputElement", "Url", "Blob", "ClipboardEvent", "PointerEvent", "Document"]
+features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "MediaQueryList", "Navigator", "Clipboard", "KeyboardEvent", "Selection", "EventTarget", "MouseEvent", "ScrollIntoViewOptions", "ScrollLogicalPosition", "Location", "HtmlAnchorElement", "BeforeUnloadEvent", "NodeList", "DomRectList", "CssStyleDeclaration", "DataTransfer", "DragEvent", "File", "FileList", "HtmlInputElement", "Url", "Blob", "ClipboardEvent", "PointerEvent", "Document", "HtmlImageElement", "HtmlCanvasElement", "CanvasRenderingContext2d", "FilePropertyBag", "Crypto"]
 
 [dev-dependencies]
 leptos_router = { version = "0.8", features = ["ssr"] }
 serde_json = "1"
 
 [features]
-hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:js-sys"]
 ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",

@@ -6,6 +6,7 @@ use crate::icons::LucideGlyph;
 mod arrange;
 mod display;
 mod drop_target;
+mod photo_shrinking;
 mod removal;
 mod section;
 mod toolbar;
@@ -17,7 +18,8 @@ pub use arrange::{file_arranger, ArrangeFuture, Arrangement, FileArranger, FileC
 pub use display::{file_cell, FileGrid, FileLayout, FileList};
 pub use section::FileSection;
 pub use upload::{
-    file_remover, file_uploader, FileRemover, FileUploader, RemoveFuture, UploadFuture, UploadRules,
+    file_remover, file_uploader, FileRemover, FileUploader, PendingUpload, RemoveFuture,
+    UploadFailure, UploadFuture, UploadRules,
 };
 pub use viewer::FileViewer;
 

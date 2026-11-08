@@ -41,6 +41,7 @@ pub mod not_found;
 pub mod page_header;
 mod placement;
 pub mod popover;
+pub mod qr_code;
 pub mod radio_group;
 pub mod search_input;
 pub mod shell;
@@ -91,7 +92,7 @@ pub use file_drop_zone::FileDropZone;
 pub use files::{
     file_arranger, file_cell, file_remover, file_uploader, Arrangement, FileArranger, FileCategory,
     FileGrid, FileKind, FileLayout, FileList, FileRemover, FileSection, FileUploader, FileViewer,
-    StoredFile, UploadRules,
+    PendingUpload, StoredFile, UploadFailure, UploadRules,
 };
 pub use filter_chip::FilterChip;
 pub use form_dialog::FormDialog;
@@ -109,6 +110,7 @@ pub use popover::{
     use_popover, Dismissal, Popover, PopoverAlign, PopoverContent, PopoverDescription,
     PopoverHeader, PopoverState, PopoverTitle, PopoverTrigger,
 };
+pub use qr_code::{qr_code_svg, QrCode, QrCodeButton};
 pub use radio_group::{RadioGroup, RadioLayout, RadioOption};
 pub use search_input::{SearchInput, SearchSize};
 pub use shell::shell;

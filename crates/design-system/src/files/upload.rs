@@ -2,24 +2,59 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use leptos::prelude::ServerFnError;
+
 use super::{FileKind, StoredFile};
 use crate::formatting::{format_file_size, format_file_size_with_tenths};
 
-pub type UploadFuture = Pin<Box<dyn Future<Output = Result<StoredFile, String>>>>;
+const SHRINKABLE_CONTENT_TYPES: [&str; 4] =
+    ["image/jpeg", "image/webp", "image/heic", "image/heif"];
+
+#[derive(Clone, Debug)]
+pub struct PendingUpload {
+    pub file: web_sys::File,
+    pub upload_key: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UploadFailure {
+    Rejected(String),
+    Interrupted(String),
+}
+
+impl From<String> for UploadFailure {
+    fn from(reason: String) -> Self {
+        Self::Rejected(reason)
+    }
+}
+
+impl From<ServerFnError> for UploadFailure {
+    fn from(error: ServerFnError) -> Self {
+        match error {
+            ServerFnError::Request(reason) | ServerFnError::Response(reason) => {
+                Self::Interrupted(reason)
+            }
+            ServerFnError::ServerError(reason) => Self::Rejected(reason),
+            other => Self::Rejected(other.to_string()),
+        }
+    }
+}
+
+pub type UploadFuture = Pin<Box<dyn Future<Output = Result<StoredFile, UploadFailure>>>>;
 pub type RemoveFuture = Pin<Box<dyn Future<Output = Result<(), String>>>>;
 
-pub type FileUploader = Arc<dyn Fn(web_sys::File) -> UploadFuture + Send + Sync>;
+pub type FileUploader = Arc<dyn Fn(PendingUpload) -> UploadFuture + Send + Sync>;
 pub type FileRemover = Arc<dyn Fn(StoredFile) -> RemoveFuture + Send + Sync>;
 
 pub fn file_uploader<UploadFn, Upload, UploadError>(upload: UploadFn) -> FileUploader
 where
-    UploadFn: Fn(web_sys::File) -> Upload + Send + Sync + 'static,
+    UploadFn: Fn(PendingUpload) -> Upload + Send + Sync + 'static,
     Upload: Future<Output = Result<StoredFile, UploadError>> + 'static,
-    UploadError: ToString,
+    UploadError: Into<UploadFailure>,
 {
-    Arc::new(move |file| {
-        let upload = upload(file);
-        Box::pin(async move { upload.await.map_err(|error| error.to_string()) })
+    Arc::new(move |pending| {
+        let upload = upload(pending);
+        Box::pin(async move { upload.await.map_err(Into::into) })
     })
 }
 
@@ -40,6 +75,7 @@ pub struct UploadRules {
     accepted: Vec<FileKind>,
     max_size_bytes: Option<u64>,
     multiple: bool,
+    shrink_edge_pixels: Option<u32>,
 }
 
 impl Default for UploadRules {
@@ -55,6 +91,7 @@ impl UploadRules {
             accepted: Vec::new(),
             max_size_bytes: None,
             multiple: true,
+            shrink_edge_pixels: None,
         }
     }
 
@@ -82,6 +119,27 @@ impl UploadRules {
         }
     }
 
+    #[must_use]
+    pub fn shrinking_photos_to(self, longest_edge_pixels: u32) -> Self {
+        Self {
+            shrink_edge_pixels: Some(longest_edge_pixels),
+            ..self
+        }
+    }
+
+    pub(super) fn shrink_edge_pixels(&self, content_type: Option<&str>) -> Option<u32> {
+        let shrinkable = content_type.is_some_and(|content_type| {
+            SHRINKABLE_CONTENT_TYPES
+                .iter()
+                .any(|shrinkable| content_type.eq_ignore_ascii_case(shrinkable))
+        });
+        self.shrink_edge_pixels.filter(|_| shrinkable)
+    }
+
+    pub(super) fn accepts_photos(&self) -> bool {
+        self.accepts_any_kind() || self.accepted.contains(&FileKind::Image)
+    }
+
     pub(super) fn multiple(&self) -> bool {
         self.multiple
     }
@@ -103,6 +161,13 @@ impl UploadRules {
                 self.kinds_phrase()
             ));
         }
+        if self.shrink_edge_pixels(content_type).is_some() {
+            return None;
+        }
+        self.size_rejection(size_bytes)
+    }
+
+    pub(super) fn size_rejection(&self, size_bytes: u64) -> Option<String> {
         self.max_size_bytes
             .filter(|max_size_bytes| size_bytes > *max_size_bytes)
             .map(|max_size_bytes| {
@@ -225,6 +290,34 @@ mod tests {
             Some("This file is 10.4 MB, over the 10 MB limit.".to_owned())
         );
         assert_eq!(rules.rejection("photo.jpg", None, TEN_MEGABYTES), None);
+    }
+
+    #[test]
+    fn a_photo_that_will_be_shrunk_is_measured_after_shrinking() {
+        let rules = UploadRules::accepting([FileKind::Image])
+            .up_to(TEN_MEGABYTES)
+            .shrinking_photos_to(2048);
+        assert_eq!(
+            rules.rejection("camera.jpg", Some("image/jpeg"), 13_002_342),
+            None
+        );
+        assert_eq!(rules.shrink_edge_pixels(Some("image/JPEG")), Some(2048));
+        assert_eq!(rules.shrink_edge_pixels(Some("image/png")), None);
+        assert!(rules
+            .rejection("diagram.png", Some("image/png"), 13_002_342)
+            .is_some());
+    }
+
+    #[test]
+    fn only_a_lost_connection_is_worth_retrying() {
+        assert_eq!(
+            UploadFailure::from(ServerFnError::Request("offline".to_owned())),
+            UploadFailure::Interrupted("offline".to_owned())
+        );
+        assert_eq!(
+            UploadFailure::from(ServerFnError::new("Too big.")),
+            UploadFailure::Rejected("Too big.".to_owned())
+        );
     }
 
     #[test]
