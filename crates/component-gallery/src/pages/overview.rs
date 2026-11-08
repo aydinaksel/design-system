@@ -370,7 +370,7 @@ fn attachments() -> AnyView {
                     media=media
                     open=AttachmentOpen::Link(format!("#{code}"))
                     actions=vec![
-                        AttachmentAction::new("Delete", LucideGlyph::Trash2, || {}).danger(),
+                        AttachmentAction::new("Delete", LucideGlyph::Trash, || {}).danger(),
                     ]
                 />
             }

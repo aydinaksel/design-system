@@ -360,7 +360,7 @@ fn actions_view(
         let (tooltip, verb, glyph) = if matches!(item.state, ItemState::Failed(_)) {
             ("Dismiss", "Dismiss", LucideGlyph::X)
         } else {
-            ("Remove", "Remove", LucideGlyph::Trash2)
+            ("Remove", "Remove", LucideGlyph::Trash)
         };
         actions.push(action_button(
             tooltip,
