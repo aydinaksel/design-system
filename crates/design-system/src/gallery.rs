@@ -1,6 +1,20 @@
+use leptos::ev::KeyboardEvent;
 use leptos::prelude::*;
+use leptos::wasm_bindgen::JsCast;
+use leptos_use::{use_event_listener, use_window};
 
 use crate::icons;
+
+const EDITABLE_SELECTOR: &str =
+    "input, textarea, select, [contenteditable], [role=combobox], [role=listbox]";
+
+fn typing_in_a_field(event: &KeyboardEvent) -> bool {
+    event
+        .target()
+        .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+        .and_then(|element| element.closest(EDITABLE_SELECTOR).ok().flatten())
+        .is_some()
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GalleryImage {
@@ -19,37 +33,25 @@ pub fn ImageGallery(
     images: Signal<Vec<GalleryImage>>,
     selected_image: RwSignal<usize>,
 ) -> impl IntoView {
-    #[cfg(feature = "hydrate")]
-    {
-        use wasm_bindgen::prelude::*;
-        let handler = Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(
-            move |event: web_sys::KeyboardEvent| match event.key().as_str() {
+    drop(use_event_listener(
+        use_window(),
+        leptos::ev::keydown,
+        move |event: KeyboardEvent| {
+            if event.default_prevented() || typing_in_a_field(&event) {
+                return;
+            }
+            let count = images.with_untracked(Vec::len);
+            match event.key().as_str() {
                 "ArrowLeft" => {
-                    let current = selected_image.get_untracked();
-                    if current > 0 {
-                        selected_image.set(current.saturating_sub(1));
-                    }
+                    selected_image.update(|current| *current = current.saturating_sub(1));
                 }
-                "ArrowRight" => {
-                    let current = selected_image.get_untracked();
-                    let count = images.get_untracked().len();
-                    if current.saturating_add(1) < count {
-                        selected_image.set(current.saturating_add(1));
-                    }
-                }
+                "ArrowRight" => selected_image.update(|current| {
+                    *current = current.saturating_add(1).min(count.saturating_sub(1));
+                }),
                 _ => {}
-            },
-        );
-        if let Some(window) = web_sys::window() {
-            #[expect(
-                clippy::let_underscore_must_use,
-                reason = "without the listener the shortcut is inert, which is the pre-existing behaviour"
-            )]
-            let _ = window
-                .add_event_listener_with_callback("keydown", handler.as_ref().unchecked_ref());
-        }
-        handler.forget();
-    }
+            }
+        },
+    ));
 
     view! {
         <div>

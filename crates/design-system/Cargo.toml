@@ -32,7 +32,6 @@ leptos-use = { version = "0.19", default-features = false, features = [
 ] }
 codee = "0.3"
 leptos_meta = { version = "0.8" }
-leptos_toaster = { version = "0.3", features = ["builtin_toast"] }
 leptos_router = { version = "0.8" }
 serde = { version = "1", features = ["derive"] }
 table-query = { path = "../table-query" }
@@ -62,12 +61,11 @@ leptos_router = { version = "0.8", features = ["ssr"] }
 serde_json = "1"
 
 [features]
-hydrate = ["leptos/hydrate", "leptos_toaster/hydrate", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
-    "leptos_toaster/ssr",
     "leptos-use/ssr",
     "leptos-use/axum",
     "dep:leptos_axum",
