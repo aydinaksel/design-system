@@ -148,7 +148,7 @@ impl PopoverState {
         }
         let trigger = self.trigger;
         request_animation_frame(move || {
-            if let Some(element) = trigger.get_untracked() {
+            if let Some(element) = trigger.try_get_untracked().flatten() {
                 element.focus().unwrap_or_default();
             }
         });
@@ -244,7 +244,7 @@ impl PopoverContext {
             UseEventListenerOptions::default().capture(true),
         ));
         request_animation_frame(move || {
-            if let Some(panel) = state.panel.node.get_untracked() {
+            if let Some(panel) = state.panel.node.try_get_untracked().flatten() {
                 focus_initial(&panel);
             }
         });

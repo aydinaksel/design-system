@@ -28,6 +28,7 @@ send_wrapper = "0.6"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 leptos-use-calendar = { version = "0.20", default-features = false, features = ["chrono"] }
 leptos-use-cookie = "0.20"
+leptos-use-document-visibility = "0.20"
 leptos-use-event-listener = "0.20"
 leptos-use-fn-debounce-throttle = "0.20"
 leptos-use-timeout-fn = "0.20"
@@ -75,6 +76,7 @@ ssr = [
     "leptos-use-calendar/ssr",
     "leptos-use-cookie/ssr",
     "leptos-use-cookie/axum",
+    "leptos-use-document-visibility/ssr",
     "leptos-use-event-listener/ssr",
     "leptos-use-fn-debounce-throttle/ssr",
     "leptos-use-timeout-fn/ssr",

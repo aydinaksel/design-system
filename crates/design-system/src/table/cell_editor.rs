@@ -168,7 +168,7 @@ where
 
         let focus_content = move |selector: &'static str| {
             request_animation_frame(move || {
-                if let Some(element) = content.get_untracked() {
+                if let Some(element) = content.try_get_untracked().flatten() {
                     focus_first(&element, selector);
                 }
             });

@@ -182,7 +182,7 @@ pub fn Dialog(
         let previous_focus = StoredValue::new_local(browser::focused_element());
         browser::opened(dialog_number);
         request_animation_frame(move || {
-            if let Some(element) = panel.get_untracked() {
+            if let Some(element) = panel.try_get_untracked().flatten() {
                 browser::focus_initial(&element);
             }
         });

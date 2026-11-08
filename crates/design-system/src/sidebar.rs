@@ -96,7 +96,7 @@ pub fn is_active(pathname: &str, href: &str) -> bool {
 }
 
 fn focus_button(button: NodeRef<Button>) {
-    if let Some(element) = button.get_untracked() {
+    if let Some(element) = button.try_get_untracked().flatten() {
         element.focus().unwrap_or_default();
     }
 }

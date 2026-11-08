@@ -369,7 +369,7 @@ impl EditSession {
     fn focus_after_render(self, selector: &'static str) {
         let section = self.section;
         request_animation_frame(move || {
-            if let Some(element) = section.get_untracked() {
+            if let Some(element) = section.try_get_untracked().flatten() {
                 focus_first(&element, selector);
             }
         });
@@ -378,9 +378,10 @@ impl EditSession {
     fn return_focus_to_edit_button(self) {
         let (section, edit_button) = (self.section, self.edit_button);
         request_animation_frame(move || {
-            let (Some(section), Some(edit_button)) =
-                (section.get_untracked(), edit_button.get_untracked())
-            else {
+            let (Some(section), Some(edit_button)) = (
+                section.try_get_untracked().flatten(),
+                edit_button.try_get_untracked().flatten(),
+            ) else {
                 return;
             };
             if focus_is_within_or_lost(&section) {

@@ -2,6 +2,8 @@ use std::fmt::Write;
 use std::time::Duration;
 
 use leptos::prelude::*;
+use leptos::web_sys::VisibilityState;
+use leptos_use_document_visibility::use_document_visibility;
 use leptos_use_event_listener::use_event_listener;
 use leptos_use_window::use_window;
 use send_wrapper::SendWrapper;
@@ -183,14 +185,28 @@ impl UploadQueue {
             uploader: StoredValue::new(uploader),
             rules: StoredValue::new(rules),
         };
+        queue.reconnect_when_the_browser_is_back();
+        queue
+    }
+
+    fn reconnect_when_the_browser_is_back(self) {
         drop(use_event_listener(
             use_window(),
             leptos::ev::online,
             move |_| {
-                queue.reconnect(None);
+                self.reconnect(None);
             },
         ));
-        queue
+        let visibility = use_document_visibility();
+        Effect::watch(
+            move || visibility.get(),
+            move |visibility, _, _| {
+                if *visibility == VisibilityState::Visible {
+                    self.reconnect(None);
+                }
+            },
+            false,
+        );
     }
 
     pub(super) fn add(self, files: Vec<web_sys::File>) {

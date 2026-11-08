@@ -248,7 +248,7 @@ impl MenuState {
         }
         self.open.set(true);
         request_animation_frame(move || {
-            let Some(panel) = self.panel.node.get_untracked() else {
+            let Some(panel) = self.panel.node.try_get_untracked().flatten() else {
                 return;
             };
             match movement {

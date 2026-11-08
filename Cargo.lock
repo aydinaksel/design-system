@@ -496,6 +496,7 @@ dependencies = [
  "leptos",
  "leptos-use-calendar",
  "leptos-use-cookie",
+ "leptos-use-document-visibility",
  "leptos-use-event-listener",
  "leptos-use-fn-debounce-throttle",
  "leptos-use-timeout-fn",
@@ -1236,6 +1237,18 @@ dependencies = [
  "js-sys",
  "leptos",
  "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos-use-document-visibility"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f410d46acadc0ee4043cbf3397ada241af7ee28955966813e23de96b77b7a6ed"
+dependencies = [
+ "cfg-if",
+ "leptos",
+ "leptos-use-event-listener",
  "web-sys",
 ]
 
