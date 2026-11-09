@@ -6,7 +6,7 @@ use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::clipboard::{copy_current_address_with_toast, copy_with_toast};
 use crate::icons;
 use crate::menu::{DropdownMenu, MenuEntry, MenuItem};
-use crate::tabs::TabsInPageHeader;
+use crate::tabs::TabsOnSharedBorder;
 use crate::tooltip::Tooltip;
 
 const PAGE_WIDTH_CLASS: &str = "mx-auto max-w-screen-2xl px-6";
@@ -155,7 +155,7 @@ pub fn DetailPage(
         format!("{PAGE_WIDTH_CLASS} pb-4 pt-6")
     };
     let tabs = tabs.map(|tabs| {
-        view! { <Provider value=TabsInPageHeader>{tabs.run()}</Provider> }
+        view! { <Provider value=TabsOnSharedBorder>{tabs.run()}</Provider> }
     });
 
     view! {

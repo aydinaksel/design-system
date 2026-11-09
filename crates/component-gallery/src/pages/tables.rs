@@ -7,7 +7,8 @@ use design_system::table::{
     FacetValues, Page, RowView, ServerTable, TableQuery,
 };
 use design_system::{
-    Card, ChoiceTransition, ModeSwitch, PageHeader, PageMode, PageView, ResponsiveImage, ViewTabs,
+    Card, ChoiceTransition, ListPage, MenuEntry, MenuItem, ModeSwitch, PageMode, PageView,
+    ResponsiveImage,
 };
 use leptos::prelude::*;
 
@@ -134,6 +135,17 @@ fn keep_only_the_mode_columns() -> ChoiceTransition {
     })
 }
 
+fn mode_switch() -> AnyView {
+    view! { <ModeSwitch modes=STONE_MODES transition=keep_only_the_mode_columns() /> }.into_any()
+}
+
+fn page_actions() -> Vec<MenuEntry> {
+    vec![
+        MenuItem::link("New Stone", LucideGlyph::Plus, "#new-stone").into(),
+        MenuItem::action("Export", LucideGlyph::Download, || {}).into(),
+    ]
+}
+
 fn stone_list(view: StoneView, mode: &'static str) -> AnyView {
     let table_query = url_synced_table_query(ROWS_PER_PAGE);
     let load = move |query: TableQuery| load_stone_page(view, query);
@@ -149,10 +161,12 @@ fn stone_list(view: StoneView, mode: &'static str) -> AnyView {
                 load=load
                 query=table_query
                 rows_per_page=ROWS_PER_PAGE
-                search_placeholder="Search by Code or Name"
+                search_placeholder="Search Stones"
                 empty_message="No stones match."
                 facets=STONE_FACETS.to_vec()
                 facet_values=facet_values
+                views=STONE_VIEWS
+                toolbar=mode_switch
             />
         }
         .into_any();
@@ -160,14 +174,16 @@ fn stone_list(view: StoneView, mode: &'static str) -> AnyView {
     view! {
         <ServerTable
             columns=stone_columns()
+            row_href=Arc::new(|stone: &Stone| format!("#{}", stone.code))
             load=load
             query=table_query
             rows_per_page=ROWS_PER_PAGE
-            search_placeholder="Search by Code or Name"
+            search_placeholder="Search Stones"
             empty_message="No stones match."
             facets=STONE_FACETS.to_vec()
             facet_values=facet_values
-            toolbar=|| view! { <span class="text-sm text-gray-500">"Toolbar content"</span> }
+            views=STONE_VIEWS
+            toolbar=mode_switch
         />
     }
     .into_any()
@@ -184,11 +200,9 @@ pub fn TablesPage() -> impl IntoView {
 
     view! {
         <main class="mx-auto max-w-screen-2xl px-6 py-8">
-            <PageHeader title="Tables">
-                <ModeSwitch modes=STONE_MODES transition=keep_only_the_mode_columns() />
-            </PageHeader>
-            <ViewTabs views=STONE_VIEWS />
-            {move || stone_list(StoneView::from_key(selected_view.get()), selected_mode.get())}
+            <ListPage title="Tables" actions=page_actions()>
+                {move || stone_list(StoneView::from_key(selected_view.get()), selected_mode.get())}
+            </ListPage>
         </main>
     }
     .into_any()

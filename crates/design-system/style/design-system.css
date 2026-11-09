@@ -5,6 +5,7 @@
   --radius-surface-inner: calc(var(--radius-surface) - 1px);
   --radius-item: calc(var(--radius-surface) - 0.25rem);
   --color-focus: var(--color-blue-600);
+  --color-row-hover: var(--color-blue-50);
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-field-saved: field-saved 1600ms ease-out;

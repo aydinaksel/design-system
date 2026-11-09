@@ -5,6 +5,8 @@ use leptos::prelude::*;
 use super::cell_value::{Align, CellValue};
 use crate::currency::Currency;
 
+const TRUNCATED_TEXT_CLASS: &str = "block max-w-xs truncate";
+
 /// A single table column. `value` is the typed value used for sorting and
 /// searching (written once, generically, inside `DataTable`); `render` is the
 /// actual cell view and stays fully custom. Both closures are `Send + Sync` so
@@ -36,7 +38,7 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
 }
 
 impl<Row: Send + Sync + 'static> Column<Row> {
-    /// Plain text cell. `value` and `render` both derive from the accessor.
+    /// Plain text cell, cut to one line with an ellipsis and shown in full on hover.
     pub fn text(
         key: &'static str,
         header: &'static str,
@@ -51,7 +53,16 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             searchable: false,
             filterable: false,
             value: Arc::new(move |row| CellValue::Text(value_accessor(row))),
-            render: Arc::new(move |row| accessor(row).into_any()),
+            render: Arc::new(move |row| {
+                let text = accessor(row);
+                let full_text = text.clone();
+                view! {
+                    <span class=TRUNCATED_TEXT_CLASS title=full_text>
+                        {text}
+                    </span>
+                }
+                .into_any()
+            }),
         }
     }
 
@@ -203,8 +214,15 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             render: Arc::new(move |row| {
                 let target = href(row);
                 let label = text(row);
+                let full_label = label.clone();
                 view! {
-                    <a href=target class="text-blue-600 hover:text-blue-800 hover:underline">
+                    <a
+                        href=target
+                        title=full_label
+                        class=format!(
+                            "{TRUNCATED_TEXT_CLASS} text-blue-600 hover:text-blue-800 hover:underline",
+                        )
+                    >
                         {label}
                     </a>
                 }

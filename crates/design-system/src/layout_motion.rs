@@ -23,18 +23,32 @@ fn commit_styles_before_transition(element: &HtmlElement) {
     element.offset_width();
 }
 
+#[derive(Clone, Copy)]
+pub struct HorizontalExtent {
+    left_pixels: f64,
+    width_pixels: f64,
+}
+
+#[must_use]
+pub fn horizontal_extent(element: &HtmlElement) -> HorizontalExtent {
+    let rectangle = element.get_bounding_client_rect();
+    HorizontalExtent {
+        left_pixels: rectangle.left(),
+        width_pixels: rectangle.width(),
+    }
+}
+
 /// FLIP: <https://aerotwist.com/blog/flip-your-animations/>
-pub fn slide_between(previous: &HtmlElement, next: &HtmlElement) {
+pub fn slide_from(first: HorizontalExtent, next: &HtmlElement) {
     if prefers_reduced_motion() {
         return;
     }
-    let first = previous.get_bounding_client_rect();
-    let last = next.get_bounding_client_rect();
-    if last.width() <= 0.0 {
+    let last = horizontal_extent(next);
+    if last.width_pixels <= 0.0 {
         return;
     }
-    let offset_pixels = first.left() - last.left();
-    let width_ratio = first.width() / last.width();
+    let offset_pixels = first.left_pixels - last.left_pixels;
+    let width_ratio = first.width_pixels / last.width_pixels;
     set_style(next, "transition", "none");
     set_style(next, "transform-origin", "left");
     set_style(
@@ -45,4 +59,8 @@ pub fn slide_between(previous: &HtmlElement, next: &HtmlElement) {
     commit_styles_before_transition(next);
     set_style(next, "transition", SLIDE_TRANSITION);
     set_style(next, "transform", "none");
+}
+
+pub fn slide_between(previous: &HtmlElement, next: &HtmlElement) {
+    slide_from(horizontal_extent(previous), next);
 }

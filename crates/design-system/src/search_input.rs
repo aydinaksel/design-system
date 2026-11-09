@@ -67,6 +67,7 @@ pub fn SearchInput(
     #[prop(optional, into)] on_submit: Option<Callback<()>>,
     #[prop(optional, into)] on_clear: Option<Callback<()>>,
     #[prop(optional, into)] applied: Signal<bool>,
+    #[prop(optional, into)] pending: Signal<bool>,
 ) -> impl IntoView {
     let placeholder = placeholder.unwrap_or_else(|| DEFAULT_PLACEHOLDER.to_owned());
     let has_something_to_clear = move || !value.read().is_empty() || applied.get();
@@ -93,13 +94,20 @@ pub fn SearchInput(
 
     view! {
         <div class="relative w-full">
-            {icons::icon(icons::LucideGlyph::Search, size.search_icon_class())}
+            {move || {
+                if pending.get() {
+                    icons::spinner(size.search_icon_class())
+                } else {
+                    icons::icon(icons::LucideGlyph::Search, size.search_icon_class())
+                }
+            }}
             <input
                 type="text"
                 role="searchbox"
                 placeholder=placeholder.clone()
                 aria-label=placeholder
                 autocomplete="off"
+                enterkeyhint="search"
                 class=size.input_class()
                 prop:value=value
                 on:input=move |event: Event| value.set(event_target_value(&event))

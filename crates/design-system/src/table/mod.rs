@@ -6,6 +6,7 @@ mod data_table;
 mod filter_option;
 mod server_facet_panel;
 mod server_table;
+mod toolbar;
 mod url_query;
 
 pub use calendar_view::{CalendarView, DateOfRow};

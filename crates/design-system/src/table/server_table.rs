@@ -9,6 +9,7 @@ use super::column::Column;
 use super::data_table::{DataTable, RowAttribute, RowView, Search};
 use super::server_facet_panel::{FacetControls, ServerFacet};
 use super::url_query::UrlTableQuery;
+use crate::tabs::PageView;
 use table_query::TableQuery;
 use table_query::{FilterValue, LoadedFacetValues, LoadedFilterValues};
 
@@ -69,6 +70,10 @@ fn requested_filter_values(
 }
 
 /// A [`DataTable`] fed one [`Page`] at a time by a server function.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "component props arrive by value"
+)]
 #[component]
 pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     columns: Vec<Column<Row>>,
@@ -78,7 +83,12 @@ pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     #[prop(optional, into)] empty_message: String,
     #[prop(optional)] row_href: Option<RowAttribute<Row>>,
     #[prop(optional)] row_class: Option<RowAttribute<Row>>,
-    #[prop(optional, into)] toolbar: ViewFn,
+    /// Controls that change how the table is drawn, rendered after the search.
+    #[prop(optional, into)]
+    toolbar: ViewFn,
+    /// Tabs that pick a subset of the rows, sharing the search row.
+    #[prop(optional)]
+    views: Option<&'static [PageView]>,
     /// Enables the header filter popover on `filterable` columns.
     #[prop(optional)]
     load_filter_values: Option<FilterValuesLoader>,
@@ -141,14 +151,7 @@ where
         .map(|(facets, facet_values)| {
             FacetControls::new(facets, table_query, facet_values, Some(total_rows))
         });
-    let toolbar_with_filters = move || match facet_controls {
-        Some(controls) => view! {
-            {controls.toggle_button("")}
-            {toolbar.run()}
-        }
-        .into_any(),
-        None => toolbar.run(),
-    };
+    let filter_toggle = facet_controls.map(|controls| controls.toggle_button(""));
 
     view! {
         <DataTable
@@ -159,7 +162,9 @@ where
             empty_message=empty_message
             row_href=row_href
             row_class=row_class
-            toolbar=Some(toolbar_with_filters())
+            toolbar=Some(toolbar.run())
+            filter_toggle=filter_toggle
+            views=views
             sidebar=facet_controls.map(FacetControls::rail)
             query=table_query
             total_rows=total_rows

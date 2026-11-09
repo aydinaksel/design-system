@@ -1,22 +1,25 @@
+use std::cell::Cell;
+
 use leptos::html::Span;
 use leptos::prelude::*;
+use leptos::web_sys::HtmlSpanElement as HtmlSpan;
 use leptos_router::hooks::{use_location, use_navigate, use_query_map};
 use leptos_router::params::ParamsMap;
 
-use crate::layout_motion::slide_between;
+use crate::layout_motion::{horizontal_extent, slide_between, slide_from, HorizontalExtent};
 use crate::table::clear_table_query_parameters;
 
 const TAB_CLASS: &str = "relative cursor-pointer px-3 pb-2.5 pt-2 text-sm font-medium";
 const UNDERLINE_CLASS: &str = "pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-blue-600";
 const TAB_LIST_CLASS: &str = "mb-6 flex flex-wrap gap-2 border-b border-gray-200";
-const PAGE_HEADER_TAB_LIST_CLASS: &str = "-mb-px flex flex-wrap gap-2";
+const SHARED_BORDER_TAB_LIST_CLASS: &str = "-mb-px flex flex-wrap gap-2";
 
 #[derive(Clone, Copy)]
-pub(crate) struct TabsInPageHeader;
+pub(crate) struct TabsOnSharedBorder;
 
 fn tab_list_class() -> &'static str {
-    if use_context::<TabsInPageHeader>().is_some() {
-        PAGE_HEADER_TAB_LIST_CLASS
+    if use_context::<TabsOnSharedBorder>().is_some() {
+        SHARED_BORDER_TAB_LIST_CLASS
     } else {
         TAB_LIST_CLASS
     }
@@ -120,24 +123,63 @@ fn tab_class(is_selected: bool) -> String {
     }
 }
 
+#[derive(Clone, Copy)]
+struct DepartedUnderline {
+    destination_key: &'static str,
+    extent: HorizontalExtent,
+}
+
+thread_local! {
+    static DEPARTED_VIEW_UNDERLINE: Cell<Option<DepartedUnderline>> = const { Cell::new(None) };
+}
+
+fn remember_departed_underline(destination_key: &'static str, underline: Option<HtmlSpan>) {
+    let departed = underline.map(|underline| DepartedUnderline {
+        destination_key,
+        extent: horizontal_extent(&underline),
+    });
+    DEPARTED_VIEW_UNDERLINE.with(|cell| cell.set(departed));
+}
+
+fn take_departed_underline() -> Option<DepartedUnderline> {
+    DEPARTED_VIEW_UNDERLINE.with(Cell::take)
+}
+
+fn underline_for<Key: PartialEq>(
+    underlines: &[(Key, NodeRef<Span>)],
+    key: &Key,
+) -> Option<HtmlSpan> {
+    underlines
+        .iter()
+        .find(|(candidate, _)| candidate == key)
+        .and_then(|(_, node_ref)| node_ref.get_untracked())
+}
+
 fn slide_underline_on_change<Key>(
     selected: impl Fn() -> Key + 'static,
     underlines: Vec<(Key, NodeRef<Span>)>,
+    arrival_from_a_replaced_strip: impl Fn(&Key) -> Option<HorizontalExtent> + 'static,
 ) where
     Key: PartialEq + Clone + 'static,
 {
-    let underline_for = move |key: &Key| {
-        underlines
-            .iter()
-            .find(|(candidate, _)| candidate == key)
-            .and_then(|(_, node_ref)| node_ref.get_untracked())
-    };
     Effect::new(move |previous: Option<Key>| {
         let current = selected();
-        if let Some(previous) = previous.filter(|previous| *previous != current) {
-            if let (Some(from), Some(to)) = (underline_for(&previous), underline_for(&current)) {
-                slide_between(&from, &to);
+        let Some(to) = underline_for(&underlines, &current) else {
+            return current;
+        };
+        match previous {
+            None => {
+                if let Some(extent) = arrival_from_a_replaced_strip(&current) {
+                    slide_from(extent, &to);
+                }
             }
+            Some(previous) if previous != current => {
+                take_departed_underline();
+                if let Some(from) = underline_for(&underlines, &previous) {
+                    slide_between(&from, &to);
+                }
+            }
+            Some(_) => {}
         }
         current
     });
@@ -163,7 +205,19 @@ pub fn ViewTabs(views: &'static [PageView]) -> impl IntoView {
         .iter()
         .map(|view| (view.key, NodeRef::new()))
         .collect();
-    slide_underline_on_change(move || selected.get(), underlines.clone());
+    slide_underline_on_change(
+        move || selected.get(),
+        underlines.clone(),
+        |current_key| {
+            take_departed_underline()
+                .filter(|departed| departed.destination_key == *current_key)
+                .map(|departed| departed.extent)
+        },
+    );
+    let departing_underline = {
+        let underlines = underlines.clone();
+        move || underline_for(&underlines, &selected.get_untracked())
+    };
 
     view! {
         <div class=tab_list_class() role="tablist">
@@ -173,6 +227,7 @@ pub fn ViewTabs(views: &'static [PageView]) -> impl IntoView {
                 .map(|(view, (_, underline_ref))| {
                     let PageView { key, label } = *view;
                     let choose = choose.clone();
+                    let departing_underline = departing_underline.clone();
                     let is_selected = move || selected.get() == key;
                     view! {
                         <button
@@ -180,7 +235,10 @@ pub fn ViewTabs(views: &'static [PageView]) -> impl IntoView {
                             role="tab"
                             aria-selected=move || is_selected().to_string()
                             class=move || tab_class(is_selected())
-                            on:click=move |_| choose(key)
+                            on:click=move |_| {
+                                remember_departed_underline(key, departing_underline());
+                                choose(key);
+                            }
                         >
                             {label}
                             {underline(underline_ref, is_selected)}
@@ -234,7 +292,7 @@ pub fn TabStrip(#[prop(into)] tabs: Vec<&'static str>, active: Signal<usize>) ->
     let underlines: Vec<(usize, NodeRef<Span>)> = (0..tabs.len())
         .map(|index| (index, NodeRef::new()))
         .collect();
-    slide_underline_on_change(move || active.get(), underlines.clone());
+    slide_underline_on_change(move || active.get(), underlines.clone(), |_| None);
 
     view! {
         <div class=tab_list_class() role="tablist">

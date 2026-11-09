@@ -54,12 +54,8 @@ pub fn ClientTablePage() -> impl IntoView {
                 rows=rows
                 columns=stone_columns()
                 search=Search::Client
-                search_placeholder="Search by Code or Name"
+                search_placeholder="Search Stones"
                 empty_message="No stones found."
-                toolbar=Some(
-                    view! { <span class="text-sm text-gray-500">"Toolbar content"</span> }
-                        .into_any(),
-                )
             />
         </main>
     }

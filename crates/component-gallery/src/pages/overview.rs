@@ -1105,8 +1105,7 @@ fn form_controls() -> AnyView {
             {labelled("Input", view! { <Input value=name /> }.into_any())}
             {labelled(
                 "Search Input",
-                view! { <SearchInput value=search placeholder="Search by Code or Name" /> }
-                    .into_any(),
+                view! { <SearchInput value=search placeholder="Search Stones" /> }.into_any(),
             )}
             {labelled(
                 "Search Input, Compact",

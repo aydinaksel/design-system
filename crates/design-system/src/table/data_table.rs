@@ -6,7 +6,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use leptos_router::NavigateOptions;
 
-use crate::button::{button_class, ButtonSize, ButtonTone};
+use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::catalog::CardGrid;
 use crate::empty_state::EmptyState;
 use crate::icons;
@@ -14,10 +14,13 @@ use crate::loading_state::LoadingState;
 use crate::menu::{focus_on_hover, ICON_CLASS, ITEM_CLASS};
 use crate::popover::{use_popover, Popover, PopoverAlign, PopoverContent, PopoverTrigger};
 use crate::search_input::{SearchInput, SearchSize};
+use crate::tabs::PageView;
+use crate::tooltip::Tooltip;
 
 use super::cell_value::{Align, CellValue};
 use super::column::Column;
 use super::filter_option::FilterOption;
+use super::toolbar::TableToolbar;
 use super::url_query::UrlTableQuery;
 use table_query::TableQuery;
 use table_query::{FilterValue, LoadedFilterValues};
@@ -33,12 +36,6 @@ pub enum Search {
     Client,
     /// Publish the search term to the table's `query` for the server to answer.
     Server,
-}
-
-impl Search {
-    fn is_shown(self) -> bool {
-        !matches!(self, Search::Off)
-    }
 }
 
 const NO_ROWS_MESSAGE: &str = "No results.";
@@ -75,6 +72,50 @@ const FILTER_MENU_WIDTH_CLASS: &str = "w-64";
 const SORT_MENU_WIDTH_CLASS: &str = "w-44";
 const HEADER_TRIGGER_CLASS: &str = "-mx-1.5 -my-0.5 inline-flex cursor-pointer select-none items-center rounded-md px-1.5 py-0.5 hover:bg-gray-100 aria-expanded:bg-gray-100 focus-ring";
 const FOOTER_ACTION_CLASS: &str = "cursor-pointer rounded-sm hover:underline focus-ring";
+const CLICKABLE_ROW_CLASS: &str = "cursor-pointer hover:bg-row-hover";
+
+#[derive(Clone, Copy)]
+enum PageStep {
+    Previous,
+    Next,
+}
+
+impl PageStep {
+    fn label(self) -> &'static str {
+        match self {
+            PageStep::Previous => "Previous Page",
+            PageStep::Next => "Next Page",
+        }
+    }
+
+    fn glyph(self) -> icons::LucideGlyph {
+        match self {
+            PageStep::Previous => icons::LucideGlyph::ChevronLeft,
+            PageStep::Next => icons::LucideGlyph::ChevronRight,
+        }
+    }
+}
+
+fn page_step_button(
+    step: PageStep,
+    disabled: bool,
+    on_step: impl Fn() + Send + Sync + 'static,
+) -> AnyView {
+    view! {
+        <Tooltip label=step.label()>
+            <button
+                type="button"
+                aria-label=step.label()
+                class=icon_button_class(ButtonTone::Secondary, ButtonSize::Compact)
+                disabled=disabled
+                on:click=move |_| on_step()
+            >
+                {icons::icon(step.glyph(), "h-4 w-4")}
+            </button>
+        </Tooltip>
+    }
+    .into_any()
+}
 
 fn menu_alignment(align: Align) -> PopoverAlign {
     match align {
@@ -312,9 +353,16 @@ pub fn DataTable<Row>(
     /// Stable row identity; sorts and filters then reorder DOM rows instead of rebuilding them.
     #[prop(optional)]
     row_key: Option<RowAttribute<Row>>,
-    /// Rendered against the search row's left edge.
+    /// Controls that change how the table is drawn, such as a mode switch,
+    /// rendered after the search. Page actions belong in the page header.
     #[prop(optional_no_strip)]
     toolbar: Option<AnyView>,
+    /// Opens the filters, rendered before the search.
+    #[prop(optional_no_strip)]
+    filter_toggle: Option<AnyView>,
+    /// Tabs that pick a subset of the rows, sharing the search row.
+    #[prop(optional_no_strip)]
+    views: Option<&'static [PageView]>,
     /// Rendered beside the table body, below the toolbar, such as a facet rail.
     #[prop(optional_no_strip)]
     sidebar: Option<AnyView>,
@@ -339,18 +387,32 @@ where
     Row: Clone + Send + Sync + 'static,
 {
     let (refreshing, set_refreshing) = signal(false);
+    let search_text = RwSignal::new(
+        query
+            .map(|query| query.with_untracked(|query| query.search.clone()))
+            .unwrap_or_default(),
+    );
+    let toolbar_row = TableToolbar {
+        views,
+        filter_toggle,
+        controls: toolbar,
+        search,
+        search_placeholder,
+        query,
+        search_text,
+        pending: refreshing.into(),
+    }
+    .render();
     let contents = move || {
         view! {
             <TableContents
                 rows
                 columns
-                search
-                search_placeholder
+                filter=search_text
                 empty_message
                 row_class
                 row_href
                 row_key
-                toolbar
                 sidebar
                 query
                 total_rows
@@ -361,25 +423,23 @@ where
             />
         }
     };
-    Transition(TransitionProps {
+    let body = Transition(TransitionProps {
         fallback: ViewFnOnce::from(|| view! { <LoadingState class=BODY_HEIGHT_CLASS /> }),
         set_pending: pending_setter_outside_server_rendering(set_refreshing),
         children: TypedChildren::to_children(contents),
-    })
-    .into_any()
+    });
+    view! { <div>{toolbar_row} {body}</div> }.into_any()
 }
 
 #[component]
 fn TableContents<Row>(
     rows: Signal<Option<Result<Vec<Row>, String>>>,
     columns: Vec<Column<Row>>,
-    search: Search,
-    search_placeholder: String,
+    filter: RwSignal<String>,
     empty_message: String,
     row_class: Option<RowAttribute<Row>>,
     row_href: Option<RowAttribute<Row>>,
     row_key: Option<RowAttribute<Row>>,
-    toolbar: Option<AnyView>,
     sidebar: Option<AnyView>,
     query: Option<UrlTableQuery>,
     total_rows: Signal<Option<u64>>,
@@ -394,18 +454,12 @@ where
     let navigate = row_href.as_ref().map(|_| use_navigate());
     let column_count = columns.len();
     let columns = StoredValue::new(columns);
-    let filter = RwSignal::new(
-        query
-            .map(|query| query.with_untracked(|query| query.search.clone()))
-            .unwrap_or_default(),
-    );
     let sort_state: RwSignal<Option<(usize, bool)>> = RwSignal::new(None);
     let column_filters: RwSignal<HashMap<usize, HashSet<String>>> = RwSignal::new(HashMap::new());
     let value_search = RwSignal::new(String::new());
     let server_query = query;
     let server_driven = server_query.is_some();
     let server_filtering = server_query.zip(filter_column_request);
-    let search_enabled = search.is_shown();
 
     let column_key_at = move |index: usize| -> Option<&'static str> {
         columns.with_value(|all| all.get(index).map(|column| column.key))
@@ -454,11 +508,6 @@ where
             }
             distinct.into_iter().collect()
         })
-    };
-    let placeholder = if search_placeholder.is_empty() {
-        "Search".to_string()
-    } else {
-        search_placeholder
     };
     let empty_message = if empty_message.is_empty() {
         NO_ROWS_MESSAGE.to_string()
@@ -553,18 +602,13 @@ where
                     .as_ref()
                     .map(|class_for_row| class_for_row(&row))
                     .unwrap_or_default();
-                let mut class = if extra.is_empty() {
-                    "hover:bg-gray-50".to_string()
-                } else {
-                    format!("hover:bg-gray-50 {extra}")
-                };
                 match row_href
                     .as_ref()
                     .map(|href_for_row| href_for_row(&row))
                     .filter(|target| !target.is_empty())
                 {
                     Some(target) => {
-                        class.push_str(" cursor-pointer");
+                        let class = format!("{CLICKABLE_ROW_CLASS} {extra}");
                         let navigate = navigate.clone();
                         view! {
                             <tr
@@ -583,7 +627,7 @@ where
                         }
                         .into_any()
                     }
-                    None => view! { <tr class=class>{cells}</tr> }.into_any(),
+                    None => view! { <tr class=extra>{cells}</tr> }.into_any(),
                 }
             })
         }
@@ -656,63 +700,6 @@ where
         })
     };
 
-    let search_input = match (search_enabled, server_query) {
-        (false, _) => None,
-        (true, None) => Some(
-            view! {
-                <div class="w-full lg:max-w-sm">
-                    <SearchInput value=filter placeholder=placeholder />
-                </div>
-            }
-            .into_any(),
-        ),
-        (true, Some(query)) => {
-            let submit = move || query.update(|query| query.set_search(filter.get_untracked()));
-            Some(
-                view! {
-                    <div class="flex w-full max-w-lg items-center gap-2">
-                        <SearchInput
-                            value=filter
-                            placeholder=placeholder
-                            on_submit=Callback::new(move |()| submit())
-                            on_clear=Callback::new(move |()| {
-                                query.update(|query| query.set_search(String::new()));
-                            })
-                            applied=Signal::derive(move || {
-                                query.with(|query| !query.search.is_empty())
-                            })
-                        />
-                        <button
-                            type="button"
-                            class=format!(
-                                "shrink-0 {}",
-                                button_class(ButtonTone::Secondary, ButtonSize::Standard),
-                            )
-                            on:click=move |_| submit()
-                        >
-                            {pending_spinner(pending, "h-4 w-4")}
-                            "Search"
-                        </button>
-                    </div>
-                }
-                .into_any(),
-            )
-        }
-    };
-
-    let toolbar_row_is_shown = toolbar.is_some() || search_input.is_some();
-    let toolbar_row = if toolbar_row_is_shown {
-        view! {
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-2">{toolbar}</div>
-                {search_input}
-            </div>
-        }
-        .into_any()
-    } else {
-        ().into_any()
-    };
-
     let pager = move || {
         let Some(query) = server_query else {
             let Some(Ok(all_rows)) = rows.get() else {
@@ -729,7 +716,7 @@ where
                 format!("Showing {shown} of {total}")
             };
             return view! {
-                <div class="mt-4 flex justify-center">
+                <div class="mt-4 flex">
                     <span class="text-sm text-gray-500 tabular-nums">{summary}</span>
                 </div>
             }
@@ -744,37 +731,25 @@ where
         let first = current.first_row_number(rows_on_page);
         let last = current.last_row_number(rows_on_page);
         let range = match total {
-            Some(total) => format!("Showing {first} - {last} of {total}"),
-            None => format!("Showing {first} - {last}"),
+            Some(total) => format!("{first}\u{2013}{last} of {total}"),
+            None => format!("{first}\u{2013}{last}"),
         };
         let on_first_page = current.is_on_first_page();
         let on_last_page = match total {
             Some(total) => u64::from(last) >= total,
             None => rows_on_page < usize::try_from(current.rows_per_page).unwrap_or(usize::MAX),
         };
+        let previous_page = move || query.update(TableQuery::return_to_previous_page);
+        let next_page = move || query.update(TableQuery::advance_to_next_page);
         view! {
-            <div class="mt-4 flex items-center justify-between">
-                <button
-                    class=button_class(ButtonTone::Secondary, ButtonSize::Compact)
-                    disabled=on_first_page
-                    on:click=move |_| {
-                        query.update(TableQuery::return_to_previous_page);
-                    }
-                >
-                    "Previous"
-                </button>
+            <div class="mt-4 flex items-center justify-between gap-4">
                 <span class="flex items-center gap-2 text-sm text-gray-500 tabular-nums">
-                    {pending_spinner(pending, "h-4 w-4 text-gray-400")} {range}
+                    {range} {pending_spinner(pending, "h-4 w-4 text-gray-400")}
                 </span>
-                <button
-                    class=button_class(ButtonTone::Secondary, ButtonSize::Compact)
-                    disabled=on_last_page
-                    on:click=move |_| {
-                        query.update(TableQuery::advance_to_next_page);
-                    }
-                >
-                    "Next"
-                </button>
+                <div class="flex items-center gap-2">
+                    {page_step_button(PageStep::Previous, on_first_page, previous_page)}
+                    {page_step_button(PageStep::Next, on_last_page, next_page)}
+                </div>
             </div>
         }
         .into_any()
@@ -864,7 +839,7 @@ where
             None => client_filter_chips().into_any(),
         };
         view! {
-            <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
+            <div class="mb-4 flex flex-wrap items-center gap-2">
                 {chips}
                 <button
                     class="cursor-pointer text-xs text-gray-500 underline hover:text-gray-700"
@@ -1188,9 +1163,7 @@ where
     };
     view! {
         <div>
-            <div class=move || {
-                if toolbar_row_is_shown || filters_are_active() { "mb-4 space-y-2" } else { "" }
-            }>{toolbar_row} {filter_chips}</div>
+            {filter_chips}
             <div class="flex items-start gap-6">
                 {sidebar}
                 <div class="min-w-0 flex-1">

@@ -28,6 +28,11 @@ pub fn selected_mode(modes: &'static [PageMode]) -> Memo<&'static str> {
     selected_key(MODE_PARAMETER, modes.iter().map(|mode| mode.key).collect())
 }
 
+const SEGMENT_CLASS: &str = "inline-flex size-9 cursor-pointer items-center justify-center transition-colors focus-ring-inset";
+const SELECTED_SEGMENT_CLASS: &str = "bg-gray-100 text-gray-900";
+const UNSELECTED_SEGMENT_CLASS: &str =
+    "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900";
+
 fn corner_class(index: usize, count: usize) -> &'static str {
     let is_first = index == 0;
     let is_last = index.saturating_add(1) == count;
@@ -69,15 +74,15 @@ pub fn ModeSwitch(
                         aria-pressed=move || is_selected().to_string()
                         class=move || {
                             let tone = if is_selected() {
-                                "bg-blue-50 text-blue-700"
+                                SELECTED_SEGMENT_CLASS
                             } else {
-                                "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                UNSELECTED_SEGMENT_CLASS
                             };
-                            format!("flex cursor-pointer items-center p-2 {corners} {tone}")
+                            format!("{SEGMENT_CLASS} {corners} {tone}")
                         }
                         on:click=move |_| choose(key)
                     >
-                        {icons::icon(glyph, "h-5 w-5 shrink-0")}
+                        {icons::icon(glyph, "h-4 w-4 shrink-0")}
                     </button>
                 </Tooltip>
             }
