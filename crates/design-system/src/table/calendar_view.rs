@@ -7,23 +7,29 @@ use table_query::TableQuery;
 
 use super::cell_value::CellValue;
 use super::column::Column;
-use super::data_table::{error_alert, refresh_cover, DataTable, RowAttribute, Search};
+use super::data_table::{
+    error_alert, refresh_cover, DataTable, RowAttribute, Search, HEADER_RULE_CLASS,
+};
 use super::url_query::UrlTableQuery;
-use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::dialog::{Dialog, DialogSize};
 use crate::icons;
 use crate::tooltip::Tooltip;
+use crate::typography::LABEL_CLASS;
 
 const MONTH_ROW_CAP: u32 = 500;
 const DATE_FORMAT: &str = "%Y-%m-%d";
 const DAYS_PER_WEEK: u32 = 7;
 const WEEKDAY_LABELS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DAY_CELL: &str = "flex min-h-20 flex-col border-b border-r border-gray-100 p-1.5";
-const BUSY_DAY_CELL: &str = "flex min-h-20 flex-col border-b border-r border-gray-100 p-1.5 cursor-pointer text-left hover:bg-gray-50 focus-ring";
-const DAY_NUMBER_CLASS: &str = "text-xs leading-none text-gray-500";
-const TODAY_NUMBER_CLASS: &str = "text-xs font-semibold leading-none text-blue-600";
-const COUNT_BADGE_CLASS: &str = "flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700";
-const MONTH_STEP_CLASS: &str = "cursor-pointer rounded p-1.5 text-gray-600 hover:bg-gray-100";
+const CELL_SHAPE_CLASS: &str = "flex min-h-20 flex-col border-b border-r border-gray-100 p-1.5 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0";
+const DAY_NUMBER_CLASS: &str =
+    "flex h-5 w-5 items-center justify-center text-xs leading-none text-gray-500";
+const TODAY_NUMBER_CLASS: &str = "flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold leading-none text-white";
+const COUNT_BADGE_CLASS: &str = "flex h-7 min-w-7 items-center justify-center rounded-full bg-blue-100 px-1 text-xs font-medium text-blue-700 tabular-nums";
+const MONTH_BAR_CLASS: &str =
+    "flex items-center justify-between gap-2 rounded-t-surface-inner bg-gray-50 py-2.5 pl-1.5 pr-2";
+const MONTH_STEP_CLASS: &str =
+    "cursor-pointer rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-800 focus-ring";
+const TODAY_BUTTON_CLASS: &str = "cursor-pointer rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 hover:text-gray-900 focus-ring";
 
 type DateValue<Row> = Arc<dyn Fn(&Row) -> CellValue + Send + Sync>;
 type RowsByDay<Row> = BTreeMap<NaiveDate, Vec<Row>>;
@@ -176,15 +182,14 @@ where
             Some(Ok(loaded)) => Some(loaded.len()),
             _ => None,
         });
-        let label = month.get().label();
         match (loaded, total_rows.get()) {
             (None, _) => String::new(),
             (Some(loaded), Some(total))
                 if u64::try_from(loaded).is_ok_and(|loaded| loaded < total) =>
             {
-                format!("Showing {loaded} of {total} in {label}")
+                format!("Showing {loaded} of {total}")
             }
-            (Some(loaded), _) => format!("{} in {label}", results_label(loaded)),
+            (Some(loaded), _) => results_label(loaded),
         }
     };
 
@@ -232,13 +237,12 @@ where
 
     view! {
         <div class="space-y-4">
-            {month_navigation(month, summary, show)} {error} <div class="relative">
-                <div
-                    class="rounded-surface border border-gray-200 bg-white shadow-sm"
-                    aria-busy=move || pending.get().to_string()
-                >
-                    {weekday_header()}
-                    <div class="grid grid-cols-7">{day_cells}</div>
+            {error} <div class="relative">
+                <div class="rounded-surface border border-gray-200 bg-white">
+                    {month_navigation(month, summary, show)} {weekday_header()}
+                    <div class="grid grid-cols-7" aria-busy=move || pending.get().to_string()>
+                        {day_cells}
+                    </div>
                 </div>
                 {refresh_cover(pending, "inset-px rounded-surface-inner")}
             </div> {open_day}
@@ -248,7 +252,7 @@ where
 }
 
 fn blank_day() -> AnyView {
-    view! { <div class=DAY_CELL></div> }.into_any()
+    view! { <div class=format!("{CELL_SHAPE_CLASS} bg-gray-50")></div> }.into_any()
 }
 
 fn day_cell(
@@ -264,18 +268,18 @@ fn day_cell(
     };
     let number = view! { <div class=number_class>{day.day()}</div> };
     if count == 0 {
-        return view! { <div class=DAY_CELL>{number}</div> }.into_any();
+        return view! { <div class=CELL_SHAPE_CLASS>{number}</div> }.into_any();
     }
     let label = format!("{}, {}", results_label(count), long_date(day));
     view! {
         <button
             type="button"
-            class=BUSY_DAY_CELL
+            class=format!("{CELL_SHAPE_CLASS} relative cursor-pointer text-left hover:bg-gray-50 focus-ring")
             aria-label=label
             on:click=move |_| selected_day.set(Some(day))
         >
             {number}
-            <div class="flex flex-1 items-center justify-center">
+            <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <span class=COUNT_BADGE_CLASS>{count}</span>
             </div>
         </button>
@@ -293,12 +297,10 @@ fn day_dialog<Row>(
 where
     Row: Clone + Send + Sync + 'static,
 {
-    let description = results_label(chosen.len());
     let rows = Signal::derive(move || Some(Ok(chosen.clone())));
     view! {
         <Dialog
             title=long_date(day)
-            description=description
             on_close=Callback::new(move |()| selected_day.set(None))
             size=DialogSize::Large
         >
@@ -321,7 +323,7 @@ fn month_step_button(
                 aria-label=label
                 on:click=move |_| on_step()
             >
-                {icons::icon(glyph, "h-5 w-5")}
+                {icons::icon(glyph, "h-4 w-4")}
             </button>
         </Tooltip>
     }
@@ -334,28 +336,32 @@ fn month_navigation(
     show: impl Fn(Month) + Copy + Send + Sync + 'static,
 ) -> AnyView {
     view! {
-        <div class="flex items-center gap-3">
-            {month_step_button(
-                "Previous Month",
-                icons::LucideGlyph::ChevronLeft,
-                move || show(month.get_untracked().previous()),
-            )}
-            <h2 class="w-44 text-center text-lg font-semibold text-gray-900">
-                {move || month.get().label()}
-            </h2>
-            {month_step_button(
-                "Next Month",
-                icons::LucideGlyph::ChevronRight,
-                move || show(month.get_untracked().next()),
-            )}
-            <button
-                type="button"
-                class=button_class(ButtonTone::Secondary, ButtonSize::Compact)
-                on:click=move |_| show(Month::current())
-            >
-                "Today"
-            </button>
-            <span class="text-sm text-gray-500 tabular-nums">{summary}</span>
+        <div class=format!("{MONTH_BAR_CLASS} {HEADER_RULE_CLASS}")>
+            <div class="flex items-center">
+                {month_step_button(
+                    "Previous Month",
+                    icons::LucideGlyph::ChevronLeft,
+                    move || show(month.get_untracked().previous()),
+                )}
+                <h2 class="w-36 text-center text-sm font-semibold text-gray-900">
+                    {move || month.get().label()}
+                </h2>
+                {month_step_button(
+                    "Next Month",
+                    icons::LucideGlyph::ChevronRight,
+                    move || show(month.get_untracked().next()),
+                )}
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-500 tabular-nums max-sm:hidden">{summary}</span>
+                <button
+                    type="button"
+                    class=TODAY_BUTTON_CLASS
+                    on:click=move |_| show(Month::current())
+                >
+                    "Today"
+                </button>
+            </div>
         </div>
     }
     .into_any()
@@ -363,15 +369,11 @@ fn month_navigation(
 
 fn weekday_header() -> AnyView {
     view! {
-        <div class="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
+        <div class="grid grid-cols-7 border-b border-gray-100">
             {WEEKDAY_LABELS
                 .iter()
                 .map(|label| {
-                    view! {
-                        <div class="px-2 py-2 text-center text-xs font-medium text-gray-500">
-                            {*label}
-                        </div>
-                    }
+                    view! { <div class=format!("py-2 text-center {LABEL_CLASS}")>{*label}</div> }
                 })
                 .collect_view()}
         </div>

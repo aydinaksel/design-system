@@ -15,7 +15,7 @@ ROUTES = [
     "/tables?search=gran",
     "/client-table",
     "/files",
-    "/calendar",
+    "/tables?mode=calendar",
     "/sidebar/dashboard",
 ]
 VIEWPORTS = [{"width": 1280, "height": 900}, {"width": 390, "height": 844}]
