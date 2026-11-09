@@ -174,6 +174,7 @@ fn every_offered_value(filter_values: Signal<LoadedFilterValues>) -> BTreeSet<St
     }
 }
 
+const CELL_PADDING_WIDTH: &str = "2rem";
 const REFRESH_COVER_CLASS: &str = "absolute z-20 items-center justify-center bg-gray-50";
 
 pub(crate) const BODY_HEIGHT_CLASS: &str = "h-[calc(100vh-18rem)]";
@@ -588,7 +589,7 @@ where
                     .iter()
                     .map(|column| {
                         let class = format!(
-                            "px-4 py-3 text-gray-700 {} whitespace-nowrap",
+                            "px-4 py-3 text-gray-700 {} truncate",
                             column.align.text_class()
                         );
                         let content = (column.render)(&row);
@@ -664,38 +665,18 @@ where
         .into_any(),
     };
 
-    let width_holding_row = move || {
-        if server_driven {
-            return ().into_any();
-        }
-        let Some(Ok(all_rows)) = rows.get() else {
-            return ().into_any();
-        };
-        columns.with_value(|all_columns| {
-            let cells = all_columns
-                .iter()
-                .map(|column| {
-                    let class =
-                        format!("px-4 py-0 {} whitespace-nowrap", column.align.text_class());
-                    let widest = all_rows
-                        .iter()
-                        .max_by_key(|row| (column.value)(row).search_text().chars().count());
-                    let content = widest.map(|row| (column.render)(row));
-                    view! {
-                        <td class=class>
-                            <div class="invisible h-0 overflow-hidden">{content}</div>
-                        </td>
-                    }
-                })
-                .collect_view();
-            view! {
-                <tr aria-hidden="true" class="h-0 border-0">
-                    {cells}
-                </tr>
-            }
-            .into_any()
-        })
-    };
+    let column_widths = columns.with_value(|all_columns| {
+        all_columns
+            .iter()
+            .map(|column| {
+                let style = format!(
+                    "width: calc({}ch + {CELL_PADDING_WIDTH})",
+                    column.rendered_width_characters()
+                );
+                view! { <col style=style /> }
+            })
+            .collect_view()
+    });
 
     let pager = move || {
         let Some(query) = server_query else {
@@ -1039,7 +1020,7 @@ where
                         </span>
                     };
                     if !interactive {
-                        return view! { <th class=format!("px-4 py-3 select-none {label_class}")>{label}</th> }
+                        return view! { <th class=format!("truncate px-4 py-3 select-none {label_class}")>{label}</th> }
                         .into_any();
                     }
                     let on_open = Callback::new(move |()| {
@@ -1060,7 +1041,7 @@ where
                         SORT_MENU_WIDTH_CLASS
                     };
                     view! {
-                        <th class=format!("px-4 py-3 {}", column.align.text_class())>
+                        <th class=format!("truncate px-4 py-3 {}", column.align.text_class())>
                             <Popover align=menu_alignment(column.align) on_open=on_open>
                                 <PopoverTrigger class=format!(
                                     "{HEADER_TRIGGER_CLASS} {}",
@@ -1134,10 +1115,10 @@ where
                 <div class=format!(
                     "w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-white {BODY_MAX_HEIGHT_CLASS}",
                 )>
-                    <table class="min-w-full text-sm whitespace-nowrap">
+                    <table class="w-full table-fixed text-sm tabular-nums">
+                        <colgroup>{column_widths}</colgroup>
                         <thead class="bg-gray-50 sticky top-0 z-10 shadow-[inset_0_-1px_0_0_rgb(229,231,235)]">
                             <tr>{header}</tr>
-                            {width_holding_row}
                         </thead>
                         <tbody
                             class="divide-y divide-gray-100"

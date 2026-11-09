@@ -71,19 +71,22 @@ fn stone_columns() -> Vec<Column<Stone>> {
             .sortable()
             .searchable(),
         Column::text("name", "Name", |stone: &Stone| stone.name.clone())
+            .width_characters(28)
             .sortable()
             .searchable(),
         Column::text("warehouse", "Warehouse", |stone: &Stone| {
             stone.warehouse.clone()
         }),
-        Column::text("unit", "Unit", |stone: &Stone| stone.unit.clone()),
+        Column::text("unit", "Unit", |stone: &Stone| stone.unit.clone()).width_characters(4),
         Column::quantity("on_hand", "On Hand", |stone: &Stone| Some(stone.on_hand)).sortable(),
         Column::quantity("committed", "Committed", |stone: &Stone| {
             Some(stone.committed)
         })
         .sortable(),
         Column::quantity("on_order", "On Order", |stone: &Stone| Some(stone.on_order)).sortable(),
-        Column::text("arrival", "Arrival", |stone: &Stone| stone.arrival.clone()).sortable(),
+        Column::text("arrival", "Arrival", |stone: &Stone| stone.arrival.clone())
+            .width_characters(10)
+            .sortable(),
     ]
 }
 

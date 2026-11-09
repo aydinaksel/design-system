@@ -98,9 +98,12 @@ fn file_columns() -> Vec<Column<StoredFile>> {
     vec![
         Column::custom("name", "File", file_cell)
             .with_value(|file: &StoredFile| CellValue::Text(file.name.clone()))
+            .width_characters(36)
             .sortable()
             .searchable(),
-        Column::text("kind", "Type", |file: &StoredFile| file.type_label()).filterable(),
+        Column::text("kind", "Type", |file: &StoredFile| file.type_label())
+            .width_characters(12)
+            .filterable(),
         Column::text("added_by", "Added By", |file: &StoredFile| {
             file.added_by.clone().unwrap_or_default()
         })
@@ -110,6 +113,7 @@ fn file_columns() -> Vec<Column<StoredFile>> {
                 .map(|date| date.to_string())
                 .unwrap_or_default()
         })
+        .width_characters(10)
         .sortable(),
     ]
 }

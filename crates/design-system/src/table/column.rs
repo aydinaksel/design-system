@@ -5,7 +5,15 @@ use leptos::prelude::*;
 use super::cell_value::{Align, CellValue};
 use crate::currency::Currency;
 
-const TRUNCATED_TEXT_CLASS: &str = "block max-w-xs truncate";
+const TEXT_WIDTH_CHARACTERS: u16 = 16;
+const INTEGER_WIDTH_CHARACTERS: u16 = 8;
+const QUANTITY_WIDTH_CHARACTERS: u16 = 10;
+const QUANTITY_IN_UNIT_WIDTH_CHARACTERS: u16 = 13;
+const MONEY_WIDTH_CHARACTERS: u16 = 12;
+const CUSTOM_WIDTH_CHARACTERS: u16 = 12;
+const HEADER_ICONS_WIDTH_CHARACTERS: u16 = 5;
+const UPPERCASE_LETTER_WIDTH_FIFTHS: u16 = 6;
+const FIFTHS_PER_CHARACTER: u16 = 5;
 
 /// A single table column. `value` is the typed value used for sorting and
 /// searching (written once, generically, inside `DataTable`); `render` is the
@@ -15,6 +23,9 @@ pub struct Column<Row: Send + Sync + 'static> {
     pub key: &'static str,
     pub header: &'static str,
     pub align: Align,
+    /// The column's share of the table, in `ch` of the cell text. It is the
+    /// narrowest the column gets; spare room is shared out in proportion.
+    pub width_characters: u16,
     pub sortable: bool,
     pub searchable: bool,
     pub filterable: bool,
@@ -28,6 +39,7 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
             key: self.key,
             header: self.header,
             align: self.align,
+            width_characters: self.width_characters,
             sortable: self.sortable,
             searchable: self.searchable,
             filterable: self.filterable,
@@ -38,7 +50,7 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
 }
 
 impl<Row: Send + Sync + 'static> Column<Row> {
-    /// Plain text cell, cut to one line with an ellipsis and shown in full on hover.
+    /// Plain text cell, shown in full on hover when the column cuts it short.
     pub fn text(
         key: &'static str,
         header: &'static str,
@@ -49,6 +61,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Left,
+            width_characters: TEXT_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -56,12 +69,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             render: Arc::new(move |row| {
                 let text = accessor(row);
                 let full_text = text.clone();
-                view! {
-                    <span class=TRUNCATED_TEXT_CLASS title=full_text>
-                        {text}
-                    </span>
-                }
-                .into_any()
+                view! { <span title=full_text>{text}</span> }.into_any()
             }),
         }
     }
@@ -78,6 +86,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
+            width_characters: INTEGER_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -101,6 +110,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
+            width_characters: QUANTITY_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -139,6 +149,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
                     },
                 )
             }),
+            width_characters: QUANTITY_IN_UNIT_WIDTH_CHARACTERS,
             ..Self::quantity(key, header, accessor)
         }
     }
@@ -154,6 +165,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
+            width_characters: MONEY_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -178,6 +190,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
+            width_characters: MONEY_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -207,6 +220,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Left,
+            width_characters: TEXT_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -219,9 +233,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
                     <a
                         href=target
                         title=full_label
-                        class=format!(
-                            "{TRUNCATED_TEXT_CLASS} text-blue-600 hover:text-blue-800 hover:underline",
-                        )
+                        class="text-blue-600 hover:text-blue-800 hover:underline"
                     >
                         {label}
                     </a>
@@ -242,6 +254,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Left,
+            width_characters: CUSTOM_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -260,6 +273,32 @@ impl<Row: Send + Sync + 'static> Column<Row> {
     pub fn align(mut self, align: Align) -> Self {
         self.align = align;
         self
+    }
+
+    #[must_use]
+    pub fn width_characters(mut self, width_characters: u16) -> Self {
+        self.width_characters = width_characters;
+        self
+    }
+
+    /// The declared width, widened so the header label and its icons never
+    /// get cut short.
+    #[must_use]
+    pub fn rendered_width_characters(&self) -> u16 {
+        let header_letters = u16::try_from(self.header.chars().count()).unwrap_or(u16::MAX);
+        let header_width = header_letters
+            .saturating_mul(UPPERCASE_LETTER_WIDTH_FIFTHS)
+            .div_ceil(FIFTHS_PER_CHARACTER)
+            .saturating_add(self.header_icons_width_characters());
+        self.width_characters.max(header_width)
+    }
+
+    fn header_icons_width_characters(&self) -> u16 {
+        if self.sortable || self.filterable {
+            HEADER_ICONS_WIDTH_CHARACTERS
+        } else {
+            0
+        }
     }
 
     #[must_use]
