@@ -87,9 +87,20 @@ impl TableToolbar {
                 .into_any(),
             ),
             (_, Some(query)) => {
+                let searching = RwSignal::new(false);
+                Effect::watch(
+                    move || pending.get(),
+                    move |loading, _, _| {
+                        if !loading {
+                            searching.set(false);
+                        }
+                    },
+                    false,
+                );
                 let publish = move |search: String| {
                     let unchanged = query.with_untracked(|query| query.search == search);
                     if !unchanged {
+                        searching.set(true);
                         query.update(|query| query.set_search(search));
                     }
                 };
@@ -108,7 +119,7 @@ impl TableToolbar {
                             <SearchInput
                                 value=search_text
                                 placeholder=placeholder
-                                pending=pending
+                                pending=searching
                                 on_submit=Callback::new(move |()| {
                                     publish(search_text.get_untracked());
                                 })

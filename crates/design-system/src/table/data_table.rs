@@ -174,17 +174,10 @@ fn every_offered_value(filter_values: Signal<LoadedFilterValues>) -> BTreeSet<St
     }
 }
 
+const REFRESH_COVER_CLASS: &str = "absolute z-20 items-center justify-center bg-gray-50";
+
 pub(crate) const BODY_HEIGHT_CLASS: &str = "h-[calc(100vh-18rem)]";
 pub(crate) const BODY_MAX_HEIGHT_CLASS: &str = "max-h-[calc(100vh-18rem)]";
-
-fn pending_spinner(pending: Signal<bool>, class: &'static str) -> AnyView {
-    view! {
-        <span class=move || {
-            if pending.get() { "inline-flex" } else { "hidden" }
-        }>{icons::spinner(class)}</span>
-    }
-    .into_any()
-}
 
 fn error_alert(message: String) -> AnyView {
     view! {
@@ -205,12 +198,17 @@ fn pending_setter_outside_server_rendering(
     cfg!(not(feature = "ssr")).then(|| set_refreshing.into())
 }
 
-fn refresh_spinner(pending: Signal<bool>) -> AnyView {
+fn refresh_cover(pending: Signal<bool>, shape_class: &'static str) -> AnyView {
     view! {
-        <div class=move || { if pending.get() { "sticky top-0 z-20 h-0" } else { "hidden" } }>
-            <div class="flex h-64 items-center justify-center">
-                {icons::spinner("h-6 w-6 text-gray-400")}
-            </div>
+        <div
+            role="status"
+            aria-label="Loading"
+            class=move || {
+                let visibility = if pending.get() { "flex" } else { "hidden" };
+                format!("{REFRESH_COVER_CLASS} {shape_class} {visibility}")
+            }
+        >
+            {icons::spinner("h-6 w-6 text-gray-400")}
         </div>
     }
     .into_any()
@@ -237,15 +235,14 @@ where
             .into_any(),
     };
     view! {
-        <div
-            class=move || {
-                let fade = if pending.get() { "opacity-50" } else { "" };
-                format!("relative overflow-auto transition-opacity {BODY_MAX_HEIGHT_CLASS} {fade}")
-            }
-            aria-busy=move || pending.get().to_string()
-        >
-            {refresh_spinner(pending)}
-            <CardGrid>{cards}</CardGrid>
+        <div class="relative">
+            <div
+                class=format!("overflow-auto {BODY_MAX_HEIGHT_CLASS}")
+                aria-busy=move || pending.get().to_string()
+            >
+                <CardGrid>{cards}</CardGrid>
+            </div>
+            {refresh_cover(pending, "inset-0 rounded-surface")}
         </div>
     }
     .into_any()
@@ -743,9 +740,7 @@ where
         let next_page = move || query.update(TableQuery::advance_to_next_page);
         view! {
             <div class="mt-4 flex items-center justify-between gap-4">
-                <span class="flex items-center gap-2 text-sm text-gray-500 tabular-nums">
-                    {range} {pending_spinner(pending, "h-4 w-4 text-gray-400")}
-                </span>
+                <span class="text-sm text-gray-500 tabular-nums">{range}</span>
                 <div class="flex items-center gap-2">
                     {page_step_button(PageStep::Previous, on_first_page, previous_page)}
                     {page_step_button(PageStep::Next, on_last_page, next_page)}
@@ -1135,28 +1130,25 @@ where
     let body = match card {
         Some(card_for_row) => card_body(rows, visible_rows, card_for_row, pending),
         None => view! {
-            <div class=format!(
-                "relative w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-white {BODY_MAX_HEIGHT_CLASS}",
-            )>
-                {refresh_spinner(pending)} <table class="min-w-full text-sm whitespace-nowrap">
-                    <thead class="bg-gray-50 sticky top-0 z-10 shadow-[inset_0_-1px_0_0_rgb(229,231,235)]">
-                        <tr>{header}</tr>
-                        {width_holding_row}
-                    </thead>
-                    <tbody
-                        class=move || {
-                            if pending.get() {
-                                "divide-y divide-gray-100 transition-opacity opacity-50"
-                            } else {
-                                "divide-y divide-gray-100 transition-opacity"
-                            }
-                        }
-                        aria-busy=move || pending.get().to_string()
-                    >
-                        {status_rows}
-                        {data_rows}
-                    </tbody>
-                </table>
+            <div class="relative">
+                <div class=format!(
+                    "w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-white {BODY_MAX_HEIGHT_CLASS}",
+                )>
+                    <table class="min-w-full text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 sticky top-0 z-10 shadow-[inset_0_-1px_0_0_rgb(229,231,235)]">
+                            <tr>{header}</tr>
+                            {width_holding_row}
+                        </thead>
+                        <tbody
+                            class="divide-y divide-gray-100"
+                            aria-busy=move || pending.get().to_string()
+                        >
+                            {status_rows}
+                            {data_rows}
+                        </tbody>
+                    </table>
+                </div>
+                {refresh_cover(pending, "inset-px rounded-surface-inner")}
             </div>
         }
         .into_any(),
