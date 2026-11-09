@@ -1,4 +1,3 @@
-pub mod calendar;
 pub mod cell_editing;
 pub mod client_table;
 pub mod files;

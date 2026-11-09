@@ -8,7 +8,7 @@ use crate::search_input::{SearchInput, SearchSize};
 use crate::tooltip::Tooltip;
 use crate::typography::LABEL_CLASS;
 
-use super::data_table::BODY_MAX_HEIGHT_CLASS;
+use super::data_table::{BODY_MAX_HEIGHT_CLASS, HEADER_RULE_CLASS};
 use super::filter_option::FilterOption;
 use super::url_query::UrlTableQuery;
 use table_query::TableQuery;
@@ -211,10 +211,13 @@ impl FacetControls {
         let panel_class = format!(
             "flex {BODY_MAX_HEIGHT_CLASS} flex-col overflow-hidden rounded-surface border border-gray-200 bg-white"
         );
+        let header_class = format!(
+            "flex shrink-0 items-center justify-between gap-2 bg-gray-50 py-2.5 pl-3 pr-2 {HEADER_RULE_CLASS}"
+        );
         view! {
             <div class="hidden sm:block sm:w-64 sm:shrink-0">
                 <div class=panel_class>
-                    <div class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 py-2.5 pl-3 pr-2">
+                    <div class=header_class>
                         <h2 class=LABEL_CLASS>"Filters"</h2>
                         <div class="flex items-center gap-2">
                             {clear_all_button(self.query)} <Tooltip label="Hide Filters">

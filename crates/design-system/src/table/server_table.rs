@@ -6,7 +6,9 @@ use serde::Serialize;
 use table_query::Page;
 
 use super::column::Column;
-use super::data_table::{DataTable, RowAttribute, RowView, Search};
+use super::calendar_view::month_query;
+use super::data_table::{DataTable, RowAttribute, Search};
+use super::layout::Layout;
 use super::server_facet_panel::{FacetControls, ServerFacet};
 use super::url_query::UrlTableQuery;
 use crate::tabs::PageView;
@@ -100,9 +102,7 @@ pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     /// Bump to re-read the current page, after an edit saves.
     #[prop(optional)]
     reload: Option<RwSignal<u32>>,
-    /// Draws each row as a card in a grid in place of the table.
-    #[prop(optional)]
-    card: Option<RowView<Row>>,
+    #[prop(optional)] layout: Layout<Row>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + Serialize + DeserializeOwned + 'static,
@@ -113,8 +113,19 @@ where
     let table_query =
         query.unwrap_or_else(|| super::url_query::url_synced_table_query(rows_per_page));
 
+    let calendar_date_column = match &layout {
+        Layout::Calendar { date_column_key } => Some(*date_column_key),
+        Layout::Table | Layout::Cards(_) => None,
+    };
+    let loaded_query = move || {
+        let query = table_query.get();
+        match calendar_date_column {
+            Some(date_column_key) => month_query(query, date_column_key),
+            None => query,
+        }
+    };
     let current_page = Resource::new_blocking(
-        move || (table_query.get(), reload.map(|reload| reload.get())),
+        move || (loaded_query(), reload.map(|reload| reload.get())),
         move |(query, _)| {
             let load = load.clone();
             async move { load(query).await.map_err(|error| error.to_string()) }
@@ -170,7 +181,7 @@ where
             total_rows=total_rows
             filter_column_request=filter_column_request
             filter_values=filter_values
-            card=card
+            layout=layout
         />
     }
     .into_any()

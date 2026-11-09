@@ -4,7 +4,7 @@ use design_system::formatting::format_quantity;
 use design_system::icons::LucideGlyph;
 use design_system::table::{
     facet_values_loader, rewrite_table_query_parameters, url_synced_table_query, Column,
-    FacetValues, Page, RowView, ServerTable, TableQuery,
+    FacetValues, Layout, Page, RowView, ServerTable, TableQuery,
 };
 use design_system::{
     Card, ChoiceTransition, ListPage, MenuEntry, MenuItem, ModeSwitch, PageMode, PageView,
@@ -17,10 +17,13 @@ use crate::fake_data::{Stone, StoneView};
 
 const TABLE_MODE: &str = "table";
 const CARDS_MODE: &str = "cards";
+const CALENDAR_MODE: &str = "calendar";
+const ARRIVAL_COLUMN: &str = "arrival";
 
 const STONE_MODES: &[PageMode] = &[
     PageMode::new(TABLE_MODE, "Table View", LucideGlyph::Table),
     PageMode::new(CARDS_MODE, "Card View", LucideGlyph::LayoutGrid),
+    PageMode::new(CALENDAR_MODE, "Calendar View", LucideGlyph::CalendarDays),
 ];
 
 const STONE_VIEWS: &[PageView] = &[
@@ -116,13 +119,27 @@ fn stone_card() -> RowView<Stone> {
     })
 }
 
+fn calendar_columns() -> Vec<Column<Stone>> {
+    vec![
+        Column::text("code", "Code", |stone: &Stone| stone.code.clone()),
+        Column::text("name", "Name", |stone: &Stone| stone.name.clone()).width_characters(28),
+        Column::text("warehouse", "Warehouse", |stone: &Stone| {
+            stone.warehouse.clone()
+        }),
+        Column::quantity("on_order", "On Order", |stone: &Stone| Some(stone.on_order)),
+        Column::text(ARRIVAL_COLUMN, "Arrival", |stone: &Stone| {
+            stone.arrival.clone()
+        }),
+    ]
+}
+
 fn mode_column_keys(mode: &str) -> Vec<&'static str> {
-    let sort_keys: &[&str] = if mode == CARDS_MODE {
-        &["code"]
-    } else {
-        &TABLE_SORT_KEYS
+    let kept_keys: &[&str] = match mode {
+        CARDS_MODE => &["code"],
+        CALENDAR_MODE => &[ARRIVAL_COLUMN],
+        _ => &TABLE_SORT_KEYS,
     };
-    sort_keys
+    kept_keys
         .iter()
         .copied()
         .chain(STONE_FACETS.iter().map(|facet| facet.column_key))
@@ -134,8 +151,24 @@ fn keep_only_the_mode_columns() -> ChoiceTransition {
         let column_keys = mode_column_keys(mode);
         rewrite_table_query_parameters(parameters, ROWS_PER_PAGE, |query| {
             query.keep_only_columns(&column_keys);
+            if mode != CALENDAR_MODE && query.date_range.is_some() {
+                query.clear_date_range();
+            }
         });
     })
+}
+
+fn stone_layout(mode: &str) -> (Vec<Column<Stone>>, Layout<Stone>) {
+    match mode {
+        CARDS_MODE => (Vec::new(), Layout::Cards(stone_card())),
+        CALENDAR_MODE => (
+            calendar_columns(),
+            Layout::Calendar {
+                date_column_key: ARRIVAL_COLUMN,
+            },
+        ),
+        _ => (stone_columns(), Layout::Table),
+    }
 }
 
 fn mode_switch() -> AnyView {
@@ -156,27 +189,11 @@ fn stone_list(view: StoneView, mode: &'static str) -> AnyView {
         move |query: TableQuery| load_stone_facets(view, query),
         table_query,
     );
-    if mode == CARDS_MODE {
-        return view! {
-            <ServerTable
-                columns=Vec::new()
-                card=stone_card()
-                load=load
-                query=table_query
-                rows_per_page=ROWS_PER_PAGE
-                search_placeholder="Search Stones"
-                empty_message="No stones match."
-                facets=STONE_FACETS.to_vec()
-                facet_values=facet_values
-                views=STONE_VIEWS
-                toolbar=mode_switch
-            />
-        }
-        .into_any();
-    }
+    let (columns, layout) = stone_layout(mode);
     view! {
         <ServerTable
-            columns=stone_columns()
+            columns=columns
+            layout=layout
             row_href=Arc::new(|stone: &Stone| format!("#{}", stone.code))
             load=load
             query=table_query

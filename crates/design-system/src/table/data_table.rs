@@ -19,7 +19,9 @@ use crate::tooltip::Tooltip;
 
 use super::cell_value::{Align, CellValue};
 use super::column::Column;
+use super::calendar_view::CalendarView;
 use super::filter_option::FilterOption;
+use super::layout::Layout;
 use super::toolbar::TableToolbar;
 use super::url_query::UrlTableQuery;
 use table_query::TableQuery;
@@ -179,8 +181,9 @@ const REFRESH_COVER_CLASS: &str = "absolute z-20 items-center justify-center bg-
 
 pub(crate) const BODY_HEIGHT_CLASS: &str = "h-[calc(100vh-18rem)]";
 pub(crate) const BODY_MAX_HEIGHT_CLASS: &str = "max-h-[calc(100vh-18rem)]";
+pub(crate) const HEADER_RULE_CLASS: &str = "shadow-[inset_0_-1px_0_0_rgb(229,231,235)]";
 
-fn error_alert(message: String) -> AnyView {
+pub(super) fn error_alert(message: String) -> AnyView {
     view! {
         <div
             role="alert"
@@ -199,7 +202,7 @@ fn pending_setter_outside_server_rendering(
     cfg!(not(feature = "ssr")).then(|| set_refreshing.into())
 }
 
-fn refresh_cover(pending: Signal<bool>, shape_class: &'static str) -> AnyView {
+pub(super) fn refresh_cover(pending: Signal<bool>, shape_class: &'static str) -> AnyView {
     view! {
         <div
             role="status"
@@ -377,9 +380,7 @@ pub fn DataTable<Row>(
     /// The answer to `filter_column_request`. Server-driven mode only.
     #[prop(optional, into)]
     filter_values: Signal<LoadedFilterValues>,
-    /// Draws each row as a card in a grid in place of the table.
-    #[prop(optional_no_strip)]
-    card: Option<RowView<Row>>,
+    #[prop(optional)] layout: Layout<Row>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
@@ -417,7 +418,7 @@ where
                 pending=refreshing.into()
                 filter_column_request
                 filter_values
-                card
+                layout
             />
         }
     };
@@ -444,12 +445,13 @@ fn TableContents<Row>(
     pending: Signal<bool>,
     filter_column_request: Option<RwSignal<Option<String>>>,
     filter_values: Signal<LoadedFilterValues>,
-    card: Option<RowView<Row>>,
+    layout: Layout<Row>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
 {
     let navigate = row_href.as_ref().map(|_| use_navigate());
+    let calendar_row_href = row_href.clone();
     let column_count = columns.len();
     let columns = StoredValue::new(columns);
     let sort_state: RwSignal<Option<(usize, bool)>> = RwSignal::new(None);
@@ -1074,9 +1076,10 @@ where
             });
         }
     };
+    let shows_empty_state = !layout.is_calendar();
     let body_state = Memo::new(move |_| match rows.read().as_ref() {
         None => BodyState::Loading,
-        Some(Ok(_)) if visible_rows.with(Vec::is_empty) => BodyState::Empty,
+        Some(Ok(_)) if shows_empty_state && visible_rows.with(Vec::is_empty) => BodyState::Empty,
         Some(_) => BodyState::Rows,
     });
     let empty_state = move || {
@@ -1108,16 +1111,29 @@ where
         BodyState::Empty => empty_state(),
         BodyState::Rows => ().into_any(),
     };
-    let body = match card {
-        Some(card_for_row) => card_body(rows, visible_rows, card_for_row, pending),
-        None => view! {
+    let pager = move || shows_empty_state.then(&pager);
+    let body = match (layout, server_query) {
+        (Layout::Cards(card_for_row), _) => card_body(rows, visible_rows, card_for_row, pending),
+        (Layout::Calendar { date_column_key }, Some(query)) => view! {
+            <CalendarView
+                rows=rows
+                columns=columns.get_value()
+                date_column_key=date_column_key
+                query=query
+                total_rows=total_rows
+                pending=pending
+                row_href=calendar_row_href
+            />
+        }
+        .into_any(),
+        _ => view! {
             <div class="relative">
                 <div class=format!(
                     "w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-white {BODY_MAX_HEIGHT_CLASS}",
                 )>
                     <table class="w-full table-fixed text-sm tabular-nums">
                         <colgroup>{column_widths}</colgroup>
-                        <thead class="bg-gray-50 sticky top-0 z-10 shadow-[inset_0_-1px_0_0_rgb(229,231,235)]">
+                        <thead class=format!("sticky top-0 z-10 bg-gray-50 {HEADER_RULE_CLASS}")>
                             <tr>{header}</tr>
                         </thead>
                         <tbody
