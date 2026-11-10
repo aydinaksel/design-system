@@ -13,7 +13,7 @@ ROUTES = [
     "/tables",
     "/tables?mode=cards",
     "/tables?search=gran",
-    "/client-table",
+    "/client-side-table",
     "/files",
     "/tables?mode=calendar",
     "/sidebar/dashboard",

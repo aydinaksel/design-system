@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use crate::fake_data::Stone;
 
 #[cfg(feature = "ssr")]
-const CLIENT_TABLE_ROW_COUNT: usize = 200;
+const CLIENT_SIDE_TABLE_ROW_COUNT: usize = 200;
 
 #[server]
 pub async fn load_all_stones() -> Result<Vec<Stone>, ServerFnError> {
@@ -15,7 +15,7 @@ pub async fn load_all_stones() -> Result<Vec<Stone>, ServerFnError> {
     .await;
     Ok(crate::fake_data::generated::stones()
         .into_iter()
-        .take(CLIENT_TABLE_ROW_COUNT)
+        .take(CLIENT_SIDE_TABLE_ROW_COUNT)
         .collect())
 }
 
@@ -39,7 +39,7 @@ fn stone_columns() -> Vec<Column<Stone>> {
     reason = "the component macro drops attributes on the function it emits"
 )]
 #[component]
-pub fn ClientTablePage() -> impl IntoView {
+pub fn ClientSideTablePage() -> impl IntoView {
     let stones = Resource::new(|| (), |()| load_all_stones());
     let rows = Signal::derive(move || {
         stones
@@ -49,11 +49,11 @@ pub fn ClientTablePage() -> impl IntoView {
 
     view! {
         <main class="mx-auto max-w-screen-2xl px-6 py-8">
-            <PageHeader title="Client Table" />
+            <PageHeader title="Client-Side Table" />
             <DataTable
                 rows=rows
                 columns=stone_columns()
-                search=Search::Client
+                search=Search::InMemory
                 search_placeholder="Search Stones"
                 empty_message="No stones found."
             />

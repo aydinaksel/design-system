@@ -17,9 +17,9 @@ use crate::search_input::{SearchInput, SearchSize};
 use crate::tabs::PageView;
 use crate::tooltip::Tooltip;
 
+use super::calendar_view::CalendarView;
 use super::cell_value::{Align, CellValue};
 use super::column::Column;
-use super::calendar_view::CalendarView;
 use super::filter_option::FilterOption;
 use super::layout::Layout;
 use super::toolbar::TableToolbar;
@@ -34,10 +34,8 @@ pub type RowView<Row> = Arc<dyn Fn(&Row) -> AnyView + Send + Sync>;
 pub enum Search {
     #[default]
     Off,
-    /// Filter the in-browser dataset across all `searchable` columns.
-    Client,
-    /// Publish the search term to the table's `query` for the server to answer.
-    Server,
+    InMemory,
+    OnServer,
 }
 
 const NO_ROWS_MESSAGE: &str = "No results.";

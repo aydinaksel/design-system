@@ -94,7 +94,9 @@ impl Month {
     }
 
     fn trailing_blank_days(self) -> u32 {
-        let filled_days = self.leading_blank_days().saturating_add(self.last_day().day());
+        let filled_days = self
+            .leading_blank_days()
+            .saturating_add(self.last_day().day());
         DAYS_PER_WEEK
             .saturating_sub(filled_days.checked_rem(DAYS_PER_WEEK).unwrap_or_default())
             .checked_rem(DAYS_PER_WEEK)
@@ -219,8 +221,7 @@ where
         .filter(|column| column.key != date_column_key)
         .collect();
     let dialog_columns = StoredValue::new(dialog_columns);
-    let row_href =
-        StoredValue::new(row_href.unwrap_or_else(|| Arc::new(|_: &Row| String::new())));
+    let row_href = StoredValue::new(row_href.unwrap_or_else(|| Arc::new(|_: &Row| String::new())));
     let open_day = move || {
         let Some(day) = selected_day.get() else {
             return ().into_any();
@@ -393,7 +394,10 @@ mod tests {
 
     #[test]
     fn a_leap_february_ends_on_the_twenty_ninth() {
-        assert_eq!(Month::containing(date("2028-02-10")).last_day(), date("2028-02-29"));
+        assert_eq!(
+            Month::containing(date("2028-02-10")).last_day(),
+            date("2028-02-29")
+        );
     }
 
     #[test]
@@ -425,7 +429,10 @@ mod tests {
         Month::containing(date("2026-03-15")).show_in(&mut query, DATE_COLUMN);
         let month = month_query(query, DATE_COLUMN);
         let range = month.date_range.unwrap();
-        assert_eq!((range.from.as_str(), range.to.as_str()), ("2026-03-01", "2026-03-31"));
+        assert_eq!(
+            (range.from.as_str(), range.to.as_str()),
+            ("2026-03-01", "2026-03-31")
+        );
         assert_eq!(month.sort_column_key, None);
         assert_eq!(month.skipped_rows, 0);
         assert_eq!(month.rows_per_page, MONTH_ROW_CAP);

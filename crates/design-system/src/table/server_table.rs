@@ -5,8 +5,8 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use table_query::Page;
 
-use super::column::Column;
 use super::calendar_view::month_query;
+use super::column::Column;
 use super::data_table::{DataTable, RowAttribute, Search};
 use super::layout::Layout;
 use super::server_facet_panel::{FacetControls, ServerFacet};
@@ -168,7 +168,7 @@ where
         <DataTable
             rows=page_rows
             columns=columns
-            search=Search::Server
+            search=Search::OnServer
             search_placeholder=search_placeholder
             empty_message=empty_message
             row_href=row_href

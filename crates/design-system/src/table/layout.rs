@@ -11,7 +11,9 @@ pub enum Layout<Row> {
     /// Places each row on a month grid by `date_column_key`, a column whose
     /// value is `YYYY-MM-DD` text. Needs a server query, so use it through
     /// `ServerTable`.
-    Calendar { date_column_key: &'static str },
+    Calendar {
+        date_column_key: &'static str,
+    },
 }
 
 impl<Row> Layout<Row> {

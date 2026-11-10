@@ -1,5 +1,5 @@
 pub mod cell_editing;
-pub mod client_table;
+pub mod client_side_table;
 pub mod files;
 pub mod overview;
 pub mod popovers;
