@@ -1,10 +1,13 @@
 use design_system::formatting::format_with_thousands;
 use design_system::{
     AxisLabel, BarEntry, ChartCard, ChartColor, ChartMetric, ChartSeries, ColumnChart, Currency,
-    HorizontalBarChart, LineChart, PageHeader, StatChange, StatGrid, StatTile, ValueFormat,
+    HeadingLevel, HorizontalBarChart, LineChart, PageHeader, ReferenceLine, StatChange, StatGrid,
+    StatTile, ValueFormat,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
+
+use super::business_charts::business_chart_sections;
 
 const YEAR: u32 = 2026;
 const QUARTER_MONTHS: [(&str, u32); 3] = [("Jul", 31), ("Aug", 31), ("Sep", 30)];
@@ -47,15 +50,18 @@ const REGION_TOTALS: [(&str, &str, f64, f64); 5] = [
 ];
 const GUIDANCE_HREF: &str =
     "https://analysisfunction.civilservice.gov.uk/policy-store/data-visualisation-charts/";
-const PRINCIPLES: [&str; 7] = [
+const PRINCIPLES: [&str; 9] = [
+    "The title states the message, and the subtitle says what the data is, where and when.",
     "Gaps between single bars are narrower than a bar, and gaps between clusters are wider than one.",
     "More than one time series is a line chart, never clustered columns.",
     "Lines are labelled at their ends instead of through a legend that relies on colour.",
+    "A focus chart colours the series that matters and greys the rest.",
+    "Small multiples share one scale, so panels compare honestly.",
+    "Bars start at zero, ranked bars are sorted by value, and a stack holds at most four parts.",
     "Every series chart carries its data as a table for screen readers.",
-    "Bars start at zero, and ranked bars are sorted by value.",
-    "A chart shows at most four series, one per chart colour.",
     "Gridlines are few and light, and every label reads horizontally.",
 ];
+const MONTHLY_INVOICE_TARGET: f64 = 1_600_000.0;
 const DOLLARS: ValueFormat = ValueFormat::Money(Currency::UsDollar);
 const SELECTED_EMPLOYEE_PARAMETER: &str = "sales-employee";
 const SALES_EMPLOYEES: [(&str, f64); 6] = [
@@ -162,12 +168,13 @@ fn interactive_line(labels: Vec<AxisLabel>, series: [ChartSeries; 2]) -> AnyView
     });
     view! {
         <ChartCard
-            title="Sales by Day"
-            description="Jul 1 to Sep 30, 2026"
+            title="Sales Drop Every Weekend"
+            subtitle="Daily totals, Jul 1 to Sep 30, 2026"
+            heading_level=HeadingLevel::Three
             metrics=metrics
             selected_metric=selected
         >
-            <LineChart labels=labels series=shown format=DOLLARS description="Daily sales totals" />
+            <LineChart labels=labels series=shown format=DOLLARS />
         </ChartCard>
     }
     .into_any()
@@ -175,13 +182,12 @@ fn interactive_line(labels: Vec<AxisLabel>, series: [ChartSeries; 2]) -> AnyView
 
 fn comparison_line(labels: Vec<AxisLabel>, series: [ChartSeries; 2]) -> AnyView {
     view! {
-        <ChartCard title="Orders Against Invoices" description="Jul 1 to Sep 30, 2026">
-            <LineChart
-                labels=labels
-                series=series.to_vec()
-                format=DOLLARS
-                description="Daily sales order and AR invoice totals"
-            />
+        <ChartCard
+            title="Invoices Follow the Weekly Rhythm of Orders"
+            subtitle="Daily sales order and AR invoice totals, Jul 1 to Sep 30, 2026"
+            heading_level=HeadingLevel::Three
+        >
+            <LineChart labels=labels series=series.to_vec() format=DOLLARS />
         </ChartCard>
     }
     .into_any()
@@ -191,13 +197,12 @@ fn empty_line() -> AnyView {
     let no_labels: Vec<AxisLabel> = Vec::new();
     let no_series: Vec<ChartSeries> = Vec::new();
     view! {
-        <ChartCard title="Sales by Day" description="Oct 1 to Oct 1, 2026">
-            <LineChart
-                labels=no_labels
-                series=no_series
-                format=DOLLARS
-                description="Daily sales totals"
-            />
+        <ChartCard
+            title="Sales by Day"
+            subtitle="Daily totals, Oct 1, 2026"
+            heading_level=HeadingLevel::Three
+        >
+            <LineChart labels=no_labels series=no_series format=DOLLARS />
         </ChartCard>
     }
     .into_any()
@@ -218,13 +223,14 @@ fn top_customers() -> AnyView {
         href: None,
     });
     view! {
-        <ChartCard title="Top Customers" description="Invoiced, Jul 1 to Sep 30, 2026">
-            <HorizontalBarChart
-                entries=entries
-                format=DOLLARS
-                remainder=remainder
-                description="Top ten customers by invoiced total"
-            />
+        <ChartCard
+            title="Three Customers Make Up Two Fifths of Invoicing"
+            subtitle="Top ten customers by AR invoice total, Jul 1 to Sep 30, 2026"
+            heading_level=HeadingLevel::Three
+            source="AR invoices from the company database"
+            notes=vec!["Credit notes are netted against the invoices they correct.".to_owned()]
+        >
+            <HorizontalBarChart entries=entries format=DOLLARS remainder=remainder />
         </ChartCard>
     }
     .into_any()
@@ -234,24 +240,24 @@ fn stat_tiles() -> AnyView {
     view! {
         <StatGrid>
             <StatTile
-                label="Invoiced"
+                label="Invoiced, September"
                 value="$1,866,410"
                 change=Some(StatChange {
                     percent: 8.4,
                     comparison: "Sep 2025".to_owned(),
                     higher_is_better: true,
                 })
-                footnote="AR invoices posted in September"
+                footnote="AR invoices posted"
             />
             <StatTile
-                label="Ordered"
+                label="Ordered, September"
                 value="$1,801,760"
                 change=Some(StatChange {
                     percent: -3.1,
                     comparison: "Sep 2025".to_owned(),
                     higher_is_better: true,
                 })
-                footnote="Sales orders placed in September"
+                footnote="Sales orders placed"
             />
             <StatTile
                 label="Open Sales Orders"
@@ -259,14 +265,14 @@ fn stat_tiles() -> AnyView {
                 footnote="Ordered, not yet invoiced"
             />
             <StatTile
-                label="Average Order"
+                label="Average Order, September"
                 value="$3,412"
                 change=Some(StatChange {
                     percent: 0.0,
                     comparison: "Sep 2025".to_owned(),
                     higher_is_better: true,
                 })
-                footnote="Per sales order in September"
+                footnote="Per sales order"
             />
         </StatGrid>
     }
@@ -294,12 +300,19 @@ fn monthly_columns() -> AnyView {
             .collect(),
     }];
     view! {
-        <ChartCard title="Invoiced by Month" description="January to September 2026">
+        <ChartCard
+            title="Invoicing Has Met Target Since April"
+            subtitle="AR invoice totals by month, January to September 2026"
+            heading_level=HeadingLevel::Three
+        >
             <ColumnChart
                 labels=labels
                 series=series
                 format=DOLLARS
-                description="Monthly AR invoice totals"
+                reference=ReferenceLine {
+                    label: "Target".to_owned(),
+                    value: MONTHLY_INVOICE_TARGET,
+                }
             />
         </ChartCard>
     }
@@ -333,13 +346,12 @@ fn regional_columns() -> AnyView {
         },
     ];
     view! {
-        <ChartCard title="Ordered and Invoiced by Region" description="January to September 2026">
-            <ColumnChart
-                labels=labels
-                series=series
-                format=DOLLARS
-                description="Sales order and AR invoice totals by region"
-            />
+        <ChartCard
+            title="The North Leads Both Orders and Invoices"
+            subtitle="Sales order and AR invoice totals by region, January to September 2026"
+            heading_level=HeadingLevel::Three
+        >
+            <ColumnChart labels=labels series=series format=DOLLARS />
         </ChartCard>
     }
     .into_any()
@@ -386,12 +398,12 @@ fn sales_employee_ranking() -> AnyView {
         })
         .collect();
     view! {
-        <ChartCard title="Sales Employees" description="Invoiced, Jul 1 to Sep 30, 2026">
-            <HorizontalBarChart
-                entries=entries
-                format=DOLLARS
-                description="Sales employees ranked by invoiced total"
-            />
+        <ChartCard
+            title="Sales Employees"
+            subtitle="AR invoice totals by sales employee, Jul 1 to Sep 30, 2026"
+            heading_level=HeadingLevel::Three
+        >
+            <HorizontalBarChart entries=entries format=DOLLARS />
             <p class="mt-4 text-sm text-gray-500">{selected_employee}</p>
         </ChartCard>
     }
@@ -418,6 +430,10 @@ pub fn ChartsPage() -> impl IntoView {
             {chart_section("Columns, Clustered", regional_columns())}
             {chart_section("Horizontal Bar, Top Customers", top_customers())}
             {chart_section("Horizontal Bar, Clickable Rows", sales_employee_ranking())}
+            {business_chart_sections()
+                .into_iter()
+                .map(|(title, content)| chart_section(title, content))
+                .collect_view()}
         </main>
     }
     .into_any()

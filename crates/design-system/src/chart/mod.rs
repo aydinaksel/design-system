@@ -5,16 +5,26 @@ mod card;
 mod column;
 mod curve;
 mod data_table;
+mod frame;
+mod label_layout;
 mod line;
+mod reference;
 mod scale;
+mod slope;
+mod small_multiples;
+mod stacked;
 mod stat;
 mod time_buckets;
 
 pub use bar::{BarEntry, HorizontalBarChart};
 pub use card::{ChartCard, ChartMetric};
 pub use column::ColumnChart;
-pub use line::LineChart;
+pub use line::{ChartHeight, LineChart};
+pub use reference::ReferenceLine;
 pub use scale::ValueFormat;
+pub use slope::{SlopeChart, SlopeEntry};
+pub use small_multiples::SmallMultiples;
+pub use stacked::{StackMode, StackedBarChart};
 pub use stat::{StatChange, StatGrid, StatTile};
 pub use time_buckets::{bucket_by_date, BucketedSeries, TimeGrain};
 
@@ -24,9 +34,15 @@ pub enum ChartColor {
     Orange,
     Aqua,
     Yellow,
+    Muted,
 }
 
 impl ChartColor {
+    #[must_use]
+    pub const fn is_muted(self) -> bool {
+        matches!(self, Self::Muted)
+    }
+
     #[must_use]
     pub const fn stroke_class(self) -> &'static str {
         match self {
@@ -34,6 +50,7 @@ impl ChartColor {
             Self::Orange => "stroke-chart-2",
             Self::Aqua => "stroke-chart-3",
             Self::Yellow => "stroke-chart-4",
+            Self::Muted => "stroke-chart-muted",
         }
     }
 
@@ -44,6 +61,7 @@ impl ChartColor {
             Self::Orange => "bg-chart-2",
             Self::Aqua => "bg-chart-3",
             Self::Yellow => "bg-chart-4",
+            Self::Muted => "bg-chart-muted",
         }
     }
 }
@@ -90,7 +108,7 @@ pub(crate) fn legend(series: &[ChartSeries]) -> AnyView {
         return ().into_any();
     }
     view! {
-        <ul class="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-gray-500">
+        <ul class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-gray-500">
             {series
                 .iter()
                 .map(|entry| {

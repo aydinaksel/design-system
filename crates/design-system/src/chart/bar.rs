@@ -3,6 +3,7 @@ use leptos::html::Div;
 use leptos::prelude::*;
 use leptos_router::components::A;
 
+use super::frame::chart_name;
 use super::scale::ValueFormat;
 use super::ChartColor;
 
@@ -119,12 +120,13 @@ fn bar_row(
 #[component]
 pub fn HorizontalBarChart(
     #[prop(into)] entries: Signal<Vec<BarEntry>>,
-    #[prop(into)] description: String,
+    #[prop(optional, into)] description: Option<String>,
     #[prop(default = ChartColor::Blue)] color: ChartColor,
     #[prop(optional, into)] remainder: Signal<Option<BarEntry>>,
     format: ValueFormat,
     #[prop(default = "No data in this range.")] empty_message: &'static str,
 ) -> impl IntoView {
+    let name = chart_name(description);
     let rows = move || {
         let mut bars = entries.get();
         let other = remainder.get();
@@ -156,7 +158,7 @@ pub fn HorizontalBarChart(
         .into_any()
     };
     view! {
-        <figure aria-label=description class="space-y-1">
+        <figure aria-label=name.label aria-labelledby=name.labelled_by class="space-y-1">
             {rows}
         </figure>
     }

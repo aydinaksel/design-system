@@ -1,6 +1,8 @@
 use leptos::prelude::*;
 
 use super::data_table::series_table;
+use super::frame::chart_name;
+use super::reference::{covered_maximum, reference_overlay, ReferenceLine};
 use super::scale::{ValueFormat, ValueScale};
 use super::{legend, line_key, AxisLabel, ChartSeries};
 
@@ -130,8 +132,13 @@ fn column_group(
     .into_any()
 }
 
-fn plot(labels: &[AxisLabel], series: &[ChartSeries], format: ValueFormat) -> AnyView {
-    let scale = ValueScale::covering(highest_value(series));
+fn plot(
+    labels: &[AxisLabel],
+    series: &[ChartSeries],
+    reference: Option<&ReferenceLine>,
+    format: ValueFormat,
+) -> AnyView {
+    let scale = ValueScale::covering(covered_maximum(highest_value(series), reference));
     let groups = labels
         .iter()
         .enumerate()
@@ -150,6 +157,7 @@ fn plot(labels: &[AxisLabel], series: &[ChartSeries], format: ValueFormat) -> An
             </div>
             <div class="relative flex-1">
                 {gridlines(&scale)} <div class="absolute inset-0 flex">{groups}</div>
+                {reference_overlay(reference, &scale, format)}
             </div>
         </div>
         <div class="mt-2 ml-15 flex text-xs text-gray-500">{category_labels}</div>
@@ -158,9 +166,10 @@ fn plot(labels: &[AxisLabel], series: &[ChartSeries], format: ValueFormat) -> An
 }
 
 fn chart_body(
-    description: &str,
+    caption: &str,
     labels: &[AxisLabel],
     series: &[ChartSeries],
+    reference: Option<&ReferenceLine>,
     format: ValueFormat,
     empty_message: &'static str,
 ) -> AnyView {
@@ -169,9 +178,9 @@ fn chart_body(
         .into_any();
     }
     view! {
-        {plot(labels, series, format)}
-        {legend(series)}
-        {series_table(description, labels, series, format)}
+        {plot(labels, series, reference, format)}
+        <div class="mt-4">{legend(series)}</div>
+        {series_table(caption, labels, series, format)}
     }
     .into_any()
 }
@@ -180,17 +189,33 @@ fn chart_body(
 pub fn ColumnChart(
     #[prop(into)] labels: Signal<Vec<AxisLabel>>,
     #[prop(into)] series: Signal<Vec<ChartSeries>>,
-    #[prop(into)] description: String,
     format: ValueFormat,
+    #[prop(optional, into)] description: Option<String>,
+    #[prop(optional)] reference: Option<ReferenceLine>,
     #[prop(default = "No data in this range.")] empty_message: &'static str,
 ) -> impl IntoView {
-    let caption = description.clone();
+    let name = chart_name(description);
+    let caption = name.caption.clone();
     let body = move || {
         labels.with(|axis| {
-            series.with(|columns| chart_body(&caption, axis, columns, format, empty_message))
+            series.with(|columns| {
+                chart_body(
+                    &caption,
+                    axis,
+                    columns,
+                    reference.as_ref(),
+                    format,
+                    empty_message,
+                )
+            })
         })
     };
-    view! { <figure aria-label=description>{body}</figure> }.into_any()
+    view! {
+        <figure aria-label=name.label aria-labelledby=name.labelled_by>
+            {body}
+        </figure>
+    }
+    .into_any()
 }
 
 #[cfg(test)]
