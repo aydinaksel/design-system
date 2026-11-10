@@ -8,17 +8,18 @@ use leptos_router::{
 use design_system::{Brand, Layout, NotFoundPage, ToastProvider};
 
 use crate::pages::{
-    client_side_table::ClientSideTablePage, files::FilesPage, overview::OverviewPage,
-    sidebar::SidebarPage, tables::TablesPage,
+    charts::ChartsPage, client_side_table::ClientSideTablePage, files::FilesPage,
+    overview::OverviewPage, sidebar::SidebarPage, tables::TablesPage,
 };
 
 const STYLESHEET_HREF: &str = "/pkg/component-gallery.css";
 
-const NAVIGATION: [(&str, &str); 5] = [
+const NAVIGATION: [(&str, &str); 6] = [
     ("/", "Overview"),
     ("/tables", "Tables"),
     ("/client-side-table", "Client-Side Table"),
     ("/files", "Files"),
+    ("/charts", "Charts"),
     ("/sidebar/dashboard", "Sidebar"),
 ];
 
@@ -74,6 +75,7 @@ pub fn App() -> impl IntoView {
                         <Route path=StaticSegment("tables") view=TablesPage />
                         <Route path=StaticSegment("client-side-table") view=ClientSideTablePage />
                         <Route path=StaticSegment("files") view=FilesPage />
+                        <Route path=StaticSegment("charts") view=ChartsPage />
                     </ParentRoute>
                     <Route path=StaticSegment("sidebar") view=SidebarPage />
                     <Route

@@ -1,4 +1,5 @@
 pub mod cell_editing;
+pub mod charts;
 pub mod client_side_table;
 pub mod files;
 pub mod overview;

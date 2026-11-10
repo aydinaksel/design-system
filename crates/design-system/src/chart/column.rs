@@ -1,0 +1,182 @@
+use leptos::prelude::*;
+
+use super::scale::{ValueFormat, ValueScale};
+use super::{legend, line_key, AxisLabel, ChartSeries, LegendMark};
+
+const BAR_CLASS: &str = "w-full max-w-8 rounded-t-[4px] transition-opacity group-hover/column:opacity-80 group-focus-visible/column:opacity-80";
+const GROUP_CLASS: &str = "group/column relative flex h-full flex-1 items-end justify-center gap-0.5 rounded-sm px-1 outline-none sm:px-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+const TOOLTIP_CLASS: &str = "pointer-events-none absolute top-0 z-10 hidden min-w-44 space-y-1.5 rounded-item border border-gray-200 bg-surface px-3 py-2 text-xs shadow-lg group-hover/column:block group-focus-visible/column:block";
+
+fn highest_value(series: &[ChartSeries]) -> f64 {
+    series
+        .iter()
+        .flat_map(|column| column.values.iter().copied())
+        .fold(0.0, f64::max)
+}
+
+fn tooltip_side(index: usize, category_count: usize) -> &'static str {
+    if index.saturating_mul(2) >= category_count {
+        "right-full mr-2"
+    } else {
+        "left-full ml-2"
+    }
+}
+
+fn gridlines(scale: &ValueScale) -> AnyView {
+    scale
+        .ticks
+        .iter()
+        .enumerate()
+        .map(|(position, tick)| {
+            let tone = if position == 0 {
+                "bg-gray-300"
+            } else {
+                "bg-gray-200"
+            };
+            view! {
+                <span
+                    class=format!("absolute inset-x-0 h-px {tone}")
+                    style=format!("top: {:.3}%", scale.percent_from_top(*tick))
+                ></span>
+            }
+        })
+        .collect_view()
+        .into_any()
+}
+
+fn value_axis(scale: &ValueScale, format: ValueFormat) -> AnyView {
+    scale
+        .ticks
+        .iter()
+        .map(|tick| {
+            let style = format!(
+                "top: {:.3}%; transform: translateY(-50%)",
+                scale.percent_from_top(*tick)
+            );
+            view! {
+                <span class="absolute right-0" style=style>
+                    {format.compact(*tick)}
+                </span>
+            }
+        })
+        .collect_view()
+        .into_any()
+}
+
+fn column_group(
+    index: usize,
+    label: &AxisLabel,
+    series: &[ChartSeries],
+    scale: &ValueScale,
+    format: ValueFormat,
+) -> AnyView {
+    let category_count = series.first().map_or(0, |column| column.values.len());
+    let bars = series
+        .iter()
+        .filter_map(|column| column.values.get(index).map(|value| (column.color, *value)))
+        .map(|(color, value)| {
+            let height_percent = (value / scale.top * 100.0).clamp(0.0, 100.0);
+            view! {
+                <span
+                    class=format!("{BAR_CLASS} {}", color.background_class())
+                    style=format!("height: {height_percent:.3}%")
+                ></span>
+            }
+        })
+        .collect_view();
+    let rows = series
+        .iter()
+        .filter_map(|column| column.values.get(index).map(|value| (column, *value)))
+        .map(|(column, value)| {
+            view! {
+                <div class="flex items-center gap-2">
+                    {line_key(column.color)}
+                    <span class="flex-1 text-gray-500">{column.label.clone()}</span>
+                    <span class="font-semibold tabular-nums text-gray-900">
+                        {format.full(value)}
+                    </span>
+                </div>
+            }
+        })
+        .collect_view();
+    view! {
+        <div class=GROUP_CLASS tabindex="0" aria-label=label.long.clone()>
+            {bars}
+            <div class=format!("{TOOLTIP_CLASS} {}", tooltip_side(index, category_count))>
+                <div class="font-medium text-gray-900">{label.long.clone()}</div>
+                {rows}
+            </div>
+        </div>
+    }
+    .into_any()
+}
+
+fn plot(labels: &[AxisLabel], series: &[ChartSeries], format: ValueFormat) -> AnyView {
+    let scale = ValueScale::covering(highest_value(series));
+    let groups = labels
+        .iter()
+        .enumerate()
+        .map(|(index, label)| column_group(index, label, series, &scale, format))
+        .collect_view();
+    let category_labels = labels
+        .iter()
+        .map(|label| {
+            view! { <span class="flex-1 truncate text-center">{label.short.clone()}</span> }
+        })
+        .collect_view();
+    view! {
+        <div class="flex h-64 gap-3">
+            <div class="relative w-12 shrink-0 text-right text-xs tabular-nums text-gray-500">
+                {value_axis(&scale, format)}
+            </div>
+            <div class="relative flex-1">
+                {gridlines(&scale)} <div class="absolute inset-0 flex">{groups}</div>
+            </div>
+        </div>
+        <div class="mt-2 ml-15 flex text-xs text-gray-500">{category_labels}</div>
+    }
+    .into_any()
+}
+
+fn chart_body(
+    labels: &[AxisLabel],
+    series: &[ChartSeries],
+    format: ValueFormat,
+    empty_message: &'static str,
+) -> AnyView {
+    if labels.is_empty() {
+        return view! { <p class="flex h-64 items-center justify-center text-sm text-gray-500">{empty_message}</p> }
+        .into_any();
+    }
+    view! {
+        {plot(labels, series, format)}
+        {legend(series, LegendMark::Swatch)}
+    }
+    .into_any()
+}
+
+#[component]
+pub fn ColumnChart(
+    #[prop(into)] labels: Signal<Vec<AxisLabel>>,
+    #[prop(into)] series: Signal<Vec<ChartSeries>>,
+    #[prop(into)] description: String,
+    format: ValueFormat,
+    #[prop(default = "No data in this range.")] empty_message: &'static str,
+) -> impl IntoView {
+    let body = move || {
+        labels.with(|axis| series.with(|columns| chart_body(axis, columns, format, empty_message)))
+    };
+    view! { <figure aria-label=description>{body}</figure> }.into_any()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tooltip_side;
+
+    #[test]
+    fn tooltips_open_away_from_the_nearer_edge() {
+        assert_eq!(tooltip_side(0, 6), "left-full ml-2");
+        assert_eq!(tooltip_side(2, 6), "left-full ml-2");
+        assert_eq!(tooltip_side(3, 6), "right-full mr-2");
+    }
+}

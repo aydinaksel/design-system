@@ -4,8 +4,14 @@
   --radius-surface: 0.75rem;
   --radius-surface-inner: calc(var(--radius-surface) - 1px);
   --radius-item: calc(var(--radius-surface) - 0.25rem);
+  --color-canvas: var(--color-gray-50);
+  --color-surface: var(--color-white);
   --color-focus: var(--color-blue-600);
   --color-row-hover: var(--color-blue-50);
+  --color-chart-1: #2a78d6;
+  --color-chart-2: #eb6834;
+  --color-chart-3: #1baf7a;
+  --color-chart-4: #eda100;
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-field-saved: field-saved 1600ms ease-out;

@@ -275,7 +275,9 @@ fn day_cell(
     view! {
         <button
             type="button"
-            class=format!("{CELL_SHAPE_CLASS} relative cursor-pointer text-left hover:bg-gray-50 focus-ring")
+            class=format!(
+                "{CELL_SHAPE_CLASS} relative cursor-pointer text-left hover:bg-gray-50 focus-ring",
+            )
             aria-label=label
             on:click=move |_| selected_day.set(Some(day))
         >
@@ -305,7 +307,12 @@ where
             on_close=Callback::new(move |()| selected_day.set(None))
             size=DialogSize::Large
         >
-            <DataTable rows=rows columns=columns.clone() search=Search::Off row_href=row_href.clone() />
+            <DataTable
+                rows=rows
+                columns=columns.clone()
+                search=Search::Off
+                row_href=row_href.clone()
+            />
         </Dialog>
     }
     .into_any()

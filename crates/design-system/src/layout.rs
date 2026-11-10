@@ -13,7 +13,7 @@ pub fn Layout() -> impl IntoView {
     let header_action = brand.header_action.as_ref().map(|action| action());
 
     view! {
-        <div class="min-h-screen bg-white">
+        <div class="min-h-screen bg-surface has-data-canvas:bg-canvas">
             <header class="border-b border-gray-200">
                 <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
                     <A href=brand.home_href>

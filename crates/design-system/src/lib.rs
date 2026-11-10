@@ -6,6 +6,7 @@ pub mod busy_overlay;
 pub mod button;
 pub mod button_group;
 pub mod catalog;
+pub mod chart;
 pub mod checkbox;
 pub mod choice_list;
 pub mod clipboard;
@@ -66,6 +67,11 @@ pub use busy_overlay::BusyOverlay;
 pub use button::{button_class, button_icon_class, icon_button_class, ButtonSize, ButtonTone};
 pub use button_group::ButtonGroup;
 pub use catalog::{Card, CardGrid, ResponsiveImage, ResponsiveSource};
+pub use chart::{
+    bucket_by_date, AxisLabel, BarEntry, BucketedSeries, ChartCard, ChartColor, ChartMetric,
+    ChartSeries, ColumnChart, HorizontalBarChart, LineChart, StatChange, StatGrid, StatTile,
+    TimeGrain, ValueFormat,
+};
 pub use checkbox::Checkbox;
 pub use choice_list::{ChoiceList, ChoiceOption};
 pub use clipboard::{copy_with_toast, CopyButton, CopyLinkButton};
