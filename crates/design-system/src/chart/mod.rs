@@ -4,6 +4,7 @@ mod bar;
 mod card;
 mod column;
 mod curve;
+mod data_table;
 mod line;
 mod scale;
 mod stat;
@@ -72,29 +73,19 @@ pub(crate) fn line_key(color: ChartColor) -> impl IntoView {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum LegendMark {
-    Line,
-    Swatch,
-}
-
-fn legend_mark(mark: LegendMark, color: ChartColor) -> AnyView {
-    match mark {
-        LegendMark::Line => line_key(color).into_any(),
-        LegendMark::Swatch => view! {
-            <span
-                aria-hidden="true"
-                class=format!(
-                    "inline-block size-2.5 shrink-0 rounded-[2px] {}",
-                    color.background_class(),
-                )
-            ></span>
-        }
-        .into_any(),
+fn swatch(color: ChartColor) -> impl IntoView {
+    view! {
+        <span
+            aria-hidden="true"
+            class=format!(
+                "inline-block size-2.5 shrink-0 rounded-[2px] {}",
+                color.background_class(),
+            )
+        ></span>
     }
 }
 
-pub(crate) fn legend(series: &[ChartSeries], mark: LegendMark) -> AnyView {
+pub(crate) fn legend(series: &[ChartSeries]) -> AnyView {
     if series.len() < 2 {
         return ().into_any();
     }
@@ -105,7 +96,7 @@ pub(crate) fn legend(series: &[ChartSeries], mark: LegendMark) -> AnyView {
                 .map(|entry| {
                     view! {
                         <li class="flex items-center gap-2">
-                            {legend_mark(mark, entry.color)} {entry.label.clone()}
+                            {swatch(entry.color)} {entry.label.clone()}
                         </li>
                     }
                 })

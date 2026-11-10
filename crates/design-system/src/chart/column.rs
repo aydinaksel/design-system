@@ -1,11 +1,27 @@
 use leptos::prelude::*;
 
+use super::data_table::series_table;
 use super::scale::{ValueFormat, ValueScale};
-use super::{legend, line_key, AxisLabel, ChartSeries, LegendMark};
+use super::{legend, line_key, AxisLabel, ChartSeries};
 
-const BAR_CLASS: &str = "w-full max-w-8 rounded-t-[4px] transition-opacity group-hover/column:opacity-80 group-focus-visible/column:opacity-80";
-const GROUP_CLASS: &str = "group/column relative flex h-full flex-1 items-end justify-center gap-0.5 rounded-sm px-1 outline-none sm:px-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+const SINGLE_SERIES_GAP_TO_BAR_WIDTH: f64 = 0.6;
+const CLUSTER_GAP_TO_BAR_WIDTH: f64 = 1.5;
+const BAR_CLASS: &str = "flex-1 rounded-t-[4px] transition-opacity group-hover/column:opacity-80 group-focus-visible/column:opacity-80";
+const GROUP_CLASS: &str = "group/column relative flex h-full flex-1 justify-center rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 const TOOLTIP_CLASS: &str = "pointer-events-none absolute top-0 z-10 hidden min-w-44 space-y-1.5 rounded-item border border-gray-200 bg-surface px-3 py-2 text-xs shadow-lg group-hover/column:block group-focus-visible/column:block";
+
+fn category_gap_to_bar_width(series_count: usize) -> f64 {
+    if series_count > 1 {
+        CLUSTER_GAP_TO_BAR_WIDTH
+    } else {
+        SINGLE_SERIES_GAP_TO_BAR_WIDTH
+    }
+}
+
+fn bar_row_width_percent(series_count: usize) -> f64 {
+    let bars = f64::from(u32::try_from(series_count.max(1)).unwrap_or(u32::MAX));
+    bars / (bars + category_gap_to_bar_width(series_count)) * 100.0
+}
 
 fn highest_value(series: &[ChartSeries]) -> f64 {
     series
@@ -84,6 +100,7 @@ fn column_group(
             }
         })
         .collect_view();
+    let bar_row_style = format!("width: {:.3}%", bar_row_width_percent(series.len()));
     let rows = series
         .iter()
         .filter_map(|column| column.values.get(index).map(|value| (column, *value)))
@@ -101,7 +118,9 @@ fn column_group(
         .collect_view();
     view! {
         <div class=GROUP_CLASS tabindex="0" aria-label=label.long.clone()>
-            {bars}
+            <div class="flex h-full items-end gap-0.5" style=bar_row_style>
+                {bars}
+            </div>
             <div class=format!("{TOOLTIP_CLASS} {}", tooltip_side(index, category_count))>
                 <div class="font-medium text-gray-900">{label.long.clone()}</div>
                 {rows}
@@ -139,6 +158,7 @@ fn plot(labels: &[AxisLabel], series: &[ChartSeries], format: ValueFormat) -> An
 }
 
 fn chart_body(
+    description: &str,
     labels: &[AxisLabel],
     series: &[ChartSeries],
     format: ValueFormat,
@@ -150,7 +170,8 @@ fn chart_body(
     }
     view! {
         {plot(labels, series, format)}
-        {legend(series, LegendMark::Swatch)}
+        {legend(series)}
+        {series_table(description, labels, series, format)}
     }
     .into_any()
 }
@@ -163,15 +184,38 @@ pub fn ColumnChart(
     format: ValueFormat,
     #[prop(default = "No data in this range.")] empty_message: &'static str,
 ) -> impl IntoView {
+    let caption = description.clone();
     let body = move || {
-        labels.with(|axis| series.with(|columns| chart_body(axis, columns, format, empty_message)))
+        labels.with(|axis| {
+            series.with(|columns| chart_body(&caption, axis, columns, format, empty_message))
+        })
     };
     view! { <figure aria-label=description>{body}</figure> }.into_any()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::tooltip_side;
+    use super::{bar_row_width_percent, tooltip_side};
+
+    fn bar_and_gap_percent(series_count: usize) -> (f64, f64) {
+        let row_percent = bar_row_width_percent(series_count);
+        let bars = f64::from(u32::try_from(series_count).unwrap_or(u32::MAX));
+        (row_percent / bars, 100.0 - row_percent)
+    }
+
+    #[test]
+    fn single_bars_sit_closer_than_their_own_width() {
+        let (bar_percent, gap_percent) = bar_and_gap_percent(1);
+        assert!(gap_percent < bar_percent);
+    }
+
+    #[test]
+    fn clusters_sit_further_apart_than_one_bar() {
+        for series_count in 2..=4 {
+            let (bar_percent, gap_percent) = bar_and_gap_percent(series_count);
+            assert!(gap_percent > bar_percent, "{series_count} series");
+        }
+    }
 
     #[test]
     fn tooltips_open_away_from_the_nearer_edge() {

@@ -3,11 +3,15 @@ use leptos::html::Div;
 use leptos::prelude::*;
 
 use super::curve::{monotone_path, PlotPoint};
+use super::data_table::series_table;
 use super::scale::{ValueFormat, ValueScale};
-use super::{legend, line_key, AxisLabel, ChartSeries, LegendMark};
+use super::{line_key, AxisLabel, ChartSeries};
 
 const MAXIMUM_AXIS_LABELS: usize = 6;
 const TOOLTIP_GAP: &str = "12px";
+const END_LABEL_SPACING_PERCENT: f64 = 8.0;
+const LABELLED_AXIS_CLASS: &str = "relative mt-2 mr-31 ml-15 h-4 text-xs text-gray-500";
+const UNLABELLED_AXIS_CLASS: &str = "relative mt-2 ml-15 h-4 text-xs text-gray-500";
 
 fn position_of(index: usize) -> f64 {
     f64::from(u32::try_from(index).unwrap_or(u32::MAX))
@@ -243,6 +247,68 @@ fn hover_layer(
     .into_any()
 }
 
+fn spread_label_positions(desired_percents: &[f64]) -> Vec<f64> {
+    let mut placed: Vec<f64> = Vec::with_capacity(desired_percents.len());
+    for desired in desired_percents {
+        let lowest_free = placed
+            .last()
+            .map_or(0.0, |previous| previous + END_LABEL_SPACING_PERCENT);
+        placed.push(desired.max(lowest_free));
+    }
+    let mut highest_free = 100.0;
+    for position in placed.iter_mut().rev() {
+        *position = position.min(highest_free);
+        highest_free = *position - END_LABEL_SPACING_PERCENT;
+    }
+    placed
+}
+
+fn labels_each_line(series: &[ChartSeries]) -> bool {
+    series.len() > 1
+}
+
+fn end_labels(series: &[ChartSeries], scale: &ValueScale) -> AnyView {
+    if !labels_each_line(series) {
+        return ().into_any();
+    }
+    let mut endings: Vec<(f64, &ChartSeries)> = series
+        .iter()
+        .filter_map(|line| {
+            line.values
+                .last()
+                .map(|value| (scale.percent_from_top(*value), line))
+        })
+        .collect();
+    endings.sort_by(|left, right| left.0.total_cmp(&right.0));
+    let desired: Vec<f64> = endings
+        .iter()
+        .map(|(top_percent, _)| *top_percent)
+        .collect();
+    let labels = endings
+        .iter()
+        .zip(spread_label_positions(&desired))
+        .map(|((_, line), top_percent)| {
+            view! {
+                <span
+                    class="absolute inset-x-0 flex -translate-y-1/2 items-center gap-1.5"
+                    style=format!("top: {top_percent:.3}%")
+                >
+                    {line_key(line.color)}
+                    <span class="truncate" title=line.label.clone()>
+                        {line.label.clone()}
+                    </span>
+                </span>
+            }
+        })
+        .collect_view();
+    view! {
+        <div aria-hidden="true" class="relative w-28 shrink-0 text-xs font-medium text-gray-700">
+            {labels}
+        </div>
+    }
+    .into_any()
+}
+
 fn stepped_index(key: &str, current: Option<usize>, point_count: usize) -> Option<usize> {
     let last_index = point_count.checked_sub(1)?;
     let from = current.unwrap_or(last_index);
@@ -267,6 +333,14 @@ pub fn LineChart(
     let plot_area: NodeRef<Div> = NodeRef::new();
     let scale = Memo::new(move |_| ValueScale::covering(series.with(|lines| highest_value(lines))));
     let point_count = move || labels.with(Vec::len);
+    let caption = description.clone();
+    let axis_class = move || {
+        if series.with(|lines| labels_each_line(lines)) {
+            LABELLED_AXIS_CLASS
+        } else {
+            UNLABELLED_AXIS_CLASS
+        }
+    };
 
     let on_pointer_move = move |event: PointerEvent| {
         let Some(element) = plot_area.get_untracked() else {
@@ -341,11 +415,15 @@ pub fn LineChart(
                         on:blur=move |_| active_index.set(None)
                     ></div>
                 </div>
+                {move || series.with(|lines| end_labels(lines, &scale.get()))}
             </div>
-            <div class="relative mt-2 ml-15 h-4 text-xs text-gray-500">
-                {move || labels.with(|axis| category_axis(axis))}
-            </div>
-            {move || series.with(|lines| legend(lines, LegendMark::Line))}
+            <div class=axis_class>{move || labels.with(|axis| category_axis(axis))}</div>
+            {move || {
+                labels
+                    .with(|axis| {
+                        series.with(|lines| series_table(&caption, axis, lines, format))
+                    })
+            }}
         </figure>
     }
     .into_any()
@@ -353,7 +431,7 @@ pub fn LineChart(
 
 #[cfg(test)]
 mod tests {
-    use super::{axis_label_indices, nearest_index, stepped_index};
+    use super::{axis_label_indices, nearest_index, spread_label_positions, stepped_index};
 
     #[test]
     fn a_quarter_of_days_gets_six_evenly_spaced_labels() {
@@ -365,6 +443,21 @@ mod tests {
         assert_eq!(nearest_index(0.49, 3), Some(1));
         assert_eq!(nearest_index(1.4, 3), Some(2));
         assert_eq!(nearest_index(0.5, 0), None);
+    }
+
+    #[test]
+    fn labels_far_apart_stay_beside_their_lines() {
+        assert_eq!(spread_label_positions(&[10.0, 60.0]), vec![10.0, 60.0]);
+    }
+
+    #[test]
+    fn labels_that_would_overlap_are_pushed_apart() {
+        assert_eq!(spread_label_positions(&[40.0, 42.0]), vec![40.0, 48.0]);
+    }
+
+    #[test]
+    fn labels_crowded_at_the_baseline_move_up() {
+        assert_eq!(spread_label_positions(&[99.0, 100.0]), vec![92.0, 100.0]);
     }
 
     #[test]

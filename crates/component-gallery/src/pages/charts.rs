@@ -27,16 +27,34 @@ const TOP_CUSTOMERS: [(&str, f64); 10] = [
     ("Lakeside Design Studio", 52_830.0),
 ];
 const OTHER_CUSTOMERS_TOTAL: f64 = 611_240.0;
-const MONTHLY_TOTALS: [(&str, &str, f64, f64); 9] = [
-    ("Jan", "January 2026", 1_482_300.0, 1_391_850.0),
-    ("Feb", "February 2026", 1_356_900.0, 1_402_110.0),
-    ("Mar", "March 2026", 1_734_250.0, 1_598_470.0),
-    ("Apr", "April 2026", 1_691_080.0, 1_744_320.0),
-    ("May", "May 2026", 1_905_640.0, 1_812_900.0),
-    ("Jun", "June 2026", 1_802_330.0, 1_856_210.0),
-    ("Jul", "July 2026", 1_598_720.0, 1_633_480.0),
-    ("Aug", "August 2026", 1_745_160.0, 1_690_050.0),
-    ("Sep", "September 2026", 1_866_410.0, 1_801_760.0),
+const MONTHLY_INVOICED: [(&str, &str, f64); 9] = [
+    ("Jan", "January 2026", 1_391_850.0),
+    ("Feb", "February 2026", 1_402_110.0),
+    ("Mar", "March 2026", 1_598_470.0),
+    ("Apr", "April 2026", 1_744_320.0),
+    ("May", "May 2026", 1_812_900.0),
+    ("Jun", "June 2026", 1_856_210.0),
+    ("Jul", "July 2026", 1_633_480.0),
+    ("Aug", "August 2026", 1_690_050.0),
+    ("Sep", "September 2026", 1_801_760.0),
+];
+const REGION_TOTALS: [(&str, &str, f64, f64); 5] = [
+    ("North", "North region", 3_412_880.0, 3_296_140.0),
+    ("South", "South region", 2_987_310.0, 3_104_560.0),
+    ("East", "East region", 2_256_090.0, 2_130_470.0),
+    ("West", "West region", 1_874_520.0, 1_799_380.0),
+    ("Central", "Central region", 1_203_840.0, 1_241_610.0),
+];
+const GUIDANCE_HREF: &str =
+    "https://analysisfunction.civilservice.gov.uk/policy-store/data-visualisation-charts/";
+const PRINCIPLES: [&str; 7] = [
+    "Gaps between single bars are narrower than a bar, and gaps between clusters are wider than one.",
+    "More than one time series is a line chart, never clustered columns.",
+    "Lines are labelled at their ends instead of through a legend that relies on colour.",
+    "Every series chart carries its data as a table for screen readers.",
+    "Bars start at zero, and ranked bars are sorted by value.",
+    "A chart shows at most four series, one per chart colour.",
+    "Gridlines are few and light, and every label reads horizontally.",
 ];
 const DOLLARS: ValueFormat = ValueFormat::Money(Currency::UsDollar);
 const SELECTED_EMPLOYEE_PARAMETER: &str = "sales-employee";
@@ -260,7 +278,36 @@ fn slug(name: &str) -> String {
 }
 
 fn monthly_columns() -> AnyView {
-    let labels: Vec<AxisLabel> = MONTHLY_TOTALS
+    let labels: Vec<AxisLabel> = MONTHLY_INVOICED
+        .iter()
+        .map(|(short, long, _)| AxisLabel {
+            short: (*short).to_owned(),
+            long: (*long).to_owned(),
+        })
+        .collect();
+    let series = vec![ChartSeries {
+        label: "AR Invoices".to_owned(),
+        color: ChartColor::Blue,
+        values: MONTHLY_INVOICED
+            .iter()
+            .map(|(_, _, invoiced)| *invoiced)
+            .collect(),
+    }];
+    view! {
+        <ChartCard title="Invoiced by Month" description="January to September 2026">
+            <ColumnChart
+                labels=labels
+                series=series
+                format=DOLLARS
+                description="Monthly AR invoice totals"
+            />
+        </ChartCard>
+    }
+    .into_any()
+}
+
+fn regional_columns() -> AnyView {
+    let labels: Vec<AxisLabel> = REGION_TOTALS
         .iter()
         .map(|(short, long, _, _)| AxisLabel {
             short: (*short).to_owned(),
@@ -271,7 +318,7 @@ fn monthly_columns() -> AnyView {
         ChartSeries {
             label: "Sales Orders".to_owned(),
             color: ChartColor::Blue,
-            values: MONTHLY_TOTALS
+            values: REGION_TOTALS
                 .iter()
                 .map(|(_, _, ordered, _)| *ordered)
                 .collect(),
@@ -279,21 +326,41 @@ fn monthly_columns() -> AnyView {
         ChartSeries {
             label: "AR Invoices".to_owned(),
             color: ChartColor::Orange,
-            values: MONTHLY_TOTALS
+            values: REGION_TOTALS
                 .iter()
                 .map(|(_, _, _, invoiced)| *invoiced)
                 .collect(),
         },
     ];
     view! {
-        <ChartCard title="Ordered and Invoiced by Month" description="January to September 2026">
+        <ChartCard title="Ordered and Invoiced by Region" description="January to September 2026">
             <ColumnChart
                 labels=labels
                 series=series
                 format=DOLLARS
-                description="Monthly sales order and AR invoice totals"
+                description="Sales order and AR invoice totals by region"
             />
         </ChartCard>
+    }
+    .into_any()
+}
+
+fn principles() -> AnyView {
+    view! {
+        <div class="space-y-3 text-sm text-gray-700">
+            <ul class="list-disc space-y-1 pl-5">
+                {PRINCIPLES.iter().map(|principle| view! { <li>{*principle}</li> }).collect_view()}
+            </ul>
+            <p class="text-gray-500">
+                "Drawn from the Government Analysis Function's "
+                <a
+                    href=GUIDANCE_HREF
+                    class="text-gray-900 underline underline-offset-2 hover:text-focus"
+                >
+                    "data visualisation guidance for charts"
+                </a> "."
+            </p>
+        </div>
     }
     .into_any()
 }
@@ -342,11 +409,13 @@ pub fn ChartsPage() -> impl IntoView {
     view! {
         <main data-canvas class="mx-auto max-w-screen-xl space-y-10 px-6 py-8">
             <PageHeader title="Charts" />
+            {chart_section("Principles", principles())}
             {chart_section("Stat Tiles", stat_tiles())}
             {chart_section("Line, Interactive", interactive_line(labels.clone(), series.clone()))}
             {chart_section("Line, Two Series", comparison_line(labels, series))}
             {chart_section("Line, Empty Range", empty_line())}
-            {chart_section("Columns, Two Series", monthly_columns())}
+            {chart_section("Columns, One Series", monthly_columns())}
+            {chart_section("Columns, Clustered", regional_columns())}
             {chart_section("Horizontal Bar, Top Customers", top_customers())}
             {chart_section("Horizontal Bar, Clickable Rows", sales_employee_ranking())}
         </main>
