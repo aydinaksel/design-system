@@ -41,16 +41,18 @@ pub(crate) fn series_table(
         .map(|(index, label)| value_row(index, label, series, format))
         .collect_view();
     view! {
-        <table class="sr-only">
-            <caption>{caption.to_owned()}</caption>
-            <thead>
-                <tr>
-                    <td></td>
-                    {headings}
-                </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-        </table>
+        <div class="sr-only">
+            <table>
+                <caption>{caption.to_owned()}</caption>
+                <thead>
+                    <tr>
+                        <td></td>
+                        {headings}
+                    </tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
     }
     .into_any()
 }
