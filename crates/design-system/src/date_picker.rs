@@ -1,16 +1,16 @@
-use chrono::{Local, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use leptos::prelude::*;
-use leptos_use_calendar::{
-    use_calendar_with_options, CalendarDate, UseCalendarOptions, UseCalendarReturn,
-};
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
+use crate::calendar::{weekday_labels, GridDay, Month};
 use crate::controls::{field_control_id, field_description_id, with_field_error};
 use crate::icons;
 use crate::popover::{Popover, PopoverContent, PopoverState, PopoverTrigger};
 use crate::tooltip::Tooltip;
 
-const WEEKDAY_LABELS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_CLASS: &str =
+    "flex h-8 w-9 items-center justify-center text-xs font-medium text-gray-400";
+const MONTH_STEP_CLASS: &str = "cursor-pointer rounded p-1.5 text-gray-600 hover:bg-gray-100";
 const DAY_BUTTON: &str =
     "flex h-9 w-9 items-center justify-center rounded-full text-sm cursor-pointer";
 const DATE_FORMAT: &str = "%Y-%m-%d";
@@ -112,50 +112,40 @@ pub fn DatePicker(
     .into_any()
 }
 
+fn day_button(
+    grid_day: GridDay,
+    selected_date: Option<NaiveDate>,
+    today: NaiveDate,
+    on_select: Callback<NaiveDate>,
+) -> AnyView {
+    let date = grid_day.date();
+    let autofocus = starts_focused(date, selected_date, today).then_some("");
+    view! {
+        <button
+            type="button"
+            class=day_class(grid_day, selected_date, today)
+            data-autofocus=autofocus
+            on:click=move |_| on_select.run(date)
+        >
+            {date.day()}
+        </button>
+    }
+    .into_any()
+}
+
 #[component]
 fn CalendarPanel(
     selected_date: Option<NaiveDate>,
     on_select: Callback<NaiveDate>,
 ) -> impl IntoView {
-    let options = UseCalendarOptions::default().initial_date(selected_date);
-    let UseCalendarReturn {
-        previous_month,
-        next_month,
-        dates,
-        ..
-    } = use_calendar_with_options(options);
-
-    let month_label = move || {
-        dates
-            .get()
-            .iter()
-            .find(|date| !date.is_other_month())
-            .map(|date| date.format("%B %Y").to_string())
-            .unwrap_or_default()
-    };
-
-    let select_day = move |chosen: NaiveDate| on_select.run(chosen);
-
+    let today = Local::now().date_naive();
+    let shown = RwSignal::new(Month::containing(selected_date.unwrap_or(today)));
     let day_cells = move || {
-        dates
+        shown
             .get()
+            .grid_days()
             .into_iter()
-            .map(|calendar_date| {
-                let chosen: NaiveDate = *calendar_date;
-                let label = calendar_date.format("%-d").to_string();
-                let class = day_class(calendar_date, selected_date);
-                let autofocus = starts_focused(calendar_date, selected_date).then_some("");
-                view! {
-                    <button
-                        type="button"
-                        class=class
-                        data-autofocus=autofocus
-                        on:click=move |_| select_day(chosen)
-                    >
-                        {label}
-                    </button>
-                }
-            })
+            .map(|grid_day| day_button(grid_day, selected_date, today, on_select))
             .collect_view()
     };
 
@@ -164,40 +154,31 @@ fn CalendarPanel(
             <div class="mb-2 flex items-center justify-between">
                 <button
                     type="button"
-                    class="cursor-pointer rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                    class=MONTH_STEP_CLASS
                     aria-label="Previous Month"
-                    on:click=move |_| previous_month()
+                    on:click=move |_| shown.update(|month| *month = month.previous())
                 >
                     {icons::icon(icons::LucideGlyph::ChevronLeft, "h-4 w-4")}
                 </button>
-                <span class="text-sm font-semibold text-gray-900">{month_label}</span>
+                <span class="text-sm font-semibold text-gray-900">
+                    {move || shown.get().label()}
+                </span>
                 <button
                     type="button"
-                    class="cursor-pointer rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                    class=MONTH_STEP_CLASS
                     aria-label="Next Month"
-                    on:click=move |_| next_month()
+                    on:click=move |_| shown.update(|month| *month = month.next())
                 >
                     {icons::icon(icons::LucideGlyph::ChevronRight, "h-4 w-4")}
                 </button>
             </div>
-            <div class="grid grid-cols-7 justify-items-center">
-                {WEEKDAY_LABELS
-                    .iter()
-                    .map(|label| {
-                        view! {
-                            <div class="flex h-8 w-9 items-center justify-center text-xs font-medium text-gray-400">
-                                {*label}
-                            </div>
-                        }
-                    })
-                    .collect_view()}
-            </div>
+            <div class="grid grid-cols-7 justify-items-center">{weekday_labels(WEEKDAY_CLASS)}</div>
             <div class="grid grid-cols-7 justify-items-center gap-y-0.5">{day_cells}</div>
             <div class="mt-2 flex justify-center border-t border-gray-100 pt-2">
                 <button
                     type="button"
                     class=button_class(ButtonTone::Secondary, ButtonSize::Compact)
-                    on:click=move |_| select_day(Local::now().date_naive())
+                    on:click=move |_| on_select.run(today)
                 >
                     "Today"
                 </button>
@@ -207,22 +188,17 @@ fn CalendarPanel(
     .into_any()
 }
 
-fn starts_focused(
-    calendar_date: CalendarDate<NaiveDate>,
-    selected_date: Option<NaiveDate>,
-) -> bool {
-    match selected_date {
-        Some(selected) => calendar_date.is_selected(&selected),
-        None => calendar_date.is_today(),
-    }
+fn starts_focused(date: NaiveDate, selected_date: Option<NaiveDate>, today: NaiveDate) -> bool {
+    selected_date.map_or(date == today, |selected| date == selected)
 }
 
-fn day_class(calendar_date: CalendarDate<NaiveDate>, selected_date: Option<NaiveDate>) -> String {
-    let tone = if selected_date.is_some_and(|selected| calendar_date.is_selected(&selected)) {
+fn day_class(grid_day: GridDay, selected_date: Option<NaiveDate>, today: NaiveDate) -> String {
+    let date = grid_day.date();
+    let tone = if selected_date == Some(date) {
         "bg-blue-600 font-medium text-white"
-    } else if calendar_date.is_today() {
+    } else if date == today {
         "font-medium text-blue-700 ring-1 ring-inset ring-blue-300 hover:bg-blue-50"
-    } else if calendar_date.is_other_month() {
+    } else if matches!(grid_day, GridDay::Neighbouring(_)) {
         "text-gray-300 hover:bg-gray-50"
     } else {
         "text-gray-700 hover:bg-gray-100"

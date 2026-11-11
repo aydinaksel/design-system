@@ -494,7 +494,6 @@ dependencies = [
  "js-sys",
  "lepticons",
  "leptos",
- "leptos-use-calendar",
  "leptos-use-cookie",
  "leptos-use-document-visibility",
  "leptos-use-event-listener",
@@ -1196,18 +1195,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "leptos-use-calendar"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54ffb4f2c86cf92f997af222ef7c7af665f8509ffe2358b36cdf746f0758877e"
-dependencies = [
- "chrono",
- "default-struct-builder",
- "leptos",
- "leptos-use-maybe-rw-signal",
-]
-
-[[package]]
 name = "leptos-use-cookie"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1323,16 +1310,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "leptos-use-maybe-rw-signal"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff6f223108aa2e3339ecd3359c5375673eac3afde508739e163e79fb9e267499"
-dependencies = [
- "leptos",
- "leptos-use-sync-signal",
-]
-
-[[package]]
 name = "leptos-use-now"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1353,32 +1330,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "leptos-use-rw-signal"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f034093cf7cb8cdebe5024cb5dd843e1d9195a419f085070ba3439fded2bec8b"
-dependencies = [
- "leptos",
-]
-
-[[package]]
 name = "leptos-use-supported"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "401de4cd9f81b0c5edb149e58c109a2e23ba001a58b73e04378236b40de3933c"
 dependencies = [
  "leptos",
-]
-
-[[package]]
-name = "leptos-use-sync-signal"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7727c56b98f1f69063cfa57fc9fdafc335e17da3370939c917e2e1671e72e4e2"
-dependencies = [
- "default-struct-builder",
- "leptos",
- "leptos-use-rw-signal",
 ]
 
 [[package]]

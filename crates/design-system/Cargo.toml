@@ -26,7 +26,6 @@ leptos = { version = "0.8" }
 rust_decimal = { version = "1", default-features = false }
 send_wrapper = "0.6"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
-leptos-use-calendar = { version = "0.20", default-features = false, features = ["chrono"] }
 leptos-use-cookie = "0.20"
 leptos-use-document-visibility = "0.20"
 leptos-use-event-listener = "0.20"
@@ -73,7 +72,6 @@ ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
-    "leptos-use-calendar/ssr",
     "leptos-use-cookie/ssr",
     "leptos-use-cookie/axum",
     "leptos-use-document-visibility/ssr",

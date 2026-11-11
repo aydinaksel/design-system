@@ -1,10 +1,24 @@
-use chrono::{Datelike, Local, Months, NaiveDate};
+use chrono::{Datelike, Days, Local, Months, NaiveDate};
 use leptos::prelude::*;
 
 use crate::typography::LABEL_CLASS;
 
 const DAYS_PER_WEEK: u32 = 7;
 const WEEKDAY_LABELS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GridDay {
+    InMonth(NaiveDate),
+    Neighbouring(NaiveDate),
+}
+
+impl GridDay {
+    pub(crate) const fn date(self) -> NaiveDate {
+        match self {
+            Self::InMonth(date) | Self::Neighbouring(date) => date,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Month {
@@ -67,17 +81,44 @@ impl Month {
     }
 }
 
+impl Month {
+    pub(crate) fn grid_days(self) -> Vec<GridDay> {
+        let leading_count = u64::from(self.leading_blank_days());
+        let leading_start = self
+            .first_day
+            .checked_sub_days(Days::new(leading_count))
+            .unwrap_or(self.first_day);
+        let leading = leading_start
+            .iter_days()
+            .take_while(|day| *day < self.first_day)
+            .map(GridDay::Neighbouring);
+        let trailing_count = usize::try_from(self.trailing_blank_days()).unwrap_or_default();
+        let trailing = self
+            .last_day()
+            .succ_opt()
+            .into_iter()
+            .flat_map(|next_day| next_day.iter_days())
+            .take(trailing_count)
+            .map(GridDay::Neighbouring);
+        leading
+            .chain(self.days().map(GridDay::InMonth))
+            .chain(trailing)
+            .collect()
+    }
+}
+
 pub(crate) fn month_cells(
     month: Month,
     blank: impl Fn() -> AnyView,
     day: impl Fn(NaiveDate) -> AnyView,
 ) -> AnyView {
-    let leading = (0..month.leading_blank_days()).map(|_| blank());
-    let days = month.days().map(day);
-    let trailing = (0..month.trailing_blank_days()).map(|_| blank());
-    leading
-        .chain(days)
-        .chain(trailing)
+    month
+        .grid_days()
+        .into_iter()
+        .map(|grid_day| match grid_day {
+            GridDay::InMonth(date) => day(date),
+            GridDay::Neighbouring(_) => blank(),
+        })
         .collect_view()
         .into_any()
 }
@@ -103,7 +144,7 @@ pub(crate) fn weekday_header() -> AnyView {
 mod tests {
     use chrono::NaiveDate;
 
-    use super::Month;
+    use super::{GridDay, Month};
 
     fn date(text: &str) -> NaiveDate {
         NaiveDate::parse_from_str(text, "%Y-%m-%d").unwrap()
@@ -132,5 +173,20 @@ mod tests {
         let january = Month::containing(date("2027-01-31"));
         assert_eq!(january.previous().first_day, date("2026-12-01"));
         assert_eq!(january.next().first_day, date("2027-02-01"));
+    }
+
+    #[test]
+    fn the_grid_borrows_whole_weeks_from_neighbouring_months() {
+        let days = Month::containing(date("2026-11-09")).grid_days();
+        assert_eq!(days.len(), 42);
+        assert_eq!(
+            days.first(),
+            Some(&GridDay::Neighbouring(date("2026-10-26")))
+        );
+        assert_eq!(days.get(6), Some(&GridDay::InMonth(date("2026-11-01"))));
+        assert_eq!(
+            days.last(),
+            Some(&GridDay::Neighbouring(date("2026-12-06")))
+        );
     }
 }
