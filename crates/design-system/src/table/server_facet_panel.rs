@@ -209,7 +209,7 @@ impl FacetControls {
 
     fn expanded_rail(self) -> AnyView {
         let panel_class = format!(
-            "flex {BODY_MAX_HEIGHT_CLASS} flex-col overflow-hidden rounded-surface border border-gray-200 bg-white"
+            "flex {BODY_MAX_HEIGHT_CLASS} flex-col overflow-hidden rounded-surface border border-gray-200 bg-surface"
         );
         let header_class = format!(
             "flex shrink-0 items-center justify-between gap-2 bg-gray-50 py-2.5 pl-3 pr-2 {HEADER_RULE_CLASS}"
@@ -265,7 +265,7 @@ impl FacetControls {
                     role="dialog"
                     aria-modal="true"
                     aria-label="Filters"
-                    class="fixed inset-0 z-50 flex flex-col bg-white sm:hidden"
+                    class="fixed inset-0 z-50 flex flex-col bg-surface sm:hidden"
                     on:keydown=move |event| {
                         if event.key() == "Escape" {
                             sheet_open.set(false);

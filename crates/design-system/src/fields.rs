@@ -27,20 +27,14 @@ use crate::icons;
 use crate::loading_state::LoadingState;
 use crate::tone::Tone;
 use crate::tooltip::{HelpTerm, Tooltip};
-use crate::typography::LABEL_CLASS;
+use crate::typography::{heading_element, LABEL_CLASS};
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
 const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-[0.5625rem]";
 const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-surface-inner after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum HeadingLevel {
-    #[default]
-    Two,
-    Three,
-    Four,
-}
+pub use crate::typography::HeadingLevel;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum SectionState {
@@ -611,29 +605,6 @@ fn editing_footer(session: EditSession) -> AnyView {
     .into_any()
 }
 
-fn heading_view(level: HeadingLevel, id: String, title: String) -> AnyView {
-    match level {
-        HeadingLevel::Two => view! {
-            <h2 id=id class=LABEL_CLASS>
-                {title}
-            </h2>
-        }
-        .into_any(),
-        HeadingLevel::Three => view! {
-            <h3 id=id class=LABEL_CLASS>
-                {title}
-            </h3>
-        }
-        .into_any(),
-        HeadingLevel::Four => view! {
-            <h4 id=id class=LABEL_CLASS>
-                {title}
-            </h4>
-        }
-        .into_any(),
-    }
-}
-
 fn status_view(state: RwSignal<SectionState>, announcement: String) -> impl IntoView {
     move || match state.get() {
         SectionState::Saving => Some(
@@ -745,7 +716,7 @@ pub fn FieldSection(
     let heading = (title.is_some() || actions.is_some() || edit_controls.is_some()).then(|| {
         let heading = title
             .zip(heading_id.clone())
-            .map(|(title, id)| heading_view(heading_level, id, title));
+            .map(|(title, id)| heading_element(heading_level, Some(id), LABEL_CLASS, title));
         view! {
             <div class="mb-1 flex min-h-7 items-center justify-between gap-3">
                 {heading}
@@ -759,7 +730,7 @@ pub fn FieldSection(
     let saving = move || state.get() == SectionState::Saving;
     let card_class = move || {
         format!(
-            "rounded-surface border border-gray-200 bg-white motion-safe:transition-shadow motion-safe:duration-300 {} {}",
+            "rounded-surface border border-gray-200 bg-surface motion-safe:transition-shadow motion-safe:duration-300 {} {}",
             if attention.get() { "ring-2 ring-focus ring-offset-2" } else { "" },
             if loading.get() { "hidden" } else { "" },
         )

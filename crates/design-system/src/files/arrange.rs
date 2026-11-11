@@ -24,8 +24,8 @@ const KEY_ATTRIBUTE: &str = "data-file-key";
 const KEY_SELECTOR: &str = "[data-file-key]";
 const ARRANGE_CONTROLS_SELECTOR: &str = "button, [aria-hidden=true]";
 const NO_CATEGORY_LABEL: &str = "No Type";
-const ROW_CLASS: &str = "flex min-w-0 items-center gap-2 rounded-surface border bg-white p-2";
-const TILE_CLASS: &str = "flex min-w-0 flex-col overflow-hidden rounded-surface border bg-white";
+const ROW_CLASS: &str = "flex min-w-0 items-center gap-2 rounded-surface border bg-surface p-2";
+const TILE_CLASS: &str = "flex min-w-0 flex-col overflow-hidden rounded-surface border bg-surface";
 const RESTING_CLASS: &str = "border-gray-200";
 const DRAGGED_CLASS: &str = "border-blue-400 opacity-60 ring-2 ring-blue-200";
 const HANDLE_CLASS: &str = "flex shrink-0 cursor-grab touch-none items-center justify-center rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 active:cursor-grabbing";
@@ -547,7 +547,7 @@ fn arrange_item(
                 <span class="relative">
                     {arrange_media(file, layout)}
                     <span class="absolute left-2 top-2">{primary_badge}</span>
-                    <span class="absolute right-2 top-2 rounded-md bg-white/90 shadow-sm">
+                    <span class="absolute right-2 top-2 rounded-md bg-surface/90 shadow-sm">
                         {handle}
                     </span>
                 </span>

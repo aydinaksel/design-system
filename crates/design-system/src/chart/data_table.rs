@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 
 use super::scale::ValueFormat;
-use super::{AxisLabel, ChartSeries};
+use super::{AxisLabel, ChartSeries, MISSING_VALUE_TEXT};
 
 fn value_row(
     index: usize,
@@ -11,7 +11,12 @@ fn value_row(
 ) -> AnyView {
     let cells = series
         .iter()
-        .map(|line| view! { <td>{line.values.get(index).map(|value| format.full(*value))}</td> })
+        .map(|line| {
+            let text = line
+                .value_at(index)
+                .map_or_else(|| MISSING_VALUE_TEXT.to_owned(), |value| format.full(value));
+            view! { <td>{text}</td> }
+        })
         .collect_view();
     view! {
         <tr>

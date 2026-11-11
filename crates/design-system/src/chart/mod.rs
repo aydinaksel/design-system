@@ -79,7 +79,19 @@ pub struct AxisLabel {
 pub struct ChartSeries {
     pub label: String,
     pub color: ChartColor,
-    pub values: Vec<f64>,
+    pub values: Vec<Option<f64>>,
+}
+
+pub(crate) const MISSING_VALUE_TEXT: &str = "No data";
+
+impl ChartSeries {
+    pub(crate) fn value_at(&self, index: usize) -> Option<f64> {
+        self.values.get(index).copied().flatten()
+    }
+
+    pub(crate) fn present_values(&self) -> impl Iterator<Item = f64> + '_ {
+        self.values.iter().copied().flatten()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

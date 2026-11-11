@@ -3,7 +3,7 @@ use leptos::prelude::*;
 use super::frame::ChartFrame;
 use super::{line_key, ChartColor};
 use crate::element_key::ElementKey;
-use crate::fields::HeadingLevel;
+use crate::typography::{heading_element, HeadingLevel};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChartMetric {
@@ -30,29 +30,6 @@ fn metric_button(index: usize, metric: ChartMetric, selected: RwSignal<usize>) -
                 {metric.value}
             </span>
         </button>
-    }
-}
-
-fn title_heading(level: HeadingLevel, id: String, title: String) -> AnyView {
-    match level {
-        HeadingLevel::Two => view! {
-            <h2 id=id class=TITLE_CLASS>
-                {title}
-            </h2>
-        }
-        .into_any(),
-        HeadingLevel::Three => view! {
-            <h3 id=id class=TITLE_CLASS>
-                {title}
-            </h3>
-        }
-        .into_any(),
-        HeadingLevel::Four => view! {
-            <h4 id=id class=TITLE_CLASS>
-                {title}
-            </h4>
-        }
-        .into_any(),
     }
 }
 
@@ -109,6 +86,7 @@ pub fn ChartCard(
         heading_id.clone()
     };
     provide_context(ChartFrame {
+        heading_level,
         labelled_by,
         name: spoken_name(&title, subtitle.as_ref()),
     });
@@ -141,7 +119,7 @@ pub fn ChartCard(
         >
             <header class="flex flex-col items-stretch border-b border-gray-200 sm:flex-row">
                 <div class="flex flex-1 flex-col justify-center gap-1 px-6 py-4">
-                    {title_heading(heading_level, heading_id, title)}
+                    {heading_element(heading_level, Some(heading_id), TITLE_CLASS, title)}
                     {subtitle
                         .map(|text| {
                             view! {

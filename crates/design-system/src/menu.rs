@@ -20,7 +20,7 @@ const DISABLED_ITEM_CLASS: &str = "flex w-full cursor-not-allowed items-center g
 pub(crate) const ICON_CLASS: &str = "h-4 w-4 shrink-0 text-gray-400 group-focus:text-gray-600";
 const SHORTCUT_CLASS: &str =
     "invisible ml-auto pl-6 font-sans text-xs text-gray-500 group-focus:visible";
-const PANEL_CLASS: &str = "fixed z-50 w-max min-w-48 max-w-[calc(100vw-1rem)] rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg duration-100 ease-out will-change-[opacity] focus:outline-none motion-reduce:transition-none";
+const PANEL_CLASS: &str = "fixed z-50 w-max min-w-48 max-w-[calc(100vw-1rem)] rounded-surface border border-gray-200 bg-surface p-1 text-sm/6 shadow-lg duration-100 ease-out will-change-[opacity] focus:outline-none motion-reduce:transition-none";
 const PANEL_OPEN_CLASS: &str = "visible opacity-100 transition-opacity";
 const PANEL_CLOSED_CLASS: &str = "invisible opacity-0 transition-[opacity,visibility]";
 const ANCHORING: Anchoring = Anchoring {

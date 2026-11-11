@@ -7,8 +7,8 @@ use crate::filter_chip::FilterChip;
 use crate::icons::{self, LucideGlyph};
 
 const TOUCH_ONLY_CLASS: &str = "hidden pointer-coarse:contents";
-const PHONE_EMPTY_CLASS: &str = "hidden flex-col items-center gap-3 rounded-surface border-2 border-dashed border-gray-300 bg-white px-6 py-8 text-center pointer-coarse:flex";
-const DROP_ZONE_CLASS: &str = "flex w-full cursor-pointer flex-col items-center gap-1 rounded-surface border-2 border-dashed border-gray-300 bg-white px-6 py-8 text-center text-sm transition-colors hover:border-gray-400 focus-ring disabled:cursor-not-allowed disabled:opacity-60";
+const PHONE_EMPTY_CLASS: &str = "hidden flex-col items-center gap-3 rounded-surface border-2 border-dashed border-gray-300 bg-surface px-6 py-8 text-center pointer-coarse:flex";
+const DROP_ZONE_CLASS: &str = "flex w-full cursor-pointer flex-col items-center gap-1 rounded-surface border-2 border-dashed border-gray-300 bg-surface px-6 py-8 text-center text-sm transition-colors hover:border-gray-400 focus-ring disabled:cursor-not-allowed disabled:opacity-60";
 
 fn large_button(
     label: &'static str,

@@ -8,10 +8,12 @@ use super::frame::chart_name;
 use super::label_layout::spread_label_positions;
 use super::reference::{covered_maximum, reference_overlay, ReferenceLine};
 use super::scale::{ValueFormat, ValueScale};
-use super::{line_key, AxisLabel, ChartSeries};
+use super::{line_key, AxisLabel, ChartColor, ChartSeries, MISSING_VALUE_TEXT};
 
 const MAXIMUM_AXIS_LABELS: usize = 6;
 const TOOLTIP_GAP: &str = "12px";
+const ISOLATED_POINT_CLASS: &str =
+    "pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full";
 const END_LABEL_SPACING_PERCENT: f64 = 8.0;
 const LABELLED_AXIS_CLASS: &str = "relative mt-2 mr-31 ml-15 h-4 text-xs text-gray-500";
 const UNLABELLED_AXIS_CLASS: &str = "relative mt-2 ml-15 h-4 text-xs text-gray-500";
@@ -73,21 +75,45 @@ fn axis_label_indices(point_count: usize) -> Vec<usize> {
 fn highest_value(series: &[ChartSeries]) -> f64 {
     series
         .iter()
-        .flat_map(|line| line.values.iter().copied())
+        .flat_map(ChartSeries::present_values)
         .fold(0.0, f64::max)
 }
 
-fn line_path(values: &[f64], scale: &ValueScale) -> String {
+fn unbroken_runs(values: &[Option<f64>], scale: &ValueScale) -> Vec<Vec<PlotPoint>> {
     let point_count = values.len();
-    let points: Vec<PlotPoint> = values
-        .iter()
-        .enumerate()
-        .map(|(index, value)| PlotPoint {
-            horizontal: horizontal_percent(index, point_count),
-            vertical: scale.percent_from_top(*value),
+    let indexed: Vec<(usize, Option<f64>)> = values.iter().copied().enumerate().collect();
+    indexed
+        .split(|(_, value)| value.is_none())
+        .filter(|run| !run.is_empty())
+        .map(|run| {
+            run.iter()
+                .filter_map(|(index, value)| {
+                    value.map(|amount| PlotPoint {
+                        horizontal: horizontal_percent(*index, point_count),
+                        vertical: scale.percent_from_top(amount),
+                    })
+                })
+                .collect()
         })
-        .collect();
-    monotone_path(&points)
+        .collect()
+}
+
+fn line_path(values: &[Option<f64>], scale: &ValueScale) -> String {
+    unbroken_runs(values, scale)
+        .iter()
+        .filter(|run| run.len() > 1)
+        .map(|run| monotone_path(run))
+        .collect()
+}
+
+fn isolated_points(line: &ChartSeries, scale: &ValueScale) -> Vec<(ChartColor, PlotPoint)> {
+    unbroken_runs(&line.values, scale)
+        .into_iter()
+        .filter_map(|run| match run.as_slice() {
+            [only] => Some((line.color, *only)),
+            _ => None,
+        })
+        .collect()
 }
 
 fn axis_label_alignment(index: usize, point_count: usize) -> &'static str {
@@ -143,6 +169,19 @@ fn plot_layer(series: &[ChartSeries], scale: &ValueScale) -> AnyView {
             }
         })
         .collect_view();
+    let dots = series
+        .iter()
+        .flat_map(|line| isolated_points(line, scale))
+        .map(|(color, point)| {
+            view! {
+                <span
+                    aria-hidden="true"
+                    class=format!("{ISOLATED_POINT_CLASS} {}", color.background_class())
+                    style=format!("left: {:.3}%; top: {:.3}%", point.horizontal, point.vertical)
+                ></span>
+            }
+        })
+        .collect_view();
     view! {
         <svg
             aria-hidden="true"
@@ -153,6 +192,7 @@ fn plot_layer(series: &[ChartSeries], scale: &ValueScale) -> AnyView {
             {gridlines}
             {lines}
         </svg>
+        {dots}
     }
     .into_any()
 }
@@ -200,15 +240,18 @@ fn category_axis(labels: &[AxisLabel]) -> AnyView {
 fn tooltip_rows(series: &[ChartSeries], index: usize, format: ValueFormat) -> AnyView {
     series
         .iter()
-        .filter_map(|line| line.values.get(index).map(|value| (line, *value)))
-        .map(|(line, value)| {
+        .map(|line| {
+            let reading = line.value_at(index).map_or_else(
+                || view! { <span class="text-gray-400">{MISSING_VALUE_TEXT}</span> }.into_any(),
+                |value| {
+                    view! { <span class="font-semibold tabular-nums text-gray-900">{format.full(value)}</span> }
+                    .into_any()
+                },
+            );
             view! {
                 <div class="flex items-center gap-2">
                     {line_key(line.color)}
-                    <span class="flex-1 text-gray-500">{line.label.clone()}</span>
-                    <span class="font-semibold tabular-nums text-gray-900">
-                        {format.full(value)}
-                    </span>
+                    <span class="flex-1 text-gray-500">{line.label.clone()}</span> {reading}
                 </div>
             }
         })
@@ -234,7 +277,7 @@ fn hover_layer(
     };
     let markers = series
         .iter()
-        .filter_map(|line| line.values.get(index).map(|value| (line.color, *value)))
+        .filter_map(|line| line.value_at(index).map(|value| (line.color, value)))
         .map(|(color, value)| {
             let style = format!(
                 "left: {left_percent:.3}%; top: {:.3}%",
@@ -243,7 +286,7 @@ fn hover_layer(
             view! {
                 <span
                     class=format!(
-                        "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white {}",
+                        "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface {}",
                         color.background_class(),
                     )
                     style=style
@@ -280,9 +323,9 @@ fn end_labels(series: &[ChartSeries], scale: &ValueScale) -> AnyView {
         .iter()
         .filter(|line| !line.color.is_muted())
         .filter_map(|line| {
-            line.values
+            line.present_values()
                 .last()
-                .map(|value| (scale.percent_from_top(*value), line))
+                .map(|value| (scale.percent_from_top(value), line))
         })
         .collect();
     endings.sort_by(|left, right| left.0.total_cmp(&right.0));
@@ -458,7 +501,9 @@ pub fn LineChart(
 
 #[cfg(test)]
 mod tests {
-    use super::{axis_label_indices, nearest_index, stepped_index};
+    use super::{
+        axis_label_indices, line_path, nearest_index, stepped_index, unbroken_runs, ValueScale,
+    };
 
     #[test]
     fn a_quarter_of_days_gets_six_evenly_spaced_labels() {
@@ -477,5 +522,25 @@ mod tests {
         assert_eq!(stepped_index("ArrowRight", Some(2), 3), Some(2));
         assert_eq!(stepped_index("ArrowLeft", Some(0), 3), Some(0));
         assert_eq!(stepped_index("ArrowLeft", None, 0), None);
+    }
+
+    #[test]
+    fn a_missing_value_breaks_the_line_instead_of_joining_across_it() {
+        let scale = ValueScale::covering(10.0);
+        let values = [
+            Some(2.0),
+            Some(4.0),
+            None,
+            Some(6.0),
+            Some(8.0),
+            None,
+            Some(5.0),
+        ];
+        let lengths: Vec<usize> = unbroken_runs(&values, &scale)
+            .iter()
+            .map(Vec::len)
+            .collect();
+        assert_eq!(lengths, vec![2, 2, 1]);
+        assert_eq!(line_path(&values, &scale).matches('M').count(), 2);
     }
 }

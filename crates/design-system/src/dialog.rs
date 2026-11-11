@@ -9,7 +9,7 @@ use crate::element_key::ElementKey;
 use crate::icons;
 
 const BACKDROP_CLASS: &str = "fixed inset-0 bg-gray-900/40 transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:transition-none";
-const PANEL_CLASS: &str = "relative w-full rounded-surface border border-gray-200 bg-white p-5 shadow-xl transition duration-200 ease-out focus:outline-none starting:scale-95 starting:opacity-0 motion-reduce:transition-none";
+const PANEL_CLASS: &str = "relative w-full rounded-surface border border-gray-200 bg-surface p-5 shadow-xl transition duration-200 ease-out focus:outline-none starting:scale-95 starting:opacity-0 motion-reduce:transition-none";
 const CLOSE_BUTTON_CLASS: &str =
     "cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600";
 

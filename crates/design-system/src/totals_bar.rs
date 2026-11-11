@@ -31,7 +31,7 @@ pub fn total(label: &'static str, value: impl Into<String>) -> Total {
 #[component]
 pub fn TotalsBar(totals: Vec<Total>) -> impl IntoView {
     view! {
-        <dl class="mt-4 flex flex-col divide-y divide-gray-100 rounded-surface border border-gray-200 bg-white text-sm sm:flex-row sm:flex-wrap sm:justify-end sm:gap-x-8 sm:gap-y-2 sm:divide-y-0 sm:px-5 sm:py-3">
+        <dl class="mt-4 flex flex-col divide-y divide-gray-100 rounded-surface border border-gray-200 bg-surface text-sm sm:flex-row sm:flex-wrap sm:justify-end sm:gap-x-8 sm:gap-y-2 sm:divide-y-0 sm:px-5 sm:py-3">
             {totals
                 .into_iter()
                 .map(|Total { label, value, tone }| {

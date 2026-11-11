@@ -20,7 +20,7 @@ pub enum StackMode {
 fn row_values(series: &[ChartSeries], index: usize) -> Vec<f64> {
     series
         .iter()
-        .map(|part| part.values.get(index).copied().unwrap_or_default().max(0.0))
+        .map(|part| part.value_at(index).unwrap_or_default().max(0.0))
         .collect()
 }
 

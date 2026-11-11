@@ -16,8 +16,8 @@ pub enum SearchSize {
 impl SearchSize {
     const fn input_class(self) -> &'static str {
         match self {
-            Self::Standard => "block w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-9 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
-            Self::Compact => "block w-full rounded-md border border-gray-300 bg-white py-1.5 pl-7 pr-7 text-xs text-gray-900 transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
+            Self::Standard => "block w-full rounded-md border border-gray-300 bg-surface py-2 pl-9 pr-9 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
+            Self::Compact => "block w-full rounded-md border border-gray-300 bg-surface py-1.5 pl-7 pr-7 text-xs text-gray-900 transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
         }
     }
 

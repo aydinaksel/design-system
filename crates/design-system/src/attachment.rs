@@ -133,7 +133,7 @@ fn root_class(
     let border = match state.tone() {
         Tone::Critical => "border-red-200 bg-red-50/40",
         Tone::Neutral | Tone::Informative | Tone::Positive | Tone::Caution => {
-            "border-gray-200 bg-white hover:border-gray-300"
+            "border-gray-200 bg-surface hover:border-gray-300"
         }
     };
     format!(

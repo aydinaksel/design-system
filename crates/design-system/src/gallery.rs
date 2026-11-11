@@ -114,7 +114,7 @@ fn GalleryStage(
     );
 
     view! {
-        <div class="relative aspect-square w-full rounded-surface border border-gray-200 overflow-hidden bg-white">
+        <div class="relative aspect-square w-full rounded-surface border border-gray-200 overflow-hidden bg-surface">
             <img
                 src=image.display_url
                 srcset=image.source_set
@@ -124,14 +124,14 @@ fn GalleryStage(
             <Show when=move || { count > 1 }>
                 <div>
                     <button
-                        class="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        class="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-surface/80 p-2 shadow hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled=!can_go_previous
                         on:click=move |_| selected_image.set(position.saturating_sub(1))
                     >
                         {icons::icon(icons::LucideGlyph::ChevronLeft, "h-5 w-5")}
                     </button>
                     <button
-                        class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-surface/80 p-2 shadow hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled=!can_go_next
                         on:click=move |_| selected_image.set(position.saturating_add(1))
                     >
@@ -168,7 +168,7 @@ fn GalleryThumbnails(
             view! {
                 <button
                     class=format!(
-                        "shrink-0 w-16 h-16 rounded overflow-hidden bg-white cursor-pointer focus-ring {border_class}",
+                        "shrink-0 w-16 h-16 rounded overflow-hidden bg-surface cursor-pointer focus-ring {border_class}",
                     )
                     title=image.label
                     on:click=move |_| selected_image.set(index)
@@ -237,7 +237,7 @@ pub fn ImageGrid(#[prop(into)] images: Signal<Vec<GalleryImage>>) -> impl IntoVi
                                         class="group block w-full cursor-pointer text-left"
                                         on:click=move |_| enlarged.set(Some(index))
                                     >
-                                        <div class="aspect-square overflow-hidden rounded-surface border border-gray-200 bg-white group-hover:border-gray-400">
+                                        <div class="aspect-square overflow-hidden rounded-surface border border-gray-200 bg-surface group-hover:border-gray-400">
                                             <img
                                                 src=image.display_url
                                                 srcset=image.source_set
@@ -294,7 +294,7 @@ fn EnlargedImage(
         count
     );
     let dialog_label = image.label.clone();
-    let navigation_class = "absolute top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-white/80 p-2 shadow hover:bg-white disabled:cursor-not-allowed disabled:opacity-30";
+    let navigation_class = "absolute top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-surface/80 p-2 shadow hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30";
 
     view! {
         <div
@@ -314,7 +314,7 @@ fn EnlargedImage(
             />
             <button
                 type="button"
-                class="absolute right-4 top-4 cursor-pointer rounded-full bg-white/80 p-2 shadow hover:bg-white"
+                class="absolute right-4 top-4 cursor-pointer rounded-full bg-surface/80 p-2 shadow hover:bg-surface"
                 aria-label="Close"
                 title="Close"
                 on:click=move |_| enlarged.set(None)

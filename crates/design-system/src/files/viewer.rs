@@ -82,7 +82,7 @@ fn preview_view(file: &StoredFile) -> AnyView {
             <iframe
                 src=file.url.clone()
                 title=file.name.clone()
-                class="h-full w-full bg-white"
+                class="h-full w-full bg-surface"
             ></iframe>
         }
         .into_any(),

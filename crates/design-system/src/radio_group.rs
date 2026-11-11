@@ -3,7 +3,7 @@ use leptos::prelude::*;
 use crate::controls::{field_control_id, field_description_id, field_label_id};
 use crate::element_key::ElementKey;
 
-const RADIO_CLASS: &str = "mt-0.5 size-4 shrink-0 cursor-pointer appearance-none rounded-full border border-gray-300 bg-white transition-all hover:border-gray-400 checked:border-[5px] checked:border-blue-600 checked:hover:border-blue-700 focus-ring disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:checked:border-gray-300 motion-reduce:transition-none";
+const RADIO_CLASS: &str = "mt-0.5 size-4 shrink-0 cursor-pointer appearance-none rounded-full border border-gray-300 bg-surface transition-all hover:border-gray-400 checked:border-[5px] checked:border-blue-600 checked:hover:border-blue-700 focus-ring disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:checked:border-gray-300 motion-reduce:transition-none";
 const OPTION_LABEL_CLASS: &str = "block text-sm font-medium text-gray-900";
 const OPTION_DESCRIPTION_CLASS: &str = "block text-xs text-gray-500";
 
@@ -61,7 +61,7 @@ impl RadioLayout {
     const fn option_class(self) -> &'static str {
         match self {
             Self::List => "flex cursor-pointer items-start gap-3 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50",
-            Self::Cards => "flex cursor-pointer items-start gap-3 rounded-surface border border-gray-200 bg-white px-4 py-3 shadow-sm transition-colors hover:border-gray-300 has-[:checked]:border-blue-600 has-[:checked]:ring-1 has-[:checked]:ring-blue-600 has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-gray-50 has-[:disabled]:opacity-60",
+            Self::Cards => "flex cursor-pointer items-start gap-3 rounded-surface border border-gray-200 bg-surface px-4 py-3 shadow-sm transition-colors hover:border-gray-300 has-[:checked]:border-blue-600 has-[:checked]:ring-1 has-[:checked]:ring-blue-600 has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-gray-50 has-[:disabled]:opacity-60",
         }
     }
 }

@@ -1,8 +1,10 @@
 use leptos::prelude::*;
 
 use crate::icons::{icon, LucideGlyph};
+use crate::tone::Tone;
 
 const FLAT_CHANGE_PERCENT: f64 = 0.05;
+const FLAT_TONE_CLASS: &str = "text-gray-500";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StatChange {
@@ -29,17 +31,21 @@ impl StatChange {
         }
     }
 
-    fn tone_class(&self) -> &'static str {
+    fn tone(&self) -> Option<Tone> {
         let improved = match self.direction() {
-            Direction::Flat => return "text-gray-500",
+            Direction::Flat => return None,
             Direction::Up => self.higher_is_better,
             Direction::Down => !self.higher_is_better,
         };
-        if improved {
-            "text-green-700"
+        Some(if improved {
+            Tone::Positive
         } else {
-            "text-red-700"
-        }
+            Tone::Critical
+        })
+    }
+
+    fn tone_class(&self) -> &'static str {
+        self.tone().map_or(FLAT_TONE_CLASS, Tone::text_class)
     }
 
     fn movement(&self) -> String {
@@ -110,6 +116,7 @@ pub fn StatGrid(children: Children) -> impl IntoView {
 #[cfg(test)]
 mod tests {
     use super::StatChange;
+    use crate::tone::Tone;
 
     fn change(percent: f64, higher_is_better: bool) -> StatChange {
         StatChange {
@@ -121,8 +128,9 @@ mod tests {
 
     #[test]
     fn a_rise_reads_as_good_only_when_higher_is_better() {
-        assert_eq!(change(8.4, true).tone_class(), "text-green-700");
-        assert_eq!(change(8.4, false).tone_class(), "text-red-700");
+        assert_eq!(change(8.4, true).tone(), Some(Tone::Positive));
+        assert_eq!(change(8.4, false).tone(), Some(Tone::Critical));
+        assert_eq!(change(0.0, true).tone(), None);
     }
 
     #[test]

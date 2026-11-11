@@ -13,7 +13,7 @@ use crate::menu::{
 use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
 
 pub(crate) const LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS: f64 = 240.0;
-pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-surface border border-gray-200 bg-white p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
+pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-surface border border-gray-200 bg-surface p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
 pub(crate) const LISTBOX_ANCHORING: Anchoring = Anchoring {
     alignment: Alignment::Start,
     side: PreferredSide::Below,

@@ -1127,7 +1127,7 @@ where
         _ => view! {
             <div class="relative">
                 <div class=format!(
-                    "w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-white {BODY_MAX_HEIGHT_CLASS}",
+                    "w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-surface {BODY_MAX_HEIGHT_CLASS}",
                 )>
                     <table class="w-full table-fixed text-sm tabular-nums">
                         <colgroup>{column_widths}</colgroup>

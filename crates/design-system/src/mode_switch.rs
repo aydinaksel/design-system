@@ -31,7 +31,7 @@ pub fn selected_mode(modes: &'static [PageMode]) -> Memo<&'static str> {
 const SEGMENT_CLASS: &str = "inline-flex size-9 cursor-pointer items-center justify-center transition-colors focus-ring-inset";
 const SELECTED_SEGMENT_CLASS: &str = "bg-gray-100 text-gray-900";
 const UNSELECTED_SEGMENT_CLASS: &str =
-    "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900";
+    "bg-surface text-gray-500 hover:bg-gray-50 hover:text-gray-900";
 
 fn corner_class(index: usize, count: usize) -> &'static str {
     let is_first = index == 0;

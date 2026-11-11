@@ -128,7 +128,7 @@ fn part_series<const PARTS: usize>(
             color: *color,
             values: rows
                 .iter()
-                .map(|(_, values)| values.get(part_index).copied().unwrap_or_default())
+                .map(|(_, values)| values.get(part_index).copied())
                 .collect(),
         })
         .collect()
@@ -200,7 +200,7 @@ fn warehouse_series(highlighted: Option<&str>) -> Vec<ChartSeries> {
                 Some(focus) if focus != *name => ChartColor::Muted,
                 _ => ChartColor::Blue,
             },
-            values: values.to_vec(),
+            values: values.iter().copied().map(Some).collect(),
         })
         .collect()
 }

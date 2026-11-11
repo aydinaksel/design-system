@@ -14,7 +14,7 @@ use crate::placement::{Alignment, AnchoredPanel, Anchoring};
 
 const GAP_PIXELS: f64 = 6.0;
 const DEFAULT_WIDTH_CLASS: &str = "w-72";
-const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal rounded-surface border border-gray-200 bg-white text-left text-sm text-gray-900 shadow-lg focus:outline-none motion-safe:animate-fade-in motion-safe:transition-shadow";
+const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal rounded-surface border border-gray-200 bg-surface text-left text-sm text-gray-900 shadow-lg focus:outline-none motion-safe:animate-fade-in motion-safe:transition-shadow";
 const PADDED_PANEL_CLASS: &str = "p-3";
 const UNPADDED_PANEL_CLASS: &str = "overflow-hidden";
 const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";

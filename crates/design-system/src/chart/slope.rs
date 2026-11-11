@@ -172,7 +172,10 @@ fn table_shape(
     let column = |label: &str, side: Side| ChartSeries {
         label: label.to_owned(),
         color: ChartColor::Blue,
-        values: entries.iter().map(|entry| entry.value(side)).collect(),
+        values: entries
+            .iter()
+            .map(|entry| Some(entry.value(side)))
+            .collect(),
     };
     (
         labels,

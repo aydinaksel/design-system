@@ -16,13 +16,13 @@ impl ButtonTone {
                 "border border-transparent bg-blue-600 text-white shadow-sm hover:bg-blue-700"
             }
             ButtonTone::Secondary => {
-                "border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50"
+                "border border-gray-300 bg-surface text-gray-700 shadow-sm hover:bg-gray-50"
             }
             ButtonTone::Danger => {
                 "border border-transparent bg-red-600 text-white shadow-sm hover:bg-red-700"
             }
             ButtonTone::DangerOutline => {
-                "border border-red-300 bg-white text-red-600 shadow-sm hover:bg-red-50"
+                "border border-red-300 bg-surface text-red-600 shadow-sm hover:bg-red-50"
             }
             ButtonTone::Ghost => {
                 "border border-transparent bg-transparent text-gray-400 hover:bg-gray-100 hover:text-gray-600"

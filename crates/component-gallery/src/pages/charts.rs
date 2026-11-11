@@ -62,6 +62,7 @@ const PRINCIPLES: [&str; 9] = [
     "Every series chart carries its data as a table for screen readers.",
     "Gridlines are few and light, and every label reads horizontally.",
 ];
+const UNRECORDED_MONTH: &str = "Jun";
 const MONTHLY_INVOICE_TARGET: f64 = 1_600_000.0;
 const DOLLARS: ValueFormat = ValueFormat::Money(Currency::UsDollar);
 const SELECTED_EMPLOYEE_PARAMETER: &str = "sales-employee";
@@ -103,15 +104,21 @@ fn is_weekend(index: usize) -> bool {
         .is_some_and(|weekday| weekday >= FIRST_WEEKEND_DAY_FROM_MONDAY)
 }
 
-fn daily_totals(seed: u64, weekday_floor: f64, weekday_spread: f64, day_count: usize) -> Vec<f64> {
+fn daily_totals(
+    seed: u64,
+    weekday_floor: f64,
+    weekday_spread: f64,
+    day_count: usize,
+) -> Vec<Option<f64>> {
     (0..day_count)
         .map(|index| {
             let jitter = noise(seed, index);
-            if is_weekend(index) {
+            let total = if is_weekend(index) {
                 1_500.0 + jitter * 4_000.0
             } else {
                 weekday_floor + jitter * weekday_spread
-            }
+            };
+            Some(total)
         })
         .collect()
 }
@@ -140,11 +147,15 @@ fn quarter_series(day_count: usize) -> [ChartSeries; 2] {
     ]
 }
 
-fn quarter_days(values: &[f64]) -> Vec<(NaiveDate, f64)> {
+fn quarter_days(values: &[Option<f64>]) -> Vec<(NaiveDate, f64)> {
     let Some(first_day) = NaiveDate::from_ymd_opt(2026, 7, 1) else {
         return Vec::new();
     };
-    first_day.iter_days().zip(values.iter().copied()).collect()
+    first_day
+        .iter_days()
+        .zip(values.iter().copied())
+        .filter_map(|(day, value)| value.map(|amount| (day, amount)))
+        .collect()
 }
 
 fn daily_heat_map(series: &[ChartSeries; 2]) -> AnyView {
@@ -182,7 +193,7 @@ fn interactive_line(labels: Vec<AxisLabel>, series: [ChartSeries; 2]) -> AnyView
         .iter()
         .map(|line| ChartMetric {
             label: line.label.clone(),
-            value: whole_dollars(line.values.iter().sum()),
+            value: whole_dollars(line.values.iter().flatten().sum()),
             color: line.color,
         })
         .collect();
@@ -324,7 +335,7 @@ fn monthly_columns() -> AnyView {
         color: ChartColor::Blue,
         values: MONTHLY_INVOICED
             .iter()
-            .map(|(_, _, invoiced)| *invoiced)
+            .map(|(_, _, invoiced)| Some(*invoiced))
             .collect(),
     }];
     view! {
@@ -347,6 +358,35 @@ fn monthly_columns() -> AnyView {
     .into_any()
 }
 
+fn migration_gap() -> AnyView {
+    let labels: Vec<AxisLabel> = MONTHLY_INVOICED
+        .iter()
+        .map(|(short, long, _)| AxisLabel {
+            short: (*short).to_owned(),
+            long: (*long).to_owned(),
+        })
+        .collect();
+    let series = vec![ChartSeries {
+        label: "AR Invoices".to_owned(),
+        color: ChartColor::Blue,
+        values: MONTHLY_INVOICED
+            .iter()
+            .map(|(short, _, invoiced)| (*short != UNRECORDED_MONTH).then_some(*invoiced))
+            .collect(),
+    }];
+    view! {
+        <ChartCard
+            title="Invoicing Held Up Through the System Migration"
+            subtitle="AR invoice totals by month, January to September 2026"
+            heading_level=HeadingLevel::Three
+            notes=vec!["June was not recorded while the ERP was migrated.".to_owned()]
+        >
+            <LineChart labels=labels series=series format=DOLLARS />
+        </ChartCard>
+    }
+    .into_any()
+}
+
 fn regional_columns() -> AnyView {
     let labels: Vec<AxisLabel> = REGION_TOTALS
         .iter()
@@ -361,7 +401,7 @@ fn regional_columns() -> AnyView {
             color: ChartColor::Blue,
             values: REGION_TOTALS
                 .iter()
-                .map(|(_, _, ordered, _)| *ordered)
+                .map(|(_, _, ordered, _)| Some(*ordered))
                 .collect(),
         },
         ChartSeries {
@@ -369,7 +409,7 @@ fn regional_columns() -> AnyView {
             color: ChartColor::Orange,
             values: REGION_TOTALS
                 .iter()
-                .map(|(_, _, _, invoiced)| *invoiced)
+                .map(|(_, _, _, invoiced)| Some(*invoiced))
                 .collect(),
         },
     ];
@@ -454,6 +494,7 @@ pub fn ChartsPage() -> impl IntoView {
             {chart_section("Line, Interactive", interactive_line(labels.clone(), series.clone()))}
             {chart_section("Line, Two Series", comparison_line(labels, series.clone()))}
             {chart_section("Line, Empty Range", empty_line())}
+            {chart_section("Line, Gap in Data", migration_gap())}
             {chart_section("Calendar Heat Map", daily_heat_map(&series))}
             {chart_section("Columns, One Series", monthly_columns())}
             {chart_section("Columns, Clustered", regional_columns())}

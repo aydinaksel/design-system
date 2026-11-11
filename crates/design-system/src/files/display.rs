@@ -12,9 +12,9 @@ use crate::icons::{self, LucideGlyph};
 use crate::tone::Tone;
 use crate::tooltip::{OverflowTooltip, Tooltip, TooltipAlign};
 
-const ROW_CLASS: &str = "relative flex min-w-0 items-center gap-3 rounded-surface border bg-white p-2 transition-colors";
+const ROW_CLASS: &str = "relative flex min-w-0 items-center gap-3 rounded-surface border bg-surface p-2 transition-colors";
 const TILE_CLASS: &str =
-    "relative flex min-w-0 flex-col overflow-hidden rounded-surface border bg-white transition-colors";
+    "relative flex min-w-0 flex-col overflow-hidden rounded-surface border bg-surface transition-colors";
 const SETTLED_BORDER_CLASS: &str = "border-gray-200 hover:border-gray-300";
 const FAILED_BORDER_CLASS: &str = "border-red-200 bg-red-50/40";
 const OPEN_OVERLAY_CLASS: &str =
@@ -23,7 +23,7 @@ const ROW_MEDIA_CLASS: &str = "pointer-events-none relative flex size-10 shrink-
 const TILE_MEDIA_CLASS: &str =
     "pointer-events-none relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-gray-100";
 const BUSY_OVERLAY_CLASS: &str =
-    "absolute inset-0 flex items-center justify-center bg-white/60 text-gray-500";
+    "absolute inset-0 flex items-center justify-center bg-surface/60 text-gray-500";
 const GRID_CLASS: &str =
     "grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))]";
 const LIST_CLASS: &str = "flex flex-col gap-2";

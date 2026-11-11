@@ -175,7 +175,7 @@ where
     view! {
         <div class="space-y-4">
             {error} <div class="relative">
-                <div class="rounded-surface border border-gray-200 bg-white">
+                <div class="rounded-surface border border-gray-200 bg-surface">
                     {month_navigation(month, summary, show)} {weekday_header()}
                     <div class="grid grid-cols-7" aria-busy=move || pending.get().to_string()>
                         {day_cells}

@@ -5,10 +5,11 @@ use chrono::{Datelike, NaiveDate};
 use leptos::prelude::*;
 
 use super::data_table::series_table;
-use super::frame::chart_name;
+use super::frame::{chart_name, section_heading_level};
 use super::scale::{ValueFormat, ValueScale};
 use super::{AxisLabel, ChartColor, ChartSeries};
 use crate::calendar::{month_cells, weekday_labels, Month};
+use crate::typography::{heading_element, HeadingLevel};
 
 const STEP_UPPER_FRACTIONS: [f64; 5] = [0.2, 0.4, 0.6, 0.8, 1.0];
 const STEP_CLASSES: [&str; 5] = [
@@ -24,6 +25,7 @@ const DAY_NUMBER_CLASS: &str = "text-[10px] opacity-70";
 const VALUE_CLASS: &str = "truncate text-[11px] font-semibold tabular-nums";
 const WEEKDAY_CLASS: &str = "pb-1 text-center text-[10px] font-medium text-gray-500";
 const SPOKEN_DATE_FORMAT: &str = "%A, %B %-d, %Y";
+const MONTH_TITLE_CLASS: &str = "mb-2 text-sm font-medium text-gray-900";
 
 type DailyValues = BTreeMap<NaiveDate, f64>;
 
@@ -92,6 +94,7 @@ fn month_grid(
     range: &RangeInclusive<NaiveDate>,
     values: &DailyValues,
     top: f64,
+    title_level: HeadingLevel,
     format: ValueFormat,
 ) -> AnyView {
     let cells = month_cells(month, blank_cell, |day| {
@@ -105,7 +108,7 @@ fn month_grid(
     });
     view! {
         <section class="min-w-0">
-            <h4 class="mb-2 text-sm font-medium text-gray-900">{month.label()}</h4>
+            {heading_element(title_level, None, MONTH_TITLE_CLASS, month.label())}
             <div class="grid grid-cols-7 gap-1">{weekday_labels(WEEKDAY_CLASS)} {cells}</div>
         </section>
     }
@@ -157,7 +160,7 @@ fn table_shape(
     let series = vec![ChartSeries {
         label: "Value".to_owned(),
         color: ChartColor::Blue,
-        values: shown.iter().map(|(_, value)| **value).collect(),
+        values: shown.iter().map(|(_, value)| Some(**value)).collect(),
     }];
     (labels, series)
 }
@@ -168,8 +171,10 @@ pub fn CalendarHeatMap(
     #[prop(into)] range: Signal<RangeInclusive<NaiveDate>>,
     format: ValueFormat,
     #[prop(optional, into)] description: Option<String>,
+    #[prop(optional)] heading_level: Option<HeadingLevel>,
 ) -> impl IntoView {
     let name = chart_name(description);
+    let title_level = section_heading_level(heading_level);
     let caption = name.caption.clone();
     let body = move || {
         let shown_range = range.get();
@@ -181,7 +186,7 @@ pub fn CalendarHeatMap(
         let top = ValueScale::covering(highest).top;
         let months = months_covering(&shown_range)
             .into_iter()
-            .map(|month| month_grid(month, &shown_range, &values, top, format))
+            .map(|month| month_grid(month, &shown_range, &values, top, title_level, format))
             .collect_view();
         let (labels, series) = table_shape(&shown_range, &values);
         view! {

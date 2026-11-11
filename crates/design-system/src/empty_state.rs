@@ -14,7 +14,7 @@ pub fn EmptyState(
     #[prop(optional)] action: Option<AnyView>,
 ) -> impl IntoView {
     view! {
-        <div class="flex flex-col items-center justify-center gap-3 rounded-surface border border-dashed border-gray-300 bg-white px-4 py-16 text-center">
+        <div class="flex flex-col items-center justify-center gap-3 rounded-surface border border-dashed border-gray-300 bg-surface px-4 py-16 text-center">
             {icons::icon(glyph, "h-8 w-8 text-gray-400")} <div class="space-y-1">
                 <p class="text-sm font-medium text-gray-900">{title}</p>
                 {description

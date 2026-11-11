@@ -5,7 +5,7 @@ use super::frame::chart_name;
 use super::hover_card::{HoverCard, HoverSide};
 use super::reference::{covered_maximum, reference_overlay, ReferenceLine};
 use super::scale::{ValueFormat, ValueScale};
-use super::{keyed_value_row, legend, AxisLabel, ChartSeries, KeyedValue};
+use super::{keyed_value_row, legend, AxisLabel, ChartSeries, KeyedValue, MISSING_VALUE_TEXT};
 
 const SINGLE_SERIES_GAP_TO_BAR_WIDTH: f64 = 0.6;
 const CLUSTER_GAP_TO_BAR_WIDTH: f64 = 1.5;
@@ -28,7 +28,7 @@ fn bar_row_width_percent(series_count: usize) -> f64 {
 fn highest_value(series: &[ChartSeries]) -> f64 {
     series
         .iter()
-        .flat_map(|column| column.values.iter().copied())
+        .flat_map(ChartSeries::present_values)
         .fold(0.0, f64::max)
 }
 
@@ -83,10 +83,10 @@ fn column_group(
     let values: Vec<KeyedValue> = series
         .iter()
         .filter_map(|column| {
-            column.values.get(index).map(|value| KeyedValue {
+            column.value_at(index).map(|value| KeyedValue {
                 color: column.color,
                 label: column.label.clone(),
-                value: *value,
+                value,
             })
         })
         .collect();
@@ -109,6 +109,9 @@ fn column_group(
         view! {
             <div class="font-medium text-gray-900">{heading.clone()}</div>
             {values.iter().map(|entry| keyed_value_row(entry, format)).collect_view()}
+            {values
+                .is_empty()
+                .then(|| view! { <div class="text-gray-400">{MISSING_VALUE_TEXT}</div> })}
         }
         .into_any()
     });

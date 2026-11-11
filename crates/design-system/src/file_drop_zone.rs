@@ -5,7 +5,7 @@ use web_sys::{File, FileList};
 
 use crate::icons::{self, LucideGlyph};
 
-const IDLE_CLASS: &str = "border-gray-300 bg-white hover:border-gray-400";
+const IDLE_CLASS: &str = "border-gray-300 bg-surface hover:border-gray-400";
 const DRAGGING_CLASS: &str = "border-blue-500 bg-blue-50";
 const DISABLED_CLASS: &str = "cursor-not-allowed opacity-60";
 
