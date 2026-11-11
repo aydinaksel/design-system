@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use chrono::{Datelike, Local, Months, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use leptos::prelude::*;
 use table_query::TableQuery;
 
@@ -11,15 +11,13 @@ use super::data_table::{
     error_alert, refresh_cover, DataTable, RowAttribute, Search, HEADER_RULE_CLASS,
 };
 use super::url_query::UrlTableQuery;
+use crate::calendar::{month_cells, weekday_header, Month};
 use crate::dialog::{Dialog, DialogSize};
 use crate::icons;
 use crate::tooltip::Tooltip;
-use crate::typography::LABEL_CLASS;
 
 const MONTH_ROW_CAP: u32 = 500;
 const DATE_FORMAT: &str = "%Y-%m-%d";
-const DAYS_PER_WEEK: u32 = 7;
-const WEEKDAY_LABELS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const CELL_SHAPE_CLASS: &str = "flex min-h-20 flex-col border-b border-r border-gray-100 p-1.5 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0";
 const DAY_NUMBER_CLASS: &str =
     "flex h-5 w-5 items-center justify-center text-xs leading-none text-gray-500";
@@ -34,22 +32,7 @@ const TODAY_BUTTON_CLASS: &str = "cursor-pointer rounded px-2 py-1 text-xs font-
 type DateValue<Row> = Arc<dyn Fn(&Row) -> CellValue + Send + Sync>;
 type RowsByDay<Row> = BTreeMap<NaiveDate, Vec<Row>>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Month {
-    first_day: NaiveDate,
-}
-
 impl Month {
-    fn containing(date: NaiveDate) -> Self {
-        Self {
-            first_day: date.with_day(1).unwrap_or(date),
-        }
-    }
-
-    fn current() -> Self {
-        Self::containing(Local::now().date_naive())
-    }
-
     fn shown_by(query: &TableQuery, date_column_key: &str) -> Self {
         query
             .date_range
@@ -57,50 +40,6 @@ impl Month {
             .filter(|range| range.column_key == date_column_key)
             .and_then(|range| NaiveDate::parse_from_str(&range.from, DATE_FORMAT).ok())
             .map_or_else(Self::current, Self::containing)
-    }
-
-    fn last_day(self) -> NaiveDate {
-        self.first_day
-            .checked_add_months(Months::new(1))
-            .and_then(|next_month| next_month.pred_opt())
-            .unwrap_or(self.first_day)
-    }
-
-    fn previous(self) -> Self {
-        self.first_day
-            .checked_sub_months(Months::new(1))
-            .map_or(self, Self::containing)
-    }
-
-    fn next(self) -> Self {
-        self.first_day
-            .checked_add_months(Months::new(1))
-            .map_or(self, Self::containing)
-    }
-
-    fn label(self) -> String {
-        self.first_day.format("%B %Y").to_string()
-    }
-
-    fn days(self) -> impl Iterator<Item = NaiveDate> {
-        let month_number = self.first_day.month();
-        self.first_day
-            .iter_days()
-            .take_while(move |day| day.month() == month_number)
-    }
-
-    fn leading_blank_days(self) -> u32 {
-        self.first_day.weekday().num_days_from_monday()
-    }
-
-    fn trailing_blank_days(self) -> u32 {
-        let filled_days = self
-            .leading_blank_days()
-            .saturating_add(self.last_day().day());
-        DAYS_PER_WEEK
-            .saturating_sub(filled_days.checked_rem(DAYS_PER_WEEK).unwrap_or_default())
-            .checked_rem(DAYS_PER_WEEK)
-            .unwrap_or_default()
     }
 
     fn show_in(self, query: &mut TableQuery, date_column_key: &str) {
@@ -206,13 +145,10 @@ where
     let day_cells = move || {
         let shown = month.get();
         rows_by_day.with(|by_day| {
-            let leading = (0..shown.leading_blank_days()).map(|_| blank_day());
-            let days = shown.days().map(|day| {
+            month_cells(shown, blank_day, |day| {
                 let count = by_day.get(&day).map_or(0, Vec::len);
                 day_cell(day, count, day == today, selected_day)
-            });
-            let trailing = (0..shown.trailing_blank_days()).map(|_| blank_day());
-            leading.chain(days).chain(trailing).collect_view()
+            })
         })
     };
 
@@ -375,20 +311,6 @@ fn month_navigation(
     .into_any()
 }
 
-fn weekday_header() -> AnyView {
-    view! {
-        <div class="grid grid-cols-7 border-b border-gray-100">
-            {WEEKDAY_LABELS
-                .iter()
-                .map(|label| {
-                    view! { <div class=format!("py-2 text-center {LABEL_CLASS}")>{*label}</div> }
-                })
-                .collect_view()}
-        </div>
-    }
-    .into_any()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -397,31 +319,6 @@ mod tests {
 
     fn date(text: &str) -> NaiveDate {
         NaiveDate::parse_from_str(text, DATE_FORMAT).unwrap()
-    }
-
-    #[test]
-    fn a_leap_february_ends_on_the_twenty_ninth() {
-        assert_eq!(
-            Month::containing(date("2028-02-10")).last_day(),
-            date("2028-02-29")
-        );
-    }
-
-    #[test]
-    fn the_grid_pads_to_whole_weeks() {
-        let november = Month::containing(date("2026-11-09"));
-        assert_eq!(november.leading_blank_days(), 6);
-        assert_eq!(november.trailing_blank_days(), 6);
-        let february = Month::containing(date("2027-02-01"));
-        assert_eq!(february.leading_blank_days(), 0);
-        assert_eq!(february.trailing_blank_days(), 0);
-    }
-
-    #[test]
-    fn stepping_back_from_january_reaches_the_previous_december() {
-        let january = Month::containing(date("2027-01-31"));
-        assert_eq!(january.previous().first_day, date("2026-12-01"));
-        assert_eq!(january.next().first_day, date("2027-02-01"));
     }
 
     #[test]

@@ -13,6 +13,11 @@
   --color-chart-3: #1baf7a;
   --color-chart-4: #eda100;
   --color-chart-muted: var(--color-gray-300);
+  --color-heat-1: var(--color-blue-100);
+  --color-heat-2: var(--color-blue-200);
+  --color-heat-3: var(--color-blue-300);
+  --color-heat-4: var(--color-blue-500);
+  --color-heat-5: var(--color-blue-700);
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-field-saved: field-saved 1600ms ease-out;

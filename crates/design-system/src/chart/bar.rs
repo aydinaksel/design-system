@@ -1,9 +1,8 @@
-use leptos::ev::PointerEvent;
-use leptos::html::Div;
 use leptos::prelude::*;
 use leptos_router::components::A;
 
 use super::frame::chart_name;
+use super::hover_card::{HoverCard, HoverSide};
 use super::scale::ValueFormat;
 use super::ChartColor;
 
@@ -25,21 +24,6 @@ fn share_of(value: f64, total: f64) -> String {
     format!("{:.0}% of total", value / total * 100.0)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct PointerOffset {
-    pixels: f64,
-    fraction: f64,
-}
-
-fn tooltip_style(offset: Option<PointerOffset>) -> String {
-    offset.map_or_else(String::new, |PointerOffset { pixels, fraction }| {
-        format!(
-            "left: {pixels:.1}px; transform: translateX(-{:.1}%)",
-            fraction * 100.0
-        )
-    })
-}
-
 fn bar_row(
     entry: BarEntry,
     fill_class: &'static str,
@@ -53,63 +37,60 @@ fn bar_row(
         0.0
     };
     let share = share_of(entry.value, total);
-    let row: NodeRef<Div> = NodeRef::new();
-    let pointer: RwSignal<Option<PointerOffset>> = RwSignal::new(None);
-    let on_pointer_move = move |event: PointerEvent| {
-        let Some(element) = row.get_untracked() else {
-            return;
-        };
-        let bounds = element.get_bounding_client_rect();
-        if bounds.width() <= 0.0 {
-            return;
+    let hover = HoverCard::new();
+    let heading = entry.label.clone();
+    let value = entry.value;
+    let card = hover.card(HoverSide::Above, move || {
+        view! {
+            <div class="font-medium text-gray-900">{heading.clone()}</div>
+            <div class="font-semibold tabular-nums text-gray-900">{format.full(value)}</div>
+            <div class="text-gray-500">{share.clone()}</div>
         }
-        let pixels = (f64::from(event.client_x()) - bounds.left()).clamp(0.0, bounds.width());
-        pointer.set(Some(PointerOffset {
-            pixels,
-            fraction: pixels / bounds.width(),
-        }));
-    };
+        .into_any()
+    });
     let content = view! {
-        <div node_ref=row class=ROW_GRID_CLASS>
+        <div class=ROW_GRID_CLASS>
             <span class="truncate text-sm text-gray-700" title=entry.label.clone()>
                 {entry.label.clone()}
             </span>
-            <span class="flex h-8 items-center">
+            <div node_ref=hover.anchor class="flex h-8 items-center">
                 <span
                     class=format!(
-                        "h-full rounded-r-[4px] transition-opacity hover:opacity-80 group-focus-visible/bar:opacity-80 {fill_class}",
+                        "h-full rounded-r-[4px] transition-opacity group-hover/bar:opacity-80 group-focus-visible/bar:opacity-80 {fill_class}",
                     )
                     style=format!("width: {width_percent:.3}%")
-                    on:pointermove=on_pointer_move
-                    on:pointerleave=move |_| pointer.set(None)
                 ></span>
                 <span class="ml-2 text-sm font-medium tabular-nums text-gray-900">
                     {format.compact(entry.value)}
                 </span>
-            </span>
-            <span
-                role="tooltip"
-                class="pointer-events-none absolute bottom-full left-0 z-10 mb-1 space-y-0.5 rounded-item border border-gray-200 bg-surface px-3 py-2 text-xs whitespace-nowrap shadow-lg group-focus-visible/bar:block"
-                class:hidden=move || pointer.get().is_none()
-                style=move || tooltip_style(pointer.get())
-            >
-                <span class="block font-medium text-gray-900">{entry.label}</span>
-                <span class="block font-semibold tabular-nums text-gray-900">
-                    {format.full(entry.value)}
-                </span>
-                <span class="block text-gray-500">{share}</span>
-            </span>
+            </div>
+            {card}
         </div>
     };
     match entry.href {
         Some(href) => view! {
-            <A href=href scroll=false attr:class=format!("{ROW_CLASS} cursor-pointer")>
+            <A
+                href=href
+                scroll=false
+                attr:class=format!("{ROW_CLASS} cursor-pointer")
+                on:pointerenter=move |_| hover.show()
+                on:pointerleave=move |_| hover.hide()
+                on:focus=move |_| hover.show()
+                on:blur=move |_| hover.hide()
+            >
                 {content}
             </A>
         }
         .into_any(),
         None => view! {
-            <div class=ROW_CLASS tabindex="0">
+            <div
+                class=ROW_CLASS
+                tabindex="0"
+                on:pointerenter=move |_| hover.show()
+                on:pointerleave=move |_| hover.hide()
+                on:focus=move |_| hover.show()
+                on:blur=move |_| hover.hide()
+            >
                 {content}
             </div>
         }

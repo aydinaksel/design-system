@@ -2,13 +2,13 @@ use leptos::prelude::*;
 
 use super::data_table::series_table;
 use super::frame::chart_name;
+use super::hover_card::{HoverCard, HoverSide};
 use super::scale::ValueFormat;
-use super::{legend, line_key, AxisLabel, ChartSeries};
+use super::{legend, line_key, AxisLabel, ChartSeries, KeyedValue};
 
 const LONGEST_BAR_PERCENT: f64 = 82.0;
 const ROW_CLASS: &str = "group/stack relative grid grid-cols-[minmax(0,11rem)_1fr] items-center gap-3 rounded-sm py-1 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 const SEGMENT_CLASS: &str = "h-full min-w-px first:rounded-l-[4px] last:rounded-r-[4px] transition-opacity group-hover/stack:opacity-80 group-focus-visible/stack:opacity-80";
-const TOOLTIP_CLASS: &str = "pointer-events-none absolute bottom-full left-48 z-10 mb-1 hidden min-w-52 space-y-1.5 rounded-item border border-gray-200 bg-surface px-3 py-2 text-xs shadow-lg group-hover/stack:block group-focus-visible/stack:block";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StackMode {
@@ -44,39 +44,31 @@ fn share_percent(value: f64, total: f64) -> f64 {
     }
 }
 
-fn tooltip(
-    label: &AxisLabel,
-    series: &[ChartSeries],
-    index: usize,
-    format: ValueFormat,
-) -> AnyView {
-    let total = row_total(series, index);
-    let rows = series
+fn breakdown(heading: &str, parts: &[KeyedValue], format: ValueFormat) -> AnyView {
+    let total: f64 = parts.iter().map(|part| part.value).sum();
+    let rows = parts
         .iter()
-        .zip(row_values(series, index))
-        .map(|(part, value)| {
+        .map(|part| {
             view! {
                 <div class="flex items-center gap-2">
                     {line_key(part.color)}
                     <span class="flex-1 text-gray-500">{part.label.clone()}</span>
                     <span class="font-semibold tabular-nums text-gray-900">
-                        {format.full(value)}
+                        {format.full(part.value)}
                     </span>
                     <span class="w-10 text-right tabular-nums text-gray-500">
-                        {format!("{:.0}%", share_percent(value, total))}
+                        {format!("{:.0}%", share_percent(part.value, total))}
                     </span>
                 </div>
             }
         })
         .collect_view();
     view! {
-        <div class=TOOLTIP_CLASS>
-            <div class="font-medium text-gray-900">{label.long.clone()}</div>
-            {rows}
-            <div class="flex justify-between border-t border-gray-200 pt-1.5 font-medium text-gray-900">
-                <span>"Total"</span>
-                <span class="tabular-nums">{format.full(total)}</span>
-            </div>
+        <div class="font-medium text-gray-900">{heading.to_owned()}</div>
+        {rows}
+        <div class="flex justify-between border-t border-gray-200 pt-1.5 font-medium text-gray-900">
+            <span>"Total"</span>
+            <span class="tabular-nums">{format.full(total)}</span>
         </div>
     }
     .into_any()
@@ -90,15 +82,23 @@ fn stacked_row(
     longest_total: f64,
     format: ValueFormat,
 ) -> AnyView {
-    let total = row_total(series, index);
-    let segments = series
+    let parts: Vec<KeyedValue> = series
         .iter()
         .zip(row_values(series, index))
-        .map(|(part, value)| {
+        .map(|(part, value)| KeyedValue {
+            color: part.color,
+            label: part.label.clone(),
+            value,
+        })
+        .collect();
+    let total = row_total(series, index);
+    let segments = parts
+        .iter()
+        .map(|part| {
             view! {
                 <span
                     class=format!("{SEGMENT_CLASS} {}", part.color.background_class())
-                    style=format!("flex: {value} 1 0")
+                    style=format!("flex: {} 1 0", part.value)
                 ></span>
             }
         })
@@ -110,12 +110,24 @@ fn stacked_row(
             </span>
         }
     });
+    let hover = HoverCard::new();
+    let heading = label.long.clone();
+    let card = hover.card(HoverSide::Above, move || {
+        breakdown(&heading, &parts, format)
+    });
     view! {
-        <div class=ROW_CLASS tabindex="0">
+        <div
+            class=ROW_CLASS
+            tabindex="0"
+            on:pointerenter=move |_| hover.show()
+            on:pointerleave=move |_| hover.hide()
+            on:focus=move |_| hover.show()
+            on:blur=move |_| hover.hide()
+        >
             <span class="truncate text-sm text-gray-700" title=label.long.clone()>
                 {label.short.clone()}
             </span>
-            <span class="flex h-8 items-center">
+            <div node_ref=hover.anchor class="flex h-8 items-center">
                 <span
                     class="flex h-full gap-0.5"
                     style=format!("width: {:.3}%", bar_width_percent(mode, total, longest_total))
@@ -123,8 +135,8 @@ fn stacked_row(
                     {segments}
                 </span>
                 {total_label}
-            </span>
-            {tooltip(label, series, index, format)}
+            </div>
+            {card}
         </div>
     }
     .into_any()

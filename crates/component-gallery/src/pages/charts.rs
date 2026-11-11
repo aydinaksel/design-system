@@ -1,8 +1,9 @@
+use chrono::NaiveDate;
 use design_system::formatting::format_with_thousands;
 use design_system::{
-    AxisLabel, BarEntry, ChartCard, ChartColor, ChartMetric, ChartSeries, ColumnChart, Currency,
-    HeadingLevel, HorizontalBarChart, LineChart, PageHeader, ReferenceLine, StatChange, StatGrid,
-    StatTile, ValueFormat,
+    AxisLabel, BarEntry, CalendarHeatMap, ChartCard, ChartColor, ChartMetric, ChartSeries,
+    ColumnChart, Currency, HeadingLevel, HorizontalBarChart, LineChart, PageHeader, ReferenceLine,
+    StatChange, StatGrid, StatTile, ValueFormat,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -137,6 +138,33 @@ fn quarter_series(day_count: usize) -> [ChartSeries; 2] {
             ),
         },
     ]
+}
+
+fn quarter_days(values: &[f64]) -> Vec<(NaiveDate, f64)> {
+    let Some(first_day) = NaiveDate::from_ymd_opt(2026, 7, 1) else {
+        return Vec::new();
+    };
+    first_day.iter_days().zip(values.iter().copied()).collect()
+}
+
+fn daily_heat_map(series: &[ChartSeries; 2]) -> AnyView {
+    let [orders, _] = series;
+    let days = quarter_days(&orders.values);
+    let first_day = days.first().map(|(day, _)| *day);
+    let last_day = days.last().map(|(day, _)| *day);
+    let Some(range) = first_day.zip(last_day).map(|(first, last)| first..=last) else {
+        return ().into_any();
+    };
+    view! {
+        <ChartCard
+            title="Every Weekend Goes Quiet"
+            subtitle="Daily sales order totals, Jul 1 to Sep 30, 2026"
+            heading_level=HeadingLevel::Three
+        >
+            <CalendarHeatMap days=days range=range format=DOLLARS />
+        </ChartCard>
+    }
+    .into_any()
 }
 
 fn chart_section(title: &'static str, content: AnyView) -> AnyView {
@@ -424,8 +452,9 @@ pub fn ChartsPage() -> impl IntoView {
             {chart_section("Principles", principles())}
             {chart_section("Stat Tiles", stat_tiles())}
             {chart_section("Line, Interactive", interactive_line(labels.clone(), series.clone()))}
-            {chart_section("Line, Two Series", comparison_line(labels, series))}
+            {chart_section("Line, Two Series", comparison_line(labels, series.clone()))}
             {chart_section("Line, Empty Range", empty_line())}
+            {chart_section("Calendar Heat Map", daily_heat_map(&series))}
             {chart_section("Columns, One Series", monthly_columns())}
             {chart_section("Columns, Clustered", regional_columns())}
             {chart_section("Horizontal Bar, Top Customers", top_customers())}

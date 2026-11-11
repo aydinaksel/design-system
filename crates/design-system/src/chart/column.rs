@@ -2,15 +2,15 @@ use leptos::prelude::*;
 
 use super::data_table::series_table;
 use super::frame::chart_name;
+use super::hover_card::{HoverCard, HoverSide};
 use super::reference::{covered_maximum, reference_overlay, ReferenceLine};
 use super::scale::{ValueFormat, ValueScale};
-use super::{legend, line_key, AxisLabel, ChartSeries};
+use super::{keyed_value_row, legend, AxisLabel, ChartSeries, KeyedValue};
 
 const SINGLE_SERIES_GAP_TO_BAR_WIDTH: f64 = 0.6;
 const CLUSTER_GAP_TO_BAR_WIDTH: f64 = 1.5;
 const BAR_CLASS: &str = "flex-1 rounded-t-[4px] transition-opacity group-hover/column:opacity-80 group-focus-visible/column:opacity-80";
 const GROUP_CLASS: &str = "group/column relative flex h-full flex-1 justify-center rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
-const TOOLTIP_CLASS: &str = "pointer-events-none absolute top-0 z-10 hidden min-w-44 space-y-1.5 rounded-item border border-gray-200 bg-surface px-3 py-2 text-xs shadow-lg group-hover/column:block group-focus-visible/column:block";
 
 fn category_gap_to_bar_width(series_count: usize) -> f64 {
     if series_count > 1 {
@@ -30,14 +30,6 @@ fn highest_value(series: &[ChartSeries]) -> f64 {
         .iter()
         .flat_map(|column| column.values.iter().copied())
         .fold(0.0, f64::max)
-}
-
-fn tooltip_side(index: usize, category_count: usize) -> &'static str {
-    if index.saturating_mul(2) >= category_count {
-        "right-full mr-2"
-    } else {
-        "left-full ml-2"
-    }
 }
 
 fn gridlines(scale: &ValueScale) -> AnyView {
@@ -88,45 +80,53 @@ fn column_group(
     scale: &ValueScale,
     format: ValueFormat,
 ) -> AnyView {
-    let category_count = series.first().map_or(0, |column| column.values.len());
-    let bars = series
+    let values: Vec<KeyedValue> = series
         .iter()
-        .filter_map(|column| column.values.get(index).map(|value| (column.color, *value)))
-        .map(|(color, value)| {
-            let height_percent = (value / scale.top * 100.0).clamp(0.0, 100.0);
+        .filter_map(|column| {
+            column.values.get(index).map(|value| KeyedValue {
+                color: column.color,
+                label: column.label.clone(),
+                value: *value,
+            })
+        })
+        .collect();
+    let bars = values
+        .iter()
+        .map(|entry| {
+            let height_percent = (entry.value / scale.top * 100.0).clamp(0.0, 100.0);
             view! {
                 <span
-                    class=format!("{BAR_CLASS} {}", color.background_class())
+                    class=format!("{BAR_CLASS} {}", entry.color.background_class())
                     style=format!("height: {height_percent:.3}%")
                 ></span>
             }
         })
         .collect_view();
     let bar_row_style = format!("width: {:.3}%", bar_row_width_percent(series.len()));
-    let rows = series
-        .iter()
-        .filter_map(|column| column.values.get(index).map(|value| (column, *value)))
-        .map(|(column, value)| {
-            view! {
-                <div class="flex items-center gap-2">
-                    {line_key(column.color)}
-                    <span class="flex-1 text-gray-500">{column.label.clone()}</span>
-                    <span class="font-semibold tabular-nums text-gray-900">
-                        {format.full(value)}
-                    </span>
-                </div>
-            }
-        })
-        .collect_view();
+    let hover = HoverCard::new();
+    let heading = label.long.clone();
+    let card = hover.card(HoverSide::Beside, move || {
+        view! {
+            <div class="font-medium text-gray-900">{heading.clone()}</div>
+            {values.iter().map(|entry| keyed_value_row(entry, format)).collect_view()}
+        }
+        .into_any()
+    });
     view! {
-        <div class=GROUP_CLASS tabindex="0" aria-label=label.long.clone()>
+        <div
+            node_ref=hover.anchor
+            class=GROUP_CLASS
+            tabindex="0"
+            aria-label=label.long.clone()
+            on:pointerenter=move |_| hover.show()
+            on:pointerleave=move |_| hover.hide()
+            on:focus=move |_| hover.show()
+            on:blur=move |_| hover.hide()
+        >
             <div class="flex h-full items-end gap-0.5" style=bar_row_style>
                 {bars}
             </div>
-            <div class=format!("{TOOLTIP_CLASS} {}", tooltip_side(index, category_count))>
-                <div class="font-medium text-gray-900">{label.long.clone()}</div>
-                {rows}
-            </div>
+            {card}
         </div>
     }
     .into_any()
@@ -220,7 +220,7 @@ pub fn ColumnChart(
 
 #[cfg(test)]
 mod tests {
-    use super::{bar_row_width_percent, tooltip_side};
+    use super::bar_row_width_percent;
 
     fn bar_and_gap_percent(series_count: usize) -> (f64, f64) {
         let row_percent = bar_row_width_percent(series_count);
@@ -240,12 +240,5 @@ mod tests {
             let (bar_percent, gap_percent) = bar_and_gap_percent(series_count);
             assert!(gap_percent > bar_percent, "{series_count} series");
         }
-    }
-
-    #[test]
-    fn tooltips_open_away_from_the_nearer_edge() {
-        assert_eq!(tooltip_side(0, 6), "left-full ml-2");
-        assert_eq!(tooltip_side(2, 6), "left-full ml-2");
-        assert_eq!(tooltip_side(3, 6), "right-full mr-2");
     }
 }

@@ -6,6 +6,8 @@ mod column;
 mod curve;
 mod data_table;
 mod frame;
+mod heat_map;
+mod hover_card;
 mod label_layout;
 mod line;
 mod reference;
@@ -19,6 +21,7 @@ mod time_buckets;
 pub use bar::{BarEntry, HorizontalBarChart};
 pub use card::{ChartCard, ChartMetric};
 pub use column::ColumnChart;
+pub use heat_map::CalendarHeatMap;
 pub use line::{ChartHeight, LineChart};
 pub use reference::ReferenceLine;
 pub use scale::ValueFormat;
@@ -77,6 +80,23 @@ pub struct ChartSeries {
     pub label: String,
     pub color: ChartColor,
     pub values: Vec<f64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct KeyedValue {
+    pub color: ChartColor,
+    pub label: String,
+    pub value: f64,
+}
+
+pub(crate) fn keyed_value_row(entry: &KeyedValue, format: ValueFormat) -> AnyView {
+    view! {
+        <div class="flex items-center gap-2">
+            {line_key(entry.color)} <span class="flex-1 text-gray-500">{entry.label.clone()}</span>
+            <span class="font-semibold tabular-nums text-gray-900">{format.full(entry.value)}</span>
+        </div>
+    }
+    .into_any()
 }
 
 pub(crate) fn line_key(color: ChartColor) -> impl IntoView {

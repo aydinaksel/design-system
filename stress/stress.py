@@ -16,6 +16,7 @@ ROUTES = [
     "/client-side-table",
     "/files",
     "/tables?mode=calendar",
+    "/charts",
     "/sidebar/dashboard",
 ]
 VIEWPORTS = [{"width": 1280, "height": 900}, {"width": 390, "height": 844}]
