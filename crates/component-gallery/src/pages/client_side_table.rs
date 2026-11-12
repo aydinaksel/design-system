@@ -1,5 +1,5 @@
 use design_system::table::{Column, DataTable, Search};
-use design_system::PageHeader;
+use design_system::{PageHeader, Tone};
 use leptos::prelude::*;
 
 use crate::fake_data::Stone;
@@ -31,7 +31,18 @@ fn stone_columns() -> Vec<Column<Stone>> {
             stone.warehouse.clone()
         }),
         Column::quantity("on_hand", "On Hand", |stone: &Stone| Some(stone.on_hand)).sortable(),
+        Column::badge("availability", "Availability", stone_availability)
+            .sortable()
+            .filterable(),
     ]
+}
+
+fn stone_availability(stone: &Stone) -> (&'static str, Tone) {
+    if stone.on_hand > 0.0 {
+        ("In Stock", Tone::Positive)
+    } else {
+        ("Out of Stock", Tone::Critical)
+    }
 }
 
 #[expect(

@@ -42,7 +42,7 @@ pub fn format_money(value: Option<f64>, currency: Currency) -> String {
 }
 
 #[must_use]
-pub fn format_integer(value: Option<i32>) -> String {
+pub fn format_integer(value: Option<i64>) -> String {
     match value {
         Some(number) => format_with_thousands(&number.to_string()),
         None => String::new(),

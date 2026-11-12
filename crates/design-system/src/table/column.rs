@@ -3,7 +3,10 @@ use std::sync::Arc;
 use leptos::prelude::*;
 
 use super::cell_value::{Align, CellValue};
+use crate::badge::badge;
 use crate::currency::Currency;
+use crate::field_values::missing_value;
+use crate::tone::Tone;
 
 const TEXT_WIDTH_CHARACTERS: u16 = 16;
 const INTEGER_WIDTH_CHARACTERS: u16 = 8;
@@ -11,6 +14,9 @@ const QUANTITY_WIDTH_CHARACTERS: u16 = 10;
 const QUANTITY_IN_UNIT_WIDTH_CHARACTERS: u16 = 13;
 const MONEY_WIDTH_CHARACTERS: u16 = 12;
 const CUSTOM_WIDTH_CHARACTERS: u16 = 12;
+const ACTIONS_WIDTH_CHARACTERS: u16 = 4;
+const BADGE_WIDTH_CHARACTERS: u16 = 12;
+const ACTIONS_KEY: &str = "actions";
 const HEADER_ICONS_WIDTH_CHARACTERS: u16 = 5;
 const UPPERCASE_LETTER_WIDTH_FIFTHS: u16 = 6;
 const FIFTHS_PER_CHARACTER: u16 = 5;
@@ -51,12 +57,21 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
 
 impl<Row: Send + Sync + 'static> Column<Row> {
     /// Plain text cell, shown in full on hover when the column cuts it short.
-    pub fn text(
+    /// Missing or blank text shows a dash and sorts last, so the accessor can
+    /// return a `String` or an `Option<String>`.
+    pub fn text<Text>(
         key: &'static str,
         header: &'static str,
-        accessor: impl Fn(&Row) -> String + Send + Sync + Clone + 'static,
-    ) -> Self {
-        let value_accessor = accessor.clone();
+        accessor: impl Fn(&Row) -> Text + Send + Sync + Clone + 'static,
+    ) -> Self
+    where
+        Text: Into<Option<String>>,
+    {
+        let present = move |row: &Row| {
+            let text: Option<String> = accessor(row).into();
+            text.filter(|text| !text.trim().is_empty())
+        };
+        let value_accessor = present.clone();
         Self {
             key,
             header,
@@ -65,23 +80,56 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            value: Arc::new(move |row| CellValue::Text(value_accessor(row))),
-            render: Arc::new(move |row| {
-                let text = accessor(row);
-                let full_text = text.clone();
-                view! { <span title=full_text>{text}</span> }.into_any()
+            value: Arc::new(move |row| CellValue::optional_text(value_accessor(row).as_ref())),
+            render: Arc::new(move |row| match present(row) {
+                Some(text) => {
+                    let full_text = text.clone();
+                    view! { <span title=full_text>{text}</span> }.into_any()
+                }
+                None => missing_value(),
             }),
         }
     }
 
-    /// Money cell: right-aligned, formatted via `format_money`. `None` is an
-    /// empty cell and sorts last.
-    pub fn integer(
+    /// A badge naming the row's state in its tone, such as a status. The
+    /// label is what the column sorts, searches and filters by.
+    pub fn badge<Label>(
         key: &'static str,
         header: &'static str,
-        accessor: impl Fn(&Row) -> Option<i32> + Send + Sync + Clone + 'static,
-    ) -> Self {
+        accessor: impl Fn(&Row) -> (Label, Tone) + Send + Sync + Clone + 'static,
+    ) -> Self
+    where
+        Label: Into<String>,
+    {
         let value_accessor = accessor.clone();
+        Self {
+            key,
+            header,
+            align: Align::Left,
+            width_characters: BADGE_WIDTH_CHARACTERS,
+            sortable: false,
+            searchable: false,
+            filterable: false,
+            value: Arc::new(move |row| CellValue::Text(value_accessor(row).0.into())),
+            render: Arc::new(move |row| {
+                let (label, tone) = accessor(row);
+                badge(label, tone)
+            }),
+        }
+    }
+
+    /// Integer cell: right-aligned with thousands separators. `None` is an
+    /// empty cell and sorts last.
+    pub fn integer<Number>(
+        key: &'static str,
+        header: &'static str,
+        accessor: impl Fn(&Row) -> Number + Send + Sync + Clone + 'static,
+    ) -> Self
+    where
+        Number: Into<Option<i64>>,
+    {
+        let number = move |row: &Row| -> Option<i64> { accessor(row).into() };
+        let value_accessor = number.clone();
         Self {
             key,
             header,
@@ -90,13 +138,10 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            value: Arc::new(move |row| match value_accessor(row) {
-                Some(number) => CellValue::Int(i64::from(number)),
-                None => CellValue::Empty,
+            value: Arc::new(move |row| {
+                value_accessor(row).map_or(CellValue::Empty, CellValue::Int)
             }),
-            render: Arc::new(move |row| {
-                crate::formatting::format_integer(accessor(row)).into_any()
-            }),
+            render: Arc::new(move |row| crate::formatting::format_integer(number(row)).into_any()),
         }
     }
 
@@ -240,6 +285,22 @@ impl<Row: Send + Sync + 'static> Column<Row> {
                 }
                 .into_any()
             }),
+        }
+    }
+
+    /// The row's own actions, such as `RowActions`: no header, right-aligned
+    /// and only as wide as the menu button.
+    pub fn actions(render: impl Fn(&Row) -> AnyView + Send + Sync + 'static) -> Self {
+        Self {
+            key: ACTIONS_KEY,
+            header: "",
+            align: Align::Right,
+            width_characters: ACTIONS_WIDTH_CHARACTERS,
+            sortable: false,
+            searchable: false,
+            filterable: false,
+            value: Arc::new(|_| CellValue::Empty),
+            render: Arc::new(render),
         }
     }
 
