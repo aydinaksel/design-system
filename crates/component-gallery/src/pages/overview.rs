@@ -2,16 +2,14 @@ use design_system::icons::{self, LucideGlyph};
 use design_system::{
     address_actions, address_value, badge, button_class, button_icon_class, icon_button_class,
     multiline_value, notify_failure, notify_success, partner_value, selected_tab, text_value,
-    total, use_dialog_close, Alert, Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia,
-    AttachmentOpen, AttachmentOrientation, AttachmentSize, AttachmentState, BusyOverlay,
-    ButtonGroup, ButtonSize, ButtonTone, Card, CardGrid, Checkbox, ChoiceList, ChoiceOption,
-    Combobox, ComboboxGroup, ComboboxOption, ComboboxSearch, ConfirmDialog, CopyButton,
-    CopyLinkButton, DatePicker, DetailHeader, DetailPage, Dialog, DialogSize, DropdownMenu,
-    EmptyState, Field, FieldEditor, FieldGrid, FieldRow, FieldSave, FieldSection, Fieldset,
-    FileDropZone, FilterChip, GalleryImage, HelpTerm, ImageGallery, ImageGrid, Input, InputKind,
-    Listbox, ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu, PageHeader, QrCode,
-    QrCodeButton, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput, SearchSize,
-    SectionEditing, Switch, TabStrip, Textarea, Tone, TotalsBar,
+    total, use_dialog_close, Alert, BusyOverlay, ButtonGroup, ButtonSize, ButtonTone, Card,
+    CardGrid, Checkbox, ChoiceList, ChoiceOption, Combobox, ComboboxGroup, ComboboxOption,
+    ComboboxSearch, ConfirmDialog, CopyButton, CopyLinkButton, DatePicker, DetailHeader,
+    DetailPage, Dialog, DialogSize, DropdownMenu, EmptyState, Field, FieldEditor, FieldGrid,
+    FieldRow, FieldSave, FieldSection, Fieldset, FilterChip, GalleryImage, HelpTerm, ImageGallery,
+    ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu,
+    PageHeader, QrCode, QrCodeButton, RadioGroup, RadioLayout, RadioOption, ResponsiveImage,
+    SearchInput, SearchSize, SectionEditing, Switch, TabStrip, Textarea, Tone, TotalsBar,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -282,121 +280,6 @@ fn meters() -> AnyView {
         })
         .collect_view();
     view! { <div class="max-w-md space-y-4">{meters}</div> }.into_any()
-}
-
-fn file_drop_zone() -> AnyView {
-    let chosen = RwSignal::new(Vec::<String>::new());
-    let remember_names = move |files: Vec<web_sys::File>| {
-        chosen.set(files.iter().map(web_sys::File::name).collect());
-    };
-    view! {
-        <FileDropZone
-            label="Drop Invoice PDFs Here, or Click to Browse"
-            description="PDF only, up to 10 MB each."
-            accept="application/pdf"
-            multiple=true
-            on_files=remember_names
-        >
-            <p class="text-xs text-gray-500">
-                {move || {
-                    let names = chosen.get();
-                    if names.is_empty() {
-                        "No files chosen yet.".to_owned()
-                    } else {
-                        format!("Chose {}.", names.join(", "))
-                    }
-                }}
-            </p>
-        </FileDropZone>
-    }
-    .into_any()
-}
-
-const ATTACHMENT_STATES: [(AttachmentState, &str, &str); 5] = [
-    (AttachmentState::Idle, "supplier-quote.pdf", "PDF · Waiting"),
-    (
-        AttachmentState::Uploading,
-        "packing-list.pdf",
-        "Uploading\u{2026}",
-    ),
-    (
-        AttachmentState::Processing,
-        "invoice-2291.pdf",
-        "Reading line items\u{2026}",
-    ),
-    (
-        AttachmentState::Failed,
-        "scan.heic",
-        "Not a PDF. Upload a PDF instead.",
-    ),
-    (AttachmentState::Done, "bill-of-lading.pdf", "PDF · 2.4 MB"),
-];
-
-fn attachments() -> AnyView {
-    let removed = RwSignal::new(String::from("Nothing removed yet."));
-    let states = ATTACHMENT_STATES
-        .iter()
-        .map(|(state, title, description)| {
-            let name = *title;
-            view! {
-                <Attachment
-                    title=*title
-                    description=*description
-                    media=AttachmentMedia::Icon(LucideGlyph::FileText)
-                    state=*state
-                    actions=vec![
-                        AttachmentAction::new(
-                            format!("Remove {name}"),
-                            LucideGlyph::X,
-                            move || removed.set(format!("Removed {name}.")),
-                        ),
-                    ]
-                />
-            }
-        })
-        .collect_view();
-    let swatches = SWATCHES
-        .iter()
-        .map(|(name, code, color_hex)| {
-            let media = AttachmentMedia::Image {
-                source: swatch(color_hex).display_url,
-                alternative_text: (*name).to_owned(),
-            };
-            view! {
-                <Attachment
-                    title=*name
-                    description=*code
-                    orientation=AttachmentOrientation::Vertical
-                    media=media
-                    open=AttachmentOpen::Link(format!("#{code}"))
-                    actions=vec![
-                        AttachmentAction::new("Delete", LucideGlyph::Trash, || {}).danger(),
-                    ]
-                />
-            }
-        })
-        .collect_view();
-    view! {
-        <div class="space-y-6">
-            <div class="max-w-md space-y-2">{states}</div>
-            <p class="text-xs text-gray-500">{move || removed.get()}</p>
-            <AttachmentGroup label="Swatches">{swatches}</AttachmentGroup>
-            <div class="flex flex-wrap gap-2">
-                <Attachment
-                    title="sales-dashboard.pdf"
-                    description="PDF · 2.4 MB"
-                    size=AttachmentSize::Compact
-                    media=AttachmentMedia::Icon(LucideGlyph::FileText)
-                />
-                <Attachment
-                    title="sales-dashboard.pdf"
-                    size=AttachmentSize::Dense
-                    media=AttachmentMedia::Icon(LucideGlyph::FileText)
-                />
-            </div>
-        </div>
-    }
-    .into_any()
 }
 
 const DELIVERY_ADDRESS: &str = "https://hermes.chichek.co.uk/deliveries/DN-10482";
@@ -1237,8 +1120,6 @@ pub fn OverviewPage() -> impl IntoView {
             {section("QR Codes", qr_codes())}
             {section("Alerts", alerts())}
             {section("Meters", meters())}
-            {section("File Drop Zone, Replaced by Files", file_drop_zone())}
-            {section("Attachments, Replaced by Files", attachments())}
             {section("Detail Pages", detail_pages())}
             {section("Fieldsets", fieldsets())}
             {section("Form Controls", form_controls())}

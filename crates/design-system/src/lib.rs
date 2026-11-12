@@ -1,5 +1,4 @@
 pub mod alert;
-pub mod attachment;
 pub mod badge;
 pub mod brand;
 pub mod busy_overlay;
@@ -25,7 +24,6 @@ pub mod field_actions;
 pub mod field_values;
 pub mod fields;
 pub mod fieldset;
-pub mod file_drop_zone;
 pub mod files;
 pub mod filter_chip;
 pub mod form_dialog;
@@ -58,10 +56,6 @@ pub mod totals_bar;
 pub mod typography;
 
 pub use alert::Alert;
-pub use attachment::{
-    Attachment, AttachmentAction, AttachmentGroup, AttachmentMedia, AttachmentOpen,
-    AttachmentOrientation, AttachmentSize, AttachmentState,
-};
 pub use badge::badge;
 pub use brand::{brand, Brand};
 pub use busy_overlay::BusyOverlay;
@@ -97,7 +91,6 @@ pub use fields::{
     SaveRejection, SectionEditing,
 };
 pub use fieldset::{Field, Fieldset};
-pub use file_drop_zone::FileDropZone;
 pub use files::{
     file_arranger, file_cell, file_remover, file_uploader, Arrangement, FileArranger, FileCategory,
     FileGrid, FileKind, FileLayout, FileList, FileRemover, FileSection, FileUploader, FileViewer,
