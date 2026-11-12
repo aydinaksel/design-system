@@ -1,6 +1,6 @@
 [package]
 name = "design-system"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "Leptos components styled with Tailwind CSS"
 license = "MIT"
