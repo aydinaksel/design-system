@@ -40,6 +40,7 @@ pub mod meter;
 pub mod mode_switch;
 pub mod not_found;
 pub mod page_header;
+pub mod page_section;
 mod placement;
 pub mod popover;
 pub mod qr_code;
@@ -100,7 +101,7 @@ pub use filter_chip::FilterChip;
 pub use form_dialog::FormDialog;
 pub use gallery::{GalleryImage, ImageGallery, ImageGrid};
 pub use icons::loading_indicator;
-pub use layout::Layout;
+pub use layout::{Layout, PAGE_WIDTH_CLASS};
 pub use list_page::ListPage;
 pub use listbox::{Listbox, ListboxOption};
 pub use loading_state::LoadingState;
@@ -109,6 +110,7 @@ pub use meter::Meter;
 pub use mode_switch::{selected_mode, ModeSwitch, PageMode};
 pub use not_found::NotFoundPage;
 pub use page_header::PageHeader;
+pub use page_section::PageSection;
 pub use popover::{
     use_popover, Dismissal, Popover, PopoverAlign, PopoverContent, PopoverDescription,
     PopoverHeader, PopoverState, PopoverTitle, PopoverTrigger,

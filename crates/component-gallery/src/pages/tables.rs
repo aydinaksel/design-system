@@ -219,11 +219,9 @@ pub fn TablesPage() -> impl IntoView {
     let selected_mode = design_system::selected_mode(STONE_MODES);
 
     view! {
-        <main class="mx-auto max-w-screen-2xl px-6 py-8">
-            <ListPage title="Tables" actions=page_actions()>
-                {move || stone_list(StoneView::from_key(selected_view.get()), selected_mode.get())}
-            </ListPage>
-        </main>
+        <ListPage title="Tables" actions=page_actions()>
+            {move || stone_list(StoneView::from_key(selected_view.get()), selected_mode.get())}
+        </ListPage>
     }
     .into_any()
 }

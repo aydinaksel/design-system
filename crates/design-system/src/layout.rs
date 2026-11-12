@@ -1,6 +1,8 @@
 use leptos::prelude::*;
 use leptos_router::components::{Outlet, A};
 
+pub const PAGE_WIDTH_CLASS: &str = "mx-auto max-w-screen-2xl px-6";
+
 use crate::brand::brand;
 
 #[expect(

@@ -27,7 +27,7 @@ use crate::icons;
 use crate::loading_state::LoadingState;
 use crate::tone::Tone;
 use crate::tooltip::{HelpTerm, Tooltip};
-use crate::typography::{heading_element, LABEL_CLASS};
+use crate::typography::{heading_element, LABEL_CLASS, SECTION_HEADING_ROW_CLASS};
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
@@ -718,7 +718,7 @@ pub fn FieldSection(
             .zip(heading_id.clone())
             .map(|(title, id)| heading_element(heading_level, Some(id), LABEL_CLASS, title));
         view! {
-            <div class="mb-1 flex min-h-7 items-center justify-between gap-3">
+            <div class=SECTION_HEADING_ROW_CLASS>
                 {heading}
                 <div class="ml-auto flex items-center gap-2" class:hidden=move || loading.get()>
                     {actions}

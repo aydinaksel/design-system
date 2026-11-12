@@ -5,11 +5,10 @@ use leptos_router::components::A;
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::clipboard::{copy_current_address_with_toast, copy_with_toast};
 use crate::icons;
+use crate::layout::PAGE_WIDTH_CLASS;
 use crate::menu::{DropdownMenu, MenuEntry, MenuItem};
 use crate::tabs::TabsOnSharedBorder;
 use crate::tooltip::Tooltip;
-
-const PAGE_WIDTH_CLASS: &str = "mx-auto max-w-screen-2xl px-6";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DocumentStatus {

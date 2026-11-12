@@ -8,8 +8,9 @@ use design_system::{
     DetailPage, Dialog, DialogSize, DropdownMenu, EmptyState, Field, FieldEditor, FieldGrid,
     FieldRow, FieldSave, FieldSection, Fieldset, FilterChip, GalleryImage, HelpTerm, ImageGallery,
     ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu,
-    PageHeader, QrCode, QrCodeButton, RadioGroup, RadioLayout, RadioOption, ResponsiveImage,
-    SearchInput, SearchSize, SectionEditing, Switch, TabStrip, Textarea, Tone, TotalsBar,
+    PageHeader, PageSection, QrCode, QrCodeButton, RadioGroup, RadioLayout, RadioOption,
+    ResponsiveImage, SearchInput, SearchSize, SectionEditing, Switch, TabStrip, Textarea, Tone,
+    TotalsBar,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -617,13 +618,7 @@ fn detail_pages() -> AnyView {
                 }
                 tabs=move || view! { <TabStrip tabs=DETAIL_TABS.to_vec() active=active_tab /> }
             >
-                {move || {
-                    if active_tab.get() == 0 {
-                        detail_overview()
-                    } else {
-                        view! { <EmptyState title="No lines yet" /> }.into_any()
-                    }
-                }}
+                {move || { if active_tab.get() == 0 { detail_overview() } else { detail_lines() } }}
             </DetailPage>
         </div>
     }
@@ -1127,6 +1122,23 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Cell Editing", super::cell_editing::cell_editing())}
             {section("Images and Cards", images())}
         </main>
+    }
+    .into_any()
+}
+
+fn detail_lines() -> AnyView {
+    view! {
+        <PageSection
+            title="Lines"
+            actions=view! {
+                <button type="button" class=button_class(ButtonTone::Secondary, ButtonSize::Dense)>
+                    "Add Line"
+                </button>
+            }
+                .into_any()
+        >
+            <EmptyState title="No lines yet" />
+        </PageSection>
     }
     .into_any()
 }

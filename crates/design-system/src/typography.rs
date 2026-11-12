@@ -2,6 +2,9 @@ use leptos::prelude::*;
 
 pub const LABEL_CLASS: &str = "text-xs font-medium uppercase tracking-wide text-gray-500";
 
+pub(crate) const SECTION_HEADING_ROW_CLASS: &str =
+    "mb-1 flex min-h-7 items-center justify-between gap-3";
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum HeadingLevel {
     #[default]
