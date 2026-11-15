@@ -69,6 +69,9 @@
           ]
           ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.chromium ];
           STRESS_CHROMIUM = pkgs.lib.optionalString pkgs.stdenv.isLinux "${pkgs.chromium}/bin/chromium";
+          RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
+          SCCACHE_SERVER_PORT = toString (4200 + pkgs.lib.toInt (pkgs.lib.versions.minor pkgs.sccache.version));
+          SCCACHE_CACHE_SIZE = "50G";
         };
 
         apps.gallery-watch = {
