@@ -48,7 +48,7 @@ defines the animations the components use.
 nix run .#gallery-watch
 ```
 
-serves the gallery at <http://localhost:3003> and rebuilds on every change.
+serves the gallery at <http://localhost:3005> and rebuilds on every change.
 
 ## Development
 
