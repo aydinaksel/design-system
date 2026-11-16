@@ -1234,6 +1234,7 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Form Sections", form_section())}
             {section("Cell Editing", super::cell_editing::cell_editing())}
             {section("Line Items", super::line_items::line_items())}
+            {section("Activity Feed", super::activity::activity_feed())}
             {section("Images and Cards", images())}
         </main>
     }
