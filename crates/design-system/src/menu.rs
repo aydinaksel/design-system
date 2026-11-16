@@ -538,7 +538,7 @@ fn menu_entry(state: MenuState, entry: MenuEntry) -> AnyView {
     match entry {
         MenuEntry::Item(item) => menu_item(state, item),
         MenuEntry::Separator => {
-            view! { <div role="separator" class="my-1 h-px bg-gray-200"></div> }.into_any()
+            view! { <div role="separator" class="my-1 h-px bg-edge"></div> }.into_any()
         }
         MenuEntry::Section { heading, items } => {
             let items = items

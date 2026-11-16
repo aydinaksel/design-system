@@ -31,8 +31,8 @@ use crate::typography::{heading_element, LABEL_CLASS, SECTION_HEADING_ROW_CLASS}
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
-const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-[0.5625rem]";
-const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-[calc(var(--radius-xl)-1px)] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
+pub(crate) const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-2";
+pub(crate) const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-[calc(var(--radius-xl)-1px)] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-divider last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
 
 pub use crate::typography::HeadingLevel;
 
@@ -542,22 +542,12 @@ fn discard_dialog(
 }
 
 fn edit_button(session: EditSession, entry: ActiveEditor, label: String) -> AnyView {
-    let class = move || {
-        format!(
-            "{} {}",
-            button_class(ButtonTone::Subtle, ButtonSize::Dense),
-            if session.state.get().is_open() {
-                "hidden"
-            } else {
-                ""
-            },
-        )
-    };
     view! {
         <button
             node_ref=session.edit_button
             type="button"
-            class=class
+            class=button_class(ButtonTone::Subtle, ButtonSize::Dense)
+            disabled=move || session.state.get().is_open()
             aria-label=label
             on:click=move |_| session.start(entry)
         >

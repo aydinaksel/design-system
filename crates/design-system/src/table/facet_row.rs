@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::Arc;
 
 use leptos::prelude::*;
 
@@ -17,28 +18,31 @@ const FACET_BUTTON_SIZE: ButtonSize = ButtonSize::Standard;
 
 pub(super) struct FacetRow<Row: Send + Sync + 'static> {
     pub rows: TableRows<Row>,
-    pub columns: StoredValue<Vec<Column<Row>>>,
-    pub column_filters: RwSignal<ClientColumnFilters>,
-    pub search_text: RwSignal<String>,
+    pub columns: Arc<[Column<Row>]>,
+    pub column_filters: ArcRwSignal<ClientColumnFilters>,
+    pub search_text: ArcRwSignal<String>,
 }
 
 impl<Row: Send + Sync + 'static> Clone for FacetRow<Row> {
     fn clone(&self) -> Self {
-        *self
+        Self {
+            rows: self.rows,
+            columns: Arc::clone(&self.columns),
+            column_filters: self.column_filters.clone(),
+            search_text: self.search_text.clone(),
+        }
     }
 }
 
-impl<Row: Send + Sync + 'static> Copy for FacetRow<Row> {}
-
 impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
-    pub(super) fn render(self) -> Option<AnyView> {
-        let facet_indexes: Vec<usize> = self.columns.with_value(|all| {
-            all.iter()
-                .enumerate()
-                .filter(|(_, column)| column.filterable)
-                .map(|(index, _)| index)
-                .collect()
-        });
+    pub(super) fn render(&self) -> Option<AnyView> {
+        let facet_indexes: Vec<usize> = self
+            .columns
+            .iter()
+            .enumerate()
+            .filter(|(_, column)| column.filterable)
+            .map(|(index, _)| index)
+            .collect();
         if facet_indexes.is_empty() {
             return None;
         }
@@ -56,12 +60,12 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         )
     }
 
-    fn selected_count(self, index: usize) -> usize {
+    fn selected_count(&self, index: usize) -> usize {
         self.column_filters
             .with(|filters| filters.get(&index).map_or(0, HashSet::len))
     }
 
-    fn selected_values(self, index: usize) -> BTreeSet<String> {
+    fn selected_values(&self, index: usize) -> BTreeSet<String> {
         self.column_filters.with(|filters| {
             filters
                 .get(&index)
@@ -70,7 +74,7 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         })
     }
 
-    fn toggle(self, index: usize, key: &str) {
+    fn toggle(&self, index: usize, key: &str) {
         self.column_filters.update(|filters| {
             let selected = filters.entry(index).or_default();
             if !selected.remove(key) {
@@ -82,21 +86,20 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         });
     }
 
-    fn counted_values(self, index: usize) -> Vec<MultiSelectOption> {
-        let Some(Ok(all_rows)) = self.rows.get() else {
+    fn counted_values(&self, index: usize) -> Vec<MultiSelectOption> {
+        let Some(Ok(all_rows)) = self.rows.try_get().flatten() else {
+            return Vec::new();
+        };
+        let Some(column) = self.columns.get(index) else {
             return Vec::new();
         };
         let search_lower = self.search_text.get().to_lowercase();
         let filters = self.column_filters.get();
-        let all_columns = self.columns.get_value();
-        let Some(column) = all_columns.get(index) else {
-            return Vec::new();
-        };
         let mut counted: BTreeMap<String, MultiSelectOption> = BTreeMap::new();
         for row in &all_rows {
             let cell = (column.value)(row);
-            let matching = matches_search(&all_columns, row, &search_lower)
-                && passes_column_filters(&all_columns, &filters, row, Some(index));
+            let matching = matches_search(&self.columns, row, &search_lower)
+                && passes_column_filters(&self.columns, &filters, row, Some(index));
             let entry = counted
                 .entry(cell.filter_key())
                 .or_insert_with(|| MultiSelectOption {
@@ -111,7 +114,7 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         counted.into_values().collect()
     }
 
-    fn trigger_class(self, index: usize) -> String {
+    fn trigger_class(&self, index: usize) -> String {
         if self.selected_count(index) == 0 {
             button_class(ButtonTone::Secondary, FACET_BUTTON_SIZE)
         } else {
@@ -122,24 +125,27 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         }
     }
 
-    fn facet_button(self, index: usize) -> AnyView {
-        let header = self
-            .columns
-            .with_value(|all| all.get(index).map_or("", |column| column.header));
-        let values = Memo::new(move |_| self.counted_values(index));
-        let selected_badge = move || match self.selected_count(index) {
+    fn facet_button(&self, index: usize) -> AnyView {
+        let header = self.columns.get(index).map_or("", |column| column.header);
+        let counting = self.clone();
+        let values = ArcMemo::new(move |_| counting.counted_values(index));
+        let badge_state = self.clone();
+        let selected_badge = move || match badge_state.selected_count(index) {
             0 => ().into_any(),
             count => view! { <span class=SELECTED_COUNT_CLASS>{count}</span> }.into_any(),
         };
+        let trigger_state = self.clone();
+        let menu_state = self.clone();
+        let menu = move || menu_state.menu(index, header, values.clone());
         view! {
             <Popover>
-                <PopoverTrigger class=Signal::derive(move || self.trigger_class(index))>
+                <PopoverTrigger class=Signal::derive(move || trigger_state.trigger_class(index))>
                     {header}
                     {selected_badge}
                     {icons::icon(icons::LucideGlyph::ChevronDown, CHEVRON_CLASS)}
                 </PopoverTrigger>
                 <PopoverContent class=MENU_WIDTH_CLASS unpadded=true>
-                    {move || self.menu(index, header, values)}
+                    {menu.clone()}
                 </PopoverContent>
             </Popover>
         }
@@ -147,14 +153,16 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
     }
 
     fn menu(
-        self,
+        &self,
         index: usize,
         header: &'static str,
-        values: Memo<Vec<MultiSelectOption>>,
+        values: ArcMemo<Vec<MultiSelectOption>>,
     ) -> AnyView {
-        let selected = Signal::derive(move || self.selected_values(index));
-        let on_toggle = Callback::new(move |value: String| self.toggle(index, &value));
-        let column_filters = self.column_filters;
+        let selecting = self.clone();
+        let selected = Signal::derive(move || selecting.selected_values(index));
+        let toggling = self.clone();
+        let on_toggle = Callback::new(move |value: String| toggling.toggle(index, &value));
+        let column_filters = self.column_filters.clone();
         let on_clear = Callback::new(move |()| {
             column_filters.update(|filters| {
                 filters.remove(&index);
@@ -162,7 +170,7 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         });
         view! {
             <MultiSelectList
-                options=values
+                options=Signal::from(values)
                 selected=selected
                 on_toggle=on_toggle
                 on_clear=on_clear
@@ -172,20 +180,22 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         .into_any()
     }
 
-    fn clear_all_button(self) -> AnyView {
-        let column_filters = self.column_filters;
+    fn clear_all_button(&self) -> AnyView {
+        let clearing = self.column_filters.clone();
         let button = move || {
+            let clearing = clearing.clone();
             view! {
                 <button
                     type="button"
                     class=button_class(ButtonTone::Subtle, FACET_BUTTON_SIZE)
-                    on:click=move |_| column_filters.set(HashMap::new())
+                    on:click=move |_| clearing.set(HashMap::new())
                 >
                     {icons::icon(icons::LucideGlyph::X, button_icon_class(FACET_BUTTON_SIZE))}
                     "Clear All"
                 </button>
             }
         };
-        (move || (!column_filters.with(HashMap::is_empty)).then(button)).into_any()
+        let column_filters = self.column_filters.clone();
+        (move || (!column_filters.with(HashMap::is_empty)).then(button.clone())).into_any()
     }
 }

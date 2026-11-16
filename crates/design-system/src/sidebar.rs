@@ -30,7 +30,7 @@ const BRAND_CLASS: &str = "absolute left-4 whitespace-nowrap text-sm font-semibo
 const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg p-2 text-sm font-medium bg-gray-100 text-gray-900 focus-ring-inset";
 const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
 const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-lg px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 sm:group-data-[rail=true]/sidebar:pointer-events-none sm:group-data-[rail=true]/sidebar:opacity-0 focus-ring-inset";
-const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-gray-200 opacity-0 transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:opacity-100";
+const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-edge opacity-0 transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:opacity-100";
 const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg p-2 text-left text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
 const PANEL_CLASS: &str = "flex h-full w-full flex-col border-r border-edge bg-surface";
 const ASIDE_CLASS: &str = "group/sidebar z-50 w-52 shrink-0 overflow-hidden bg-surface duration-200 motion-reduce:duration-0 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:shadow-lg sm:h-full sm:transition-[width]";

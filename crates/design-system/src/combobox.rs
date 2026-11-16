@@ -26,7 +26,7 @@ const OPTION_CLASS: &str =
 const HIGHLIGHTED_OPTION_CLASS: &str = "flex cursor-pointer items-baseline justify-between gap-4 rounded-lg bg-gray-100 px-3 py-1.5 text-gray-900";
 const MESSAGE_CLASS: &str = "px-3 py-1.5 text-gray-500";
 const GROUP_HEADING_CLASS: &str = "px-3 pb-1 pt-1.5 text-xs font-medium text-gray-500";
-const GROUP_SEPARATOR_CLASS: &str = "my-1 h-px bg-gray-200";
+const GROUP_SEPARATOR_CLASS: &str = "my-1 h-px bg-edge";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ComboboxOption {

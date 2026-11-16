@@ -204,8 +204,6 @@ pub fn clear_table_query_parameters(parameters: &mut ParamsMap) {
 
 type Navigate = std::sync::Arc<dyn Fn(&str, NavigateOptions) + Send + Sync>;
 
-/// Create inside the subtree that shows the table, never above a tab or mode
-/// switch: a query that outlives its table updates effects already torn down.
 #[derive(Clone, Copy)]
 pub struct UrlTableQuery {
     current: Memo<TableQuery>,
@@ -216,34 +214,49 @@ pub struct UrlTableQuery {
 }
 
 impl UrlTableQuery {
+    fn is_gone(self) -> bool {
+        self.current.try_with_untracked(|_| ()).is_none()
+    }
+
     #[must_use]
     pub fn get(self) -> TableQuery {
-        self.current.get()
+        self.current.try_get().unwrap_or_default()
     }
 
     #[must_use]
     pub fn get_untracked(self) -> TableQuery {
-        self.current.get_untracked()
+        self.current.try_get_untracked().unwrap_or_default()
     }
 
     pub fn with<Output>(self, read: impl FnOnce(&TableQuery) -> Output) -> Output {
+        if self.is_gone() {
+            return read(&TableQuery::default());
+        }
         self.current.with(read)
     }
 
     pub fn with_untracked<Output>(self, read: impl FnOnce(&TableQuery) -> Output) -> Output {
+        if self.is_gone() {
+            return read(&TableQuery::default());
+        }
         self.current.with_untracked(read)
     }
 
     pub fn set(self, query: &TableQuery) {
-        let current = self.parameters.get_untracked();
+        let Some(current) = self.parameters.try_get_untracked() else {
+            return;
+        };
+        let Some(pathname) = self.pathname.try_get_untracked() else {
+            return;
+        };
         let mut updated = current.clone();
         write_query(&mut updated, query, self.names);
         let updated_string = updated.to_query_string();
         if updated_string == current.to_query_string() {
             return;
         }
-        let target = format!("{}{updated_string}", self.pathname.get_untracked());
-        self.navigate.with_value(|navigate| {
+        let target = format!("{pathname}{updated_string}");
+        self.navigate.try_with_value(|navigate| {
             navigate(
                 &target,
                 NavigateOptions {

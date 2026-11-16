@@ -27,6 +27,7 @@ pub mod fieldset;
 pub mod files;
 pub mod filter_chip;
 pub mod form_dialog;
+pub mod form_section;
 pub mod formatting;
 pub mod gallery;
 pub mod icons;
@@ -100,6 +101,7 @@ pub use files::{
 };
 pub use filter_chip::FilterChip;
 pub use form_dialog::FormDialog;
+pub use form_section::{FormRow, FormSection};
 pub use gallery::{GalleryImage, ImageGallery, ImageGrid};
 pub use icons::loading_indicator;
 pub use layout::{Layout, PAGE_WIDTH_CLASS};

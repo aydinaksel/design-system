@@ -8,11 +8,11 @@ use design_system::{
     CardGrid, Checkbox, ChoiceList, ChoiceOption, Combobox, ComboboxGroup, ComboboxOption,
     ComboboxSearch, ConfirmDialog, CopyButton, CopyLinkButton, DatePicker, DetailHeader,
     DetailPage, Dialog, DialogSize, DropdownMenu, EmptyState, Field, FieldEditor, FieldGrid,
-    FieldRow, FieldSave, FieldSection, Fieldset, FilterChip, GalleryImage, HelpTerm, ImageGallery,
-    ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter,
-    MultiSelectList, MultiSelectOption, OverflowMenu, PageHeader, PageSection, QrCode,
-    QrCodeButton, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput, SearchSize,
-    SectionEditing, Switch, TabStrip, Textarea, Tone, TotalsBar,
+    FieldRow, FieldSave, FieldSection, Fieldset, FilterChip, FormRow, FormSection, GalleryImage,
+    HelpTerm, ImageGallery, ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry,
+    MenuItem, Meter, MultiSelectList, MultiSelectOption, OverflowMenu, PageHeader, PageSection,
+    QrCode, QrCodeButton, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput,
+    SearchSize, SectionEditing, Switch, TabStrip, Textarea, Tone, TotalsBar,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -738,6 +738,61 @@ fn finish_label(code: &str) -> String {
         .unwrap_or_default()
 }
 
+fn form_section() -> AnyView {
+    let reference = RwSignal::new(String::new());
+    let finish = RwSignal::new(String::new());
+    let arrival = RwSignal::new(String::new());
+    let notes = RwSignal::new(String::new());
+    let submitting = RwSignal::new(false);
+    let finish_options = Signal::stored(
+        FINISHES
+            .iter()
+            .skip(1)
+            .map(|(value, label)| ListboxOption::new(*value, *label))
+            .collect::<Vec<_>>(),
+    );
+    let incomplete = Signal::derive(move || {
+        reference.with(|reference| reference.trim().is_empty()) || finish.with(String::is_empty)
+    });
+    let on_submit = Callback::new(move |()| {
+        submitting.set(true);
+        set_timeout(
+            move || {
+                submitting.set(false);
+                notify_success(format!(
+                    "Stone {} Created",
+                    reference.get_untracked().trim()
+                ));
+            },
+            std::time::Duration::from_millis(FAKE_SAVE_MILLISECONDS),
+        );
+    });
+    view! {
+        <FormSection
+            title="New Stone"
+            submit_label="Create Stone"
+            on_submit=on_submit
+            submitting=submitting
+            incomplete=incomplete
+            cancel_href="/"
+        >
+            <FormRow label="Reference">
+                <Input value=reference placeholder="e.g. MRBL-0042" />
+            </FormRow>
+            <FormRow label="Finish">
+                <Listbox options=finish_options selected=finish placeholder="Choose a Finish" />
+            </FormRow>
+            <FormRow label="Expected Arrival" description="Leave empty if not yet booked.">
+                <DatePicker value=arrival clearable=true />
+            </FormRow>
+            <FormRow label="Notes">
+                <Textarea value=notes placeholder="Anything the next person should know" />
+            </FormRow>
+        </FormSection>
+    }
+    .into_any()
+}
+
 fn fake_save(save: FieldSave, fails: bool, commit: impl FnOnce() + 'static) {
     set_timeout(
         move || {
@@ -1176,6 +1231,7 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Fieldsets", fieldsets())}
             {section("Form Controls", form_controls())}
             {section("Field Sections", field_sections())}
+            {section("Form Sections", form_section())}
             {section("Cell Editing", super::cell_editing::cell_editing())}
             {section("Images and Cards", images())}
         </main>
