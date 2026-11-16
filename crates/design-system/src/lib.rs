@@ -114,7 +114,7 @@ pub use layout::{Layout, PAGE_WIDTH_CLASS};
 pub use list_page::ListPage;
 pub use listbox::{Listbox, ListboxOption};
 pub use loading_state::LoadingState;
-pub use markdown::{markdown_html, MarkdownText};
+pub use markdown::{markdown_html, MarkdownArticle, MarkdownText};
 pub use markdown_editor::MarkdownEditor;
 pub use menu::{DropdownMenu, MenuEntry, MenuItem, OverflowMenu, RowActions};
 pub use meter::Meter;

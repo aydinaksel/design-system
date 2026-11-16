@@ -5,6 +5,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use axum::routing::get;
     use axum::Router;
     use component_gallery::app::{shell, App};
+    use component_gallery::pages::articles::RECEIVE_SCREEN_PATH;
     use component_gallery::pages::files::SAMPLE_PDF_PATH;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -23,12 +24,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let route_list = generate_route_list(App);
 
     let sample_pdf = include_bytes!("../assets/sample-delivery-note.pdf");
+    let receive_screen = include_bytes!("../assets/receive-screen.svg");
     let router = Router::new()
         .route(
             SAMPLE_PDF_PATH,
             get(
                 move || async move { ([(CONTENT_TYPE, "application/pdf")], sample_pdf.as_slice()) },
             ),
+        )
+        .route(
+            RECEIVE_SCREEN_PATH,
+            get(move || async move { ([(CONTENT_TYPE, "image/svg+xml")], receive_screen.as_slice()) }),
         )
         .leptos_routes(&leptos_options, route_list, {
             let leptos_options = leptos_options.clone();

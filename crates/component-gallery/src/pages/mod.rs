@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod articles;
 pub mod business_charts;
 pub mod cell_editing;
 pub mod charts;
