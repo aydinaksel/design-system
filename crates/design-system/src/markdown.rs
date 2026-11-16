@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use pulldown_cmark::{html, CowStr, Event, Options, Parser, Tag};
+use pulldown_cmark::{html, CowStr, Event, Options, Parser, Tag, TagEnd};
 
 const MARKDOWN_CLASS: &str = "space-y-2 text-sm text-gray-800 [&_a]:text-blue-600 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-edge [&_blockquote]:pl-3 [&_blockquote]:text-gray-600 [&_code]:rounded [&_code]:bg-gray-100 [&_code]:px-1 [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5";
 const ARTICLE_CLASS: &str = "max-w-prose text-base leading-7 text-gray-800 [&>*+*]:mt-4 [&>h1]:text-2xl [&>h1]:font-bold [&>h1]:tracking-tight [&>h1]:text-gray-900 [&>h2]:mt-10 [&>h2]:text-lg [&>h2]:font-semibold [&>h2]:text-gray-900 [&>h3]:mt-8 [&>h3]:font-semibold [&>h3]:text-gray-900 [&_a]:text-blue-600 [&_a]:underline [&_strong]:font-semibold [&_strong]:text-gray-900 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mt-1 [&_li]:pl-1 [&_blockquote]:border-l-2 [&_blockquote]:border-edge [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_code]:rounded [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:text-sm [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-edge [&_pre]:bg-gray-50 [&_pre]:p-4 [&_pre]:leading-6 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_img]:mx-auto [&_img]:my-6 [&_img]:block [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-edge [&_hr]:my-10 [&_hr]:border-edge";
@@ -54,6 +54,31 @@ pub fn markdown_html(text: &str) -> String {
     rendered
 }
 
+const fn ends_a_block(tag: TagEnd) -> bool {
+    matches!(
+        tag,
+        TagEnd::Paragraph
+            | TagEnd::Heading(_)
+            | TagEnd::Item
+            | TagEnd::BlockQuote(_)
+            | TagEnd::CodeBlock
+    )
+}
+
+#[must_use]
+pub fn markdown_plain_text(text: &str) -> String {
+    let mut words = String::new();
+    for event in Parser::new_ext(text, Options::ENABLE_STRIKETHROUGH) {
+        match event {
+            Event::Text(part) | Event::Code(part) => words.push_str(&part),
+            Event::SoftBreak | Event::HardBreak => words.push(' '),
+            Event::End(tag) if ends_a_block(tag) => words.push(' '),
+            _ => {}
+        }
+    }
+    words.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
@@ -83,6 +108,16 @@ mod tests {
             "<p>Supplier confirmed <strong>13 crates</strong>.</p>\n"
         );
         assert!(markdown_html("- one\n- two").contains("<ul>"));
+    }
+
+    #[test]
+    fn flattens_markdown_into_one_line_of_text() {
+        assert_eq!(
+            markdown_plain_text(
+                "Supplier confirmed **13 crates**.\n\n- Updated line B\n- Told `Tom`"
+            ),
+            "Supplier confirmed 13 crates. Updated line B Told Tom"
+        );
     }
 
     #[test]

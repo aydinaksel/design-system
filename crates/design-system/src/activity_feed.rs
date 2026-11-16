@@ -1,44 +1,126 @@
 use leptos::prelude::*;
 
-use crate::disclosure::Disclosure;
+use crate::button::{button_class, ButtonSize, ButtonTone};
+use crate::dialog::{Dialog, DialogSize};
 use crate::empty_state::EmptyState;
 use crate::filter_chip::FilterChip;
-use crate::icons;
-use crate::markdown::MarkdownText;
+use crate::icons::{self, LucideGlyph};
+use crate::markdown::{markdown_plain_text, MarkdownText};
 use crate::menu::RowActions;
 use crate::typography::LABEL_CLASS;
 
-const FEED_CLASS: &str = "overflow-hidden rounded-xl border border-edge bg-surface";
-const DAY_CLASS: &str = "bg-gray-50 px-4 py-2";
-const ENTRY_CLASS: &str = "flex gap-3 px-4 py-3";
+const DAYS_CLASS: &str = "space-y-6";
+const DAY_CLASS: &str = "space-y-2";
+const DAY_CARD_CLASS: &str =
+    "divide-y divide-divider overflow-hidden rounded-xl border border-edge bg-surface";
+const OPENABLE_ENTRY_CLASS: &str = "transition-colors hover:bg-row-hover";
+const SUMMARY_CLASS: &str = "flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left";
+const OPEN_BUTTON_CLASS: &str = "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus";
 const ICON_TILE_CLASS: &str =
-    "flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500";
-const EVENT_TILE_CLASS: &str = "flex size-9 shrink-0 items-center justify-center text-gray-300";
-const ICON_CLASS: &str = "h-4 w-4";
-const EVENT_ICON_CLASS: &str = "h-2.5 w-2.5";
-const HEADING_ROW_CLASS: &str = "flex min-h-9 items-center justify-between gap-3";
-const TITLE_CLASS: &str = "min-w-0 truncate text-sm font-medium text-gray-900";
-const EVENT_TITLE_CLASS: &str = "min-w-0 truncate text-sm text-gray-600";
-const LINK_CLASS: &str = "hover:text-blue-700 hover:underline";
+    "flex size-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600";
+const EVENT_TILE_CLASS: &str = "flex size-9 shrink-0 items-center justify-center text-gray-400";
+const ICON_CLASS: &str = "size-4";
+const SUBJECT_CLASS: &str = "truncate text-sm font-medium text-gray-900";
+const EVENT_SUBJECT_CLASS: &str = "truncate text-sm text-gray-600";
 const META_CLASS: &str = "shrink-0 text-xs tabular-nums text-gray-500";
-const SNIPPET_CLASS: &str = "line-clamp-1 text-sm text-gray-600";
-const FULL_TEXT_CLASS: &str = "whitespace-pre-line text-sm text-gray-700";
+const PREVIEW_CLASS: &str = "mt-0.5 truncate text-sm text-gray-500";
+const BODY_TEXT_CLASS: &str = "whitespace-pre-line text-sm text-gray-700";
 const CHIPS_CLASS: &str = "flex flex-wrap items-center gap-2";
+const SEPARATOR: &str = " \u{b7} ";
 const ALL_LABEL: &str = "All";
-const DELETE_QUESTION: &str = "This removes the note for everyone.";
+const DELETE_QUESTION: &str = "This removes the entry for everyone.";
+const OPEN_THREAD_LABEL: &str = "Open Thread";
+const CLOSE_LABEL: &str = "Close";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ActivityKind {
     EmailReceived,
     EmailSent,
-    Call,
+    CallIncoming,
+    CallOutgoing,
     Meeting,
     Note,
     Event,
 }
 
+impl ActivityKind {
+    pub const LOGGABLE: [Self; 6] = [
+        Self::Note,
+        Self::CallIncoming,
+        Self::CallOutgoing,
+        Self::EmailReceived,
+        Self::EmailSent,
+        Self::Meeting,
+    ];
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::EmailReceived => "Email Received",
+            Self::EmailSent => "Email Sent",
+            Self::CallIncoming => "Incoming Call",
+            Self::CallOutgoing => "Outgoing Call",
+            Self::Meeting => "Meeting",
+            Self::Note => "Note",
+            Self::Event => "Change",
+        }
+    }
+
+    #[must_use]
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::EmailReceived => "email-received",
+            Self::EmailSent => "email-sent",
+            Self::CallIncoming => "call-incoming",
+            Self::CallOutgoing => "call-outgoing",
+            Self::Meeting => "meeting",
+            Self::Note => "note",
+            Self::Event => "event",
+        }
+    }
+
+    #[must_use]
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::LOGGABLE
+            .into_iter()
+            .chain([Self::Event])
+            .find(|kind| kind.key() == key)
+    }
+
+    const fn glyph(self) -> LucideGlyph {
+        match self {
+            Self::EmailReceived => LucideGlyph::Mail,
+            Self::EmailSent => LucideGlyph::Send,
+            Self::CallIncoming => LucideGlyph::PhoneIncoming,
+            Self::CallOutgoing => LucideGlyph::PhoneOutgoing,
+            Self::Meeting => LucideGlyph::Video,
+            Self::Note => LucideGlyph::NotebookPen,
+            Self::Event => LucideGlyph::RotateCcwClock,
+        }
+    }
+
+    const fn person_relation(self) -> &'static str {
+        match self {
+            Self::EmailReceived | Self::CallIncoming => "From",
+            Self::EmailSent | Self::CallOutgoing => "To",
+            Self::Meeting => "With",
+            Self::Note | Self::Event => "By",
+        }
+    }
+
+    const fn filter(self) -> ActivityFilter {
+        match self {
+            Self::EmailReceived | Self::EmailSent => ActivityFilter::Emails,
+            Self::CallIncoming | Self::CallOutgoing => ActivityFilter::Calls,
+            Self::Meeting => ActivityFilter::Meetings,
+            Self::Note => ActivityFilter::Notes,
+            Self::Event => ActivityFilter::Events,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ActivityFilter {
+enum ActivityFilter {
     Emails,
     Calls,
     Meetings,
@@ -55,7 +137,7 @@ impl ActivityFilter {
         Self::Events,
     ];
 
-    fn label(self) -> &'static str {
+    const fn label(self) -> &'static str {
         match self {
             Self::Emails => "Emails",
             Self::Calls => "Calls",
@@ -66,169 +148,207 @@ impl ActivityFilter {
     }
 }
 
-impl ActivityKind {
-    fn glyph(self) -> icons::LucideGlyph {
-        match self {
-            Self::EmailReceived | Self::EmailSent => icons::LucideGlyph::Mail,
-            Self::Call => icons::LucideGlyph::Phone,
-            Self::Meeting => icons::LucideGlyph::Video,
-            Self::Note => icons::LucideGlyph::NotebookPen,
-            Self::Event => icons::LucideGlyph::CircleDot,
-        }
-    }
-
-    fn filter(self) -> ActivityFilter {
-        match self {
-            Self::EmailReceived | Self::EmailSent => ActivityFilter::Emails,
-            Self::Call => ActivityFilter::Calls,
-            Self::Meeting => ActivityFilter::Meetings,
-            Self::Note => ActivityFilter::Notes,
-            Self::Event => ActivityFilter::Events,
-        }
-    }
-
-    fn direction(self) -> Option<icons::LucideGlyph> {
-        match self {
-            Self::EmailReceived => Some(icons::LucideGlyph::ArrowDownLeft),
-            Self::EmailSent => Some(icons::LucideGlyph::ArrowUpRight),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ActivityDetail {
-    Snippet { preview: String, full_text: String },
+pub enum ActivityBody {
     Text(String),
     Markdown(String),
+}
+
+impl ActivityBody {
+    fn preview(&self) -> String {
+        match self {
+            Self::Text(text) => text.split_whitespace().collect::<Vec<_>>().join(" "),
+            Self::Markdown(text) => markdown_plain_text(text),
+        }
+    }
+
+    fn full_view(self) -> AnyView {
+        match self {
+            Self::Text(text) => view! { <p class=BODY_TEXT_CLASS>{text}</p> }.into_any(),
+            Self::Markdown(text) => view! { <MarkdownText text=text /> }.into_any(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ActivityEntry {
     pub key: String,
     pub kind: ActivityKind,
-    pub title: String,
-    pub detail: Option<ActivityDetail>,
-    pub people: String,
+    pub subject: String,
+    pub body: Option<ActivityBody>,
+    pub person: Option<String>,
     pub day: String,
-    pub time: String,
-    pub href: Option<String>,
+    pub time: Option<String>,
+    pub thread_href: Option<String>,
     pub changeable: bool,
 }
 
+impl ActivityEntry {
+    fn person_line(&self) -> Option<String> {
+        self.person
+            .as_ref()
+            .map(|person| format!("{} {person}", self.kind.person_relation()))
+    }
+
+    fn row_meta(&self) -> String {
+        [self.person_line(), self.time.clone()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(SEPARATOR)
+    }
+
+    fn dialog_description(&self) -> String {
+        let when = match &self.time {
+            Some(time) => format!("{} at {time}", self.day),
+            None => self.day.clone(),
+        };
+        [
+            Some(self.kind.label().to_owned()),
+            self.person_line(),
+            Some(when),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(SEPARATOR)
+    }
+
+    const fn opens(&self) -> bool {
+        self.body.is_some() || self.thread_href.is_some() || self.changeable
+    }
+}
+
+#[must_use]
+pub fn people_summary(names: &[String]) -> Option<String> {
+    match names {
+        [] => None,
+        [only] => Some(only.clone()),
+        [first, second] => Some(format!("{first} and {second}")),
+        [first, others @ ..] => Some(format!("{first} and {} others", others.len())),
+    }
+}
+
+#[derive(Clone, Copy)]
+struct EntryChanges {
+    on_edit: Option<Callback<String>>,
+    on_delete: Option<Callback<String>>,
+}
+
 fn icon_tile(kind: ActivityKind) -> AnyView {
-    if kind == ActivityKind::Event {
-        return view! { <div class=EVENT_TILE_CLASS>{icons::icon(kind.glyph(), EVENT_ICON_CLASS)}</div> }
-        .into_any();
-    }
-    let direction = kind
-        .direction()
-        .map(|glyph| icons::icon(glyph, "h-3 w-3 -ml-0.5"));
-    view! { <div class=ICON_TILE_CLASS>{icons::icon(kind.glyph(), ICON_CLASS)} {direction}</div> }
-        .into_any()
-}
-
-fn detail_view(detail: ActivityDetail) -> AnyView {
-    match detail {
-        ActivityDetail::Snippet { preview, full_text } => {
-            let remainder = full_text
-                .strip_prefix(preview.as_str())
-                .map_or(full_text.as_str(), str::trim_start)
-                .to_owned();
-            if remainder.is_empty() {
-                return view! { <p class=FULL_TEXT_CLASS>{preview}</p> }.into_any();
-            }
-            let summary = ViewFn::from(move || {
-                view! { <p class=SNIPPET_CLASS>{preview.clone()}</p> }.into_any()
-            });
-            view! {
-                <Disclosure summary=summary>
-                    <p class=FULL_TEXT_CLASS>{remainder.clone()}</p>
-                </Disclosure>
-            }
-            .into_any()
-        }
-        ActivityDetail::Text(text) => view! { <p class=FULL_TEXT_CLASS>{text}</p> }.into_any(),
-        ActivityDetail::Markdown(text) => view! { <MarkdownText text=text /> }.into_any(),
-    }
-}
-
-fn title_view(entry: &ActivityEntry) -> AnyView {
-    let class = if entry.kind == ActivityKind::Event {
-        EVENT_TITLE_CLASS
+    let class = if kind == ActivityKind::Event {
+        EVENT_TILE_CLASS
     } else {
-        TITLE_CLASS
+        ICON_TILE_CLASS
     };
-    let title = entry.title.clone();
-    let full_title = entry.title.clone();
-    match entry.href.clone() {
-        Some(href) => view! {
-            <a href=href class=format!("{class} {LINK_CLASS}") title=full_title>
-                {title}
-            </a>
-        }
-        .into_any(),
-        None => view! {
-            <p class=class title=full_title>
-                {title}
+    view! { <div class=class>{icons::icon(kind.glyph(), ICON_CLASS)}</div> }.into_any()
+}
+
+fn summary_view(entry: &ActivityEntry) -> AnyView {
+    let subject_class = if entry.kind == ActivityKind::Event {
+        EVENT_SUBJECT_CLASS
+    } else {
+        SUBJECT_CLASS
+    };
+    let subject = entry.subject.clone();
+    let full_subject = entry.subject.clone();
+    let preview = entry
+        .body
+        .as_ref()
+        .map(ActivityBody::preview)
+        .filter(|preview| !preview.is_empty())
+        .map(|preview| view! { <p class=PREVIEW_CLASS>{preview}</p> });
+    view! {
+        {icon_tile(entry.kind)}
+        <div class="min-w-0 flex-1">
+            <p class=subject_class title=full_subject>
+                {subject}
             </p>
-        }
-        .into_any(),
+            {preview}
+        </div>
+        <span class=META_CLASS>{entry.row_meta()}</span>
     }
+    .into_any()
 }
 
 fn entry_actions(
     entry: &ActivityEntry,
-    on_edit: Option<Callback<String>>,
-    on_delete: Option<Callback<String>>,
+    changes: EntryChanges,
+    on_close: Callback<()>,
 ) -> Option<AnyView> {
     if !entry.changeable {
         return None;
     }
-    let (Some(on_edit), Some(on_delete)) = (on_edit, on_delete) else {
+    let (Some(on_edit), Some(on_delete)) = (changes.on_edit, changes.on_delete) else {
         return None;
     };
     let edit_key = entry.key.clone();
     let delete_key = entry.key.clone();
+    let edit = Callback::new(move |()| {
+        on_close.run(());
+        on_edit.run(edit_key.clone());
+    });
+    let delete = Callback::new(move |()| {
+        on_close.run(());
+        on_delete.run(delete_key.clone());
+    });
     Some(
-        view! {
-            <RowActions
-                on_edit=Callback::new(move |()| on_edit.run(edit_key.clone()))
-                edit_label="Edit Note"
-                on_delete=Callback::new(move |()| on_delete.run(delete_key.clone()))
-                delete_label="Delete Note"
-                delete_question=DELETE_QUESTION
-            />
-        }
-        .into_any(),
+        view! { <RowActions on_edit=edit on_delete=delete delete_question=DELETE_QUESTION /> }
+            .into_any(),
     )
 }
 
-fn entry_view(
-    entry: ActivityEntry,
-    on_edit: Option<Callback<String>>,
-    on_delete: Option<Callback<String>>,
-) -> AnyView {
-    let actions = entry_actions(&entry, on_edit, on_delete);
-    let meta = if entry.people.is_empty() {
-        entry.time.clone()
-    } else {
-        format!("{} \u{b7} {}", entry.people, entry.time)
-    };
-    let title = title_view(&entry);
-    let detail = entry.detail.map(detail_view);
+fn entry_view(entry: ActivityEntry, opened: RwSignal<Option<ActivityEntry>>) -> AnyView {
+    let summary = summary_view(&entry);
+    if !entry.opens() {
+        return view! { <li class=SUMMARY_CLASS>{summary}</li> }.into_any();
+    }
     view! {
-        <li class=ENTRY_CLASS>
-            {icon_tile(entry.kind)} <div class="min-w-0 flex-1">
-                <div class=HEADING_ROW_CLASS>
-                    {title} <div class="flex shrink-0 items-center gap-2">
-                        <span class=META_CLASS>{meta}</span>
-                        {actions}
-                    </div>
-                </div>
-                {detail}
-            </div>
+        <li class=OPENABLE_ENTRY_CLASS>
+            <button
+                type="button"
+                class=OPEN_BUTTON_CLASS
+                on:click=move |_| opened.set(Some(entry.clone()))
+            >
+                {summary}
+            </button>
         </li>
+    }
+    .into_any()
+}
+
+fn entry_dialog(entry: ActivityEntry, changes: EntryChanges, on_close: Callback<()>) -> AnyView {
+    let description = Signal::stored(entry.dialog_description());
+    let actions = entry_actions(&entry, changes, on_close);
+    let body = entry.body.map(ActivityBody::full_view);
+    let thread_link = entry.thread_href.map(|href| {
+        view! {
+            <a href=href class=button_class(ButtonTone::Secondary, ButtonSize::Standard)>
+                {OPEN_THREAD_LABEL}
+            </a>
+        }
+    });
+    view! {
+        <Dialog
+            title=entry.subject
+            description=description
+            on_close=on_close
+            size=DialogSize::Large
+        >
+            <div class="space-y-6">
+                {body}
+                <div class="flex items-center gap-2">
+                    {actions} <div class="ml-auto"></div> {thread_link}
+                    <button
+                        type="button"
+                        class=button_class(ButtonTone::Primary, ButtonSize::Standard)
+                        on:click=move |_| on_close.run(())
+                    >
+                        {CLOSE_LABEL}
+                    </button>
+                </div>
+            </div>
+        </Dialog>
     }
     .into_any()
 }
@@ -242,6 +362,28 @@ fn grouped_by_day(entries: Vec<ActivityEntry>) -> Vec<(String, Vec<ActivityEntry
         }
     }
     groups
+}
+
+fn day_view(
+    day: String,
+    members: Vec<ActivityEntry>,
+    opened: RwSignal<Option<ActivityEntry>>,
+) -> AnyView {
+    let rows = members
+        .into_iter()
+        .map(|entry| entry_view(entry, opened))
+        .collect_view();
+    view! {
+        <section class=DAY_CLASS>
+            <h3 class=LABEL_CLASS>{day}</h3>
+            <ul class=DAY_CARD_CLASS>{rows}</ul>
+        </section>
+    }
+    .into_any()
+}
+
+fn toggled(current: Option<ActivityFilter>, filter: ActivityFilter) -> Option<ActivityFilter> {
+    (current != Some(filter)).then_some(filter)
 }
 
 fn filter_chips(
@@ -279,14 +421,7 @@ fn filter_chips(
                         label=filter.label()
                         selected=Signal::derive(move || chosen.get() == Some(filter))
                         on_toggle=Callback::new(move |()| {
-                            chosen
-                                .update(|current| {
-                                    *current = if *current == Some(filter) {
-                                        None
-                                    } else {
-                                        Some(filter)
-                                    };
-                                });
+                            chosen.update(|current| *current = toggled(*current, filter));
                         })
                         count=count
                     />
@@ -313,6 +448,8 @@ pub fn ActivityFeed(
     #[prop(into, default = "Nothing has happened here yet.".to_owned())] empty_message: String,
 ) -> impl IntoView {
     let chosen: RwSignal<Option<ActivityFilter>> = RwSignal::new(None);
+    let opened: RwSignal<Option<ActivityEntry>> = RwSignal::new(None);
+    let changes = EntryChanges { on_edit, on_delete };
     let shown = Signal::derive(move || {
         let filter = chosen.get();
         entries.with(|all| {
@@ -329,28 +466,24 @@ pub fn ActivityFeed(
         }
         let days = groups
             .into_iter()
-            .map(|(day, members)| {
-                let rows = members
-                    .into_iter()
-                    .map(|entry| entry_view(entry, on_edit, on_delete))
-                    .collect_view();
-                view! {
-                    <li>
-                        <h3 class=format!("{DAY_CLASS} {LABEL_CLASS}")>{day}</h3>
-                        <ul class="divide-y divide-divider">{rows}</ul>
-                    </li>
-                }
-            })
+            .map(|(day, members)| day_view(day, members, opened))
             .collect_view();
-        view! { <ul class=format!("{FEED_CLASS} divide-y divide-edge")>{days}</ul> }.into_any()
+        view! { <div class=DAYS_CLASS>{days}</div> }.into_any()
+    };
+    let close_dialog = Callback::new(move |()| opened.set(None));
+    let dialog = move || {
+        opened
+            .get()
+            .map(|entry| entry_dialog(entry, changes, close_dialog))
     };
     view! {
-        <div class="space-y-3">
+        <div class="space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class=CHIPS_CLASS>{filter_chips(entries, chosen)}</div>
                 <div class="flex items-center gap-2">{actions}</div>
             </div>
             {feed}
+            {dialog}
         </div>
     }
     .into_any()
@@ -364,14 +497,18 @@ mod tests {
         ActivityEntry {
             key: key.to_owned(),
             kind: ActivityKind::Note,
-            title: "Note".to_owned(),
-            detail: None,
-            people: String::new(),
+            subject: "Note".to_owned(),
+            body: None,
+            person: None,
             day: day.to_owned(),
-            time: String::new(),
-            href: None,
+            time: None,
+            thread_href: None,
             changeable: false,
         }
+    }
+
+    fn names(people: &[&str]) -> Vec<String> {
+        people.iter().map(|&name| name.to_owned()).collect()
     }
 
     #[test]
@@ -389,5 +526,62 @@ mod tests {
             shape,
             vec![("Today".to_owned(), 2), ("Yesterday".to_owned(), 1)]
         );
+    }
+
+    #[test]
+    fn summarises_many_recipients_by_the_first() {
+        assert_eq!(people_summary(&[]), None);
+        assert_eq!(
+            people_summary(&names(&["Tom Reeve"])).as_deref(),
+            Some("Tom Reeve")
+        );
+        assert_eq!(
+            people_summary(&names(&["Tom Reeve", "Sarah Doyle"])).as_deref(),
+            Some("Tom Reeve and Sarah Doyle")
+        );
+        assert_eq!(
+            people_summary(&names(&[
+                "Tom Reeve",
+                "Sarah Doyle",
+                "Priya Shah",
+                "Ali Khan"
+            ]))
+            .as_deref(),
+            Some("Tom Reeve and 3 others")
+        );
+    }
+
+    #[test]
+    fn describes_who_and_when_by_direction() {
+        let received = ActivityEntry {
+            kind: ActivityKind::EmailReceived,
+            person: Some("Sarah Doyle".to_owned()),
+            time: Some("14:02".to_owned()),
+            ..entry("a", "Today")
+        };
+        assert_eq!(received.row_meta(), "From Sarah Doyle \u{b7} 14:02");
+        assert_eq!(
+            received.dialog_description(),
+            "Email Received \u{b7} From Sarah Doyle \u{b7} Today at 14:02"
+        );
+        let logged_call = ActivityEntry {
+            kind: ActivityKind::CallOutgoing,
+            ..entry("b", "Yesterday")
+        };
+        assert_eq!(logged_call.row_meta(), "");
+        assert_eq!(
+            logged_call.dialog_description(),
+            "Outgoing Call \u{b7} Yesterday"
+        );
+    }
+
+    #[test]
+    fn every_kind_round_trips_through_its_key() {
+        for kind in ActivityKind::LOGGABLE
+            .into_iter()
+            .chain([ActivityKind::Event])
+        {
+            assert_eq!(ActivityKind::from_key(kind.key()), Some(kind));
+        }
     }
 }

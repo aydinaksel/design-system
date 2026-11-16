@@ -1,4 +1,5 @@
 pub mod activity_feed;
+pub mod activity_form;
 pub mod alert;
 pub mod badge;
 pub mod brand;
@@ -62,7 +63,8 @@ pub mod tooltip;
 pub mod totals_bar;
 pub mod typography;
 
-pub use activity_feed::{ActivityDetail, ActivityEntry, ActivityFeed, ActivityKind};
+pub use activity_feed::{people_summary, ActivityBody, ActivityEntry, ActivityFeed, ActivityKind};
+pub use activity_form::{ActivityDraft, ActivityFormDialog};
 pub use alert::Alert;
 pub use badge::badge;
 pub use brand::{brand, Brand};
@@ -114,7 +116,7 @@ pub use layout::{Layout, PAGE_WIDTH_CLASS};
 pub use list_page::ListPage;
 pub use listbox::{Listbox, ListboxOption};
 pub use loading_state::LoadingState;
-pub use markdown::{markdown_html, MarkdownArticle, MarkdownText};
+pub use markdown::{markdown_html, markdown_plain_text, MarkdownArticle, MarkdownText};
 pub use markdown_editor::MarkdownEditor;
 pub use menu::{DropdownMenu, MenuEntry, MenuItem, OverflowMenu, RowActions};
 pub use meter::Meter;
