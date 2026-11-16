@@ -8,6 +8,7 @@ use crate::button::{button_class, button_icon_class, icon_button_class, ButtonSi
 use crate::confirm_dialog::ConfirmDialog;
 use crate::controls::FieldElementIds;
 use crate::element_key::ElementKey;
+use crate::field_values::missing_value;
 use crate::icons;
 use crate::menu::{RowActions, DESTRUCTIVE_BUTTON_CLASS, DESTRUCTIVE_ICON_CLASS};
 use crate::tooltip::Tooltip;
@@ -20,14 +21,14 @@ const ACTIONS_KEY: &str = "actions";
 const ACTIONS_WIDTH_CHARACTERS: u16 = 9;
 const EDITING_ROW_CLASS: &str = "bg-blue-50/40";
 const EDITING_CELL_CLASS: &str = "px-2 py-1.5 align-top";
-const RIGHT_ALIGNED_EDITING_CLASS: &str = "[&_input]:text-right [&>div]:justify-end";
+const RIGHT_ALIGNED_EDITING_CLASS: &str = "[&_input]:text-right [&>div]:justify-end [&_.line-calculated]:flex-row-reverse [&_.line-overridden]:flex-row-reverse";
 const STATIC_CELL_CLASS: &str = "truncate px-4 py-2.5 align-top text-gray-700";
 const ISSUES_CELL_CLASS: &str = "bg-blue-50/40 px-4 pb-4 pt-3";
 const ISSUE_CLASS: &str = "flex items-start gap-1.5 text-xs text-red-600";
 const ISSUE_ICON_CLASS: &str = "mt-px h-3.5 w-3.5 shrink-0";
 const CALCULATED_CLASS: &str =
-    "flex h-9 items-center justify-between gap-1 px-1 text-sm tabular-nums";
-const OVERRIDDEN_CLASS: &str = "flex items-center gap-1";
+    "line-calculated flex h-9 items-center justify-between gap-1 px-1 text-sm tabular-nums";
+const OVERRIDDEN_CLASS: &str = "line-overridden flex items-center gap-1";
 const CALCULATED_VALUE_CLASS: &str = "text-gray-500";
 const SHOWN_CLASS: &str = "flex h-9 items-center px-1 text-sm tabular-nums text-gray-900";
 const ICON_CLASS: &str = "h-4 w-4";
@@ -283,6 +284,7 @@ fn issue_view<Draft: Send + Sync + 'static>(
     header: &'static str,
     draft: RwSignal<Draft>,
 ) -> AnyView {
+    let has_fixes = !issue.fixes.is_empty();
     let fixes = issue
         .fixes
         .into_iter()
@@ -310,7 +312,7 @@ fn issue_view<Draft: Send + Sync + 'static>(
                 {icons::icon(icons::LucideGlyph::TriangleAlert, ISSUE_ICON_CLASS)}
                 <span>{message}</span>
             </p>
-            <div class="flex flex-wrap gap-1.5 pl-5">{fixes}</div>
+            {has_fixes.then(|| view! { <div class="flex flex-wrap gap-1.5">{fixes}</div> })}
         </div>
     }
     .into_any()
@@ -495,7 +497,7 @@ where
             let class = format!("{EDITING_CELL_CLASS} {alignment}");
             return view! { <td class=class>{cell}</td> }.into_any();
         }
-        let content = saved.map(|row| (column.render)(row));
+        let content = saved.map_or_else(missing_value, |row| (column.render)(row));
         let class = format!("{STATIC_CELL_CLASS} {}", column.align.text_class());
         view! { <td class=class>{content}</td> }.into_any()
     }
