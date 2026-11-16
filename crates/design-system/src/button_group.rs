@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-const BUTTON_GROUP_CLASS: &str = "inline-flex flex-wrap items-stretch [&>*]:rounded-none [&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md [&>*:not(:first-child)]:-ml-px [&>:is(a,button):hover]:z-10 [&>:is(a,button):focus-visible]:z-10";
+const BUTTON_GROUP_CLASS: &str = "inline-flex flex-wrap items-stretch [&>*]:rounded-none [&>*:first-child]:rounded-l-lg [&>*:last-child]:rounded-r-lg [&>*:not(:first-child)]:-ml-px [&>:is(a,button):hover]:z-10 [&>:is(a,button):focus-visible]:z-10";
 
 #[expect(
     clippy::must_use_candidate,

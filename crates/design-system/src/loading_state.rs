@@ -13,7 +13,7 @@ pub fn LoadingState(#[prop(optional)] class: &'static str) -> impl IntoView {
             role="status"
             aria-label="Loading"
             class=format!(
-                "flex items-center justify-center rounded-surface border border-gray-200 bg-gray-50 {class}",
+                "flex items-center justify-center rounded-xl border border-edge bg-gray-50 {class}",
             )
         >
             {icons::spinner("h-6 w-6 text-gray-400")}

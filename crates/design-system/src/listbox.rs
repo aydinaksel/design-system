@@ -13,7 +13,7 @@ use crate::menu::{
 use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
 
 pub(crate) const LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS: f64 = 240.0;
-pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-surface border border-gray-200 bg-surface p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
+pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-edge bg-surface p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
 pub(crate) const LISTBOX_ANCHORING: Anchoring = Anchoring {
     alignment: Alignment::Start,
     side: PreferredSide::Below,
@@ -22,10 +22,19 @@ pub(crate) const LISTBOX_ANCHORING: Anchoring = Anchoring {
     reserved_height_pixels: 0.0,
 };
 const DEFAULT_PLACEHOLDER: &str = "Select\u{2026}";
-const OPTION_CLASS: &str =
-    "flex cursor-pointer select-none items-center gap-2 rounded-item px-3 py-1.5 text-gray-700";
-const HIGHLIGHTED_OPTION_CLASS: &str =
-    "flex cursor-pointer select-none items-center gap-2 rounded-item bg-gray-100 px-3 py-1.5 text-gray-900";
+pub(crate) const OPTION_CLASS: &str =
+    "flex cursor-pointer select-none items-center gap-2 rounded-lg px-3 py-1.5 text-gray-700";
+pub(crate) const HIGHLIGHTED_OPTION_CLASS: &str =
+    "flex cursor-pointer select-none items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-gray-900";
+
+#[cfg(feature = "hydrate")]
+pub(crate) fn scroll_option_into_view(option_id: &str) {
+    if let Some(element) = document().get_element_by_id(option_id) {
+        let scrolling = web_sys::ScrollIntoViewOptions::new();
+        scrolling.set_block(web_sys::ScrollLogicalPosition::Nearest);
+        element.scroll_into_view_with_scroll_into_view_options(&scrolling);
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ListboxOption {
@@ -186,13 +195,8 @@ pub fn Listbox(
         let Some(index) = highlighted.get() else {
             return;
         };
-        if !open.get() {
-            return;
-        }
-        if let Some(element) = document().get_element_by_id(&option_id(index)) {
-            let scrolling = web_sys::ScrollIntoViewOptions::new();
-            scrolling.set_block(web_sys::ScrollLogicalPosition::Nearest);
-            element.scroll_into_view_with_scroll_into_view_options(&scrolling);
+        if open.get() {
+            scroll_option_into_view(&option_id(index));
         }
     });
 
@@ -287,6 +291,7 @@ pub fn Listbox(
                                 class=LISTBOX_PANEL_CLASS
                                 style=move || panel.style()
                                 on:mousedown=|event: MouseEvent| event.prevent_default()
+                                on:mouseleave=move |_| highlighted.set(None)
                             >
                                 {rows}
                             </div>

@@ -3,6 +3,7 @@ mod cell_editor;
 mod cell_value;
 mod column;
 mod data_table;
+mod facet_row;
 mod filter_option;
 mod layout;
 mod server_facet_panel;

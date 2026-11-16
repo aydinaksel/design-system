@@ -2,17 +2,21 @@ use std::collections::BTreeSet;
 
 use leptos::prelude::*;
 
-use crate::button::{button_class, ButtonSize, ButtonTone};
+use crate::button::{button_class, button_icon_class, ButtonSize, ButtonTone};
+use crate::filter_chip::SELECTED_COUNT_CLASS;
 use crate::icons;
-use crate::search_input::{SearchInput, SearchSize};
+use crate::multi_select_list::{
+    MultiSelectList, MultiSelectOption, OPTION_END_INSET_CLASS, SCROLLBAR_GUTTER_CLASS,
+};
 use crate::tooltip::Tooltip;
 use crate::typography::LABEL_CLASS;
 
-use super::data_table::{BODY_MAX_HEIGHT_CLASS, HEADER_RULE_CLASS};
-use super::filter_option::FilterOption;
+use super::data_table::{
+    BODY_MAX_HEIGHT_CLASS, HEADER_ROW_HEIGHT_CLASS, HEADER_RULE_CLASS, ROW_HEIGHT_CLASS,
+};
 use super::url_query::UrlTableQuery;
+use table_query::LoadedFacetValues;
 use table_query::TableQuery;
-use table_query::{FilterValue, LoadedFacetValues};
 
 /// One facet in the left rail, naming the column the server counts.
 #[derive(Clone, Copy)]
@@ -28,11 +32,9 @@ impl ServerFacet {
     }
 }
 
-const SEARCH_VISIBILITY_THRESHOLD: usize = 10;
-const COUNT_BADGE_CLASS: &str =
-    "rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 tabular-nums";
 const HEADER_ICON_BUTTON_CLASS: &str =
     "cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700";
+const CLEAR_ALL_SIZE: ButtonSize = ButtonSize::Dense;
 
 fn selected_count(query: UrlTableQuery, column_key: &str) -> usize {
     query.with(|query| {
@@ -46,26 +48,23 @@ fn count_badge(count: usize) -> AnyView {
     if count == 0 {
         return ().into_any();
     }
-    view! { <span class=COUNT_BADGE_CLASS>{count}</span> }.into_any()
+    view! { <span class=SELECTED_COUNT_CLASS>{count}</span> }.into_any()
 }
 
 fn clear_all_button(query: UrlTableQuery) -> AnyView {
-    view! {
-        <button
-            type="button"
-            class=move || {
-                if query.with(|query| query.filtered_column_count() == 0) {
-                    "hidden"
-                } else {
-                    "cursor-pointer text-xs text-blue-600 hover:underline"
-                }
-            }
-            on:click=move |_| query.update(TableQuery::clear_all_column_filters)
-        >
-            "Clear All"
-        </button>
-    }
-    .into_any()
+    let button = move || {
+        view! {
+            <button
+                type="button"
+                class=button_class(ButtonTone::Subtle, CLEAR_ALL_SIZE)
+                on:click=move |_| query.update(TableQuery::clear_all_column_filters)
+            >
+                {icons::icon(icons::LucideGlyph::X, button_icon_class(CLEAR_ALL_SIZE))}
+                "Clear All"
+            </button>
+        }
+    };
+    (move || (query.with(TableQuery::filtered_column_count) > 0).then(button)).into_any()
 }
 
 fn facet_groups(
@@ -83,7 +82,7 @@ fn facet_groups(
         })
     };
     view! {
-        <div class="min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+        <div class="min-h-0 flex-1 divide-y divide-divider overflow-y-auto overscroll-contain [scrollbar-width:thin]">
             {groups}
         </div>
     }
@@ -209,10 +208,10 @@ impl FacetControls {
 
     fn expanded_rail(self) -> AnyView {
         let panel_class = format!(
-            "flex {BODY_MAX_HEIGHT_CLASS} flex-col overflow-hidden rounded-surface border border-gray-200 bg-surface"
+            "flex {BODY_MAX_HEIGHT_CLASS} flex-col overflow-hidden rounded-xl border border-edge bg-surface"
         );
         let header_class = format!(
-            "flex shrink-0 items-center justify-between gap-2 bg-gray-50 py-2.5 pl-3 pr-2 {HEADER_RULE_CLASS}"
+            "flex {HEADER_ROW_HEIGHT_CLASS} shrink-0 items-center justify-between gap-2 bg-gray-50 pl-3 pr-2 {HEADER_RULE_CLASS}"
         );
         view! {
             <div class="hidden sm:block sm:w-64 sm:shrink-0">
@@ -227,7 +226,7 @@ impl FacetControls {
                                     aria-label="Hide Filters"
                                     on:click=move |_| self.collapsed.set(true)
                                 >
-                                    {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
+                                    {icons::icon(icons::LucideGlyph::PanelLeftClose, "h-4 w-4")}
                                 </button>
                             </Tooltip>
                         </div>
@@ -272,7 +271,7 @@ impl FacetControls {
                         }
                     }
                 >
-                    <div class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+                    <div class="flex shrink-0 items-center justify-between gap-2 border-b border-edge px-4 py-3">
                         <h2 class="text-base font-semibold text-gray-900">"Filters"</h2>
                         <div class="flex items-center gap-3">
                             {clear_all_button(self.query)}
@@ -288,7 +287,7 @@ impl FacetControls {
                         </div>
                     </div>
                     {self.groups()}
-                    <div class="shrink-0 border-t border-gray-200 p-4">
+                    <div class="shrink-0 border-t border-edge p-4">
                         <button
                             type="button"
                             class=format!(
@@ -308,73 +307,68 @@ impl FacetControls {
     }
 }
 
+fn offered_options(facet_values: &LoadedFacetValues, column_key: &str) -> Vec<MultiSelectOption> {
+    let Some(Ok(all)) = facet_values else {
+        return Vec::new();
+    };
+    all.iter()
+        .find(|values| values.column_key == column_key)
+        .map(|values| {
+            values
+                .values
+                .iter()
+                .map(|offered| MultiSelectOption {
+                    value: offered.value.clone(),
+                    label: offered.label().to_string(),
+                    row_count: Some(offered.row_count),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[component]
 fn ServerFacetGroup(
     facet: ServerFacet,
     query: UrlTableQuery,
     facet_values: Signal<LoadedFacetValues>,
 ) -> impl IntoView {
-    let open =
-        RwSignal::new(query.with_untracked(|query| query.is_column_filtered(facet.column_key)));
-    let value_search = RwSignal::new(String::new());
-
-    let offered = move || -> Vec<FilterValue> {
-        match facet_values.get() {
-            Some(Ok(all)) => all
-                .into_iter()
-                .find(|values| values.column_key == facet.column_key)
-                .map(|values| values.values)
-                .unwrap_or_default(),
-            _ => Vec::new(),
+    let column_key = facet.column_key;
+    let open = RwSignal::new(query.with_untracked(|query| query.is_column_filtered(column_key)));
+    let loaded = Memo::new(move |_| facet_values.with(Option::is_some));
+    let options =
+        Memo::new(move |_| facet_values.with(|values| offered_options(values, column_key)));
+    let selected = Signal::derive(move || {
+        query.with(|query| {
+            query
+                .selected_filter_values(column_key)
+                .cloned()
+                .unwrap_or_default()
+        })
+    });
+    let on_toggle = Callback::new(move |value: String| {
+        let every_value: BTreeSet<String> =
+            options.with_untracked(|all| all.iter().map(|option| option.value.clone()).collect());
+        let mut chosen = selected.get_untracked();
+        if !chosen.remove(&value) {
+            chosen.insert(value);
         }
-    };
-
-    let value_list = move || {
-        let all_values: BTreeSet<String> = offered().into_iter().map(|value| value.value).collect();
-        let search_lower = value_search.get().to_lowercase();
-        offered()
-            .into_iter()
-            .filter(|value| {
-                search_lower.is_empty() || value.label().to_lowercase().contains(&search_lower)
-            })
-            .map(|offered_value| {
-                let value = offered_value.value.clone();
-                let label = offered_value.label().to_string();
-                let row_count = offered_value.row_count;
-                let checked = query.with(|query| {
-                    query
-                        .selected_filter_values(facet.column_key)
-                        .is_some_and(|set| set.contains(&value))
-                });
-                let all_values = all_values.clone();
-                let on_toggle = move |()| {
-                    let mut selected = query.with_untracked(|query| {
-                        query
-                            .selected_filter_values(facet.column_key)
-                            .cloned()
-                            .unwrap_or_default()
-                    });
-                    if !selected.remove(&value) {
-                        selected.insert(value.clone());
-                    }
-                    query.update(|query| {
-                        if selected.is_empty() || selected == all_values {
-                            query.clear_column_filter(facet.column_key);
-                        } else {
-                            query.set_column_filter(facet.column_key, selected);
-                        }
-                    });
-                };
-                view! { <FilterOption label=label row_count=row_count checked=checked on_toggle=on_toggle /> }
-            })
-            .collect_view()
-    };
+        query.update(|query| {
+            if chosen.is_empty() || chosen == every_value {
+                query.clear_column_filter(column_key);
+            } else {
+                query.set_column_filter(column_key, chosen);
+            }
+        });
+    });
+    let on_clear =
+        Callback::new(move |()| query.update(|query| query.clear_column_filter(column_key)));
 
     let body = move || {
         if !open.get() {
             return ().into_any();
         }
-        if facet_values.get().is_none() {
+        if !loaded.get() {
             return view! {
                 <div class="flex justify-center pb-3 pt-1" role="status" aria-label="Loading">
                     {icons::spinner("h-4 w-4 text-gray-400")}
@@ -382,22 +376,15 @@ fn ServerFacetGroup(
             }
             .into_any();
         }
-        let search_box = if offered().len() > SEARCH_VISIBILITY_THRESHOLD {
-            view! {
-                <div class="px-1.5 pb-1.5">
-                    <SearchInput value=value_search size=SearchSize::Compact />
-                </div>
-            }
-            .into_any()
-        } else {
-            ().into_any()
-        };
         view! {
-            <div class="pb-2">
-                {search_box}
-                <div class="max-h-56 overflow-y-auto overscroll-contain px-1.5 [scrollbar-width:thin]">
-                    {value_list}
-                </div>
+            <div class="pb-1">
+                <MultiSelectList
+                    options=options
+                    selected=selected
+                    on_toggle=on_toggle
+                    on_clear=on_clear
+                    label=facet.label
+                />
             </div>
         }
         .into_any()
@@ -407,7 +394,9 @@ fn ServerFacetGroup(
         <div>
             <button
                 type="button"
-                class="flex w-full cursor-pointer items-center gap-1.5 px-2 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
+                class=format!(
+                    "flex {ROW_HEIGHT_CLASS} w-full cursor-pointer items-center gap-1.5 overflow-hidden pl-2 {OPTION_END_INSET_CLASS} {SCROLLBAR_GUTTER_CLASS} text-left text-sm font-medium text-gray-800 hover:bg-gray-50",
+                )
                 aria-expanded=move || open.get().to_string()
                 on:click=move |_| open.update(|is_open| *is_open = !*is_open)
             >
@@ -419,7 +408,7 @@ fn ServerFacetGroup(
                     )
                 }}
                 <span class="min-w-0 flex-1 truncate">{facet.label}</span>
-                {move || count_badge(selected_count(query, facet.column_key))}
+                {move || count_badge(selected_count(query, column_key))}
             </button>
             {body}
         </div>

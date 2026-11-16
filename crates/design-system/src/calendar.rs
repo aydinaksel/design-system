@@ -133,7 +133,7 @@ pub(crate) fn weekday_labels(label_class: &str) -> AnyView {
 
 pub(crate) fn weekday_header() -> AnyView {
     view! {
-        <div class="grid grid-cols-7 border-b border-gray-100">
+        <div class="grid grid-cols-7 border-b border-divider">
             {weekday_labels(&format!("py-2 text-center {LABEL_CLASS}"))}
         </div>
     }

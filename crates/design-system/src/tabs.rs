@@ -11,7 +11,7 @@ use crate::table::clear_table_query_parameters;
 
 const TAB_CLASS: &str = "relative cursor-pointer px-3 pb-2.5 pt-2 text-sm font-medium";
 const UNDERLINE_CLASS: &str = "pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-blue-600";
-const TAB_LIST_CLASS: &str = "mb-6 flex flex-wrap gap-2 border-b border-gray-200";
+const TAB_LIST_CLASS: &str = "mb-6 flex flex-wrap gap-2 border-b border-edge";
 const SHARED_BORDER_TAB_LIST_CLASS: &str = "-mb-px flex flex-wrap gap-2";
 
 #[derive(Clone, Copy)]

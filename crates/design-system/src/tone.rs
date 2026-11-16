@@ -36,7 +36,7 @@ impl Tone {
     #[must_use]
     pub const fn surface_class(self) -> &'static str {
         match self {
-            Tone::Neutral => "border-gray-200 bg-gray-50 text-gray-900",
+            Tone::Neutral => "border-edge bg-gray-50 text-gray-900",
             Tone::Informative => "border-blue-200 bg-blue-50 text-blue-900",
             Tone::Positive => "border-green-200 bg-green-50 text-green-900",
             Tone::Caution => "border-amber-200 bg-amber-50 text-amber-900",

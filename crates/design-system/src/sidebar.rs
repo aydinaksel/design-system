@@ -27,12 +27,12 @@ const LABEL_CLASS: &str =
 const TOP_BAR_BRAND_CLASS: &str =
     "whitespace-nowrap text-sm font-semibold tracking-tight text-gray-900";
 const BRAND_CLASS: &str = "absolute left-4 whitespace-nowrap text-sm font-semibold tracking-tight text-gray-900 transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:pointer-events-none sm:group-data-[rail=true]/sidebar:opacity-0";
-const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm font-medium bg-gray-100 text-gray-900 focus-ring-inset";
-const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
-const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 sm:group-data-[rail=true]/sidebar:pointer-events-none sm:group-data-[rail=true]/sidebar:opacity-0 focus-ring-inset";
+const ACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg p-2 text-sm font-medium bg-gray-100 text-gray-900 focus-ring-inset";
+const INACTIVE_ITEM_CLASS: &str = "flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
+const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-lg px-2 text-xs font-medium text-gray-500 transition-opacity duration-200 hover:text-gray-900 sm:group-data-[rail=true]/sidebar:pointer-events-none sm:group-data-[rail=true]/sidebar:opacity-0 focus-ring-inset";
 const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-gray-200 opacity-0 transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:opacity-100";
-const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-3 overflow-hidden whitespace-nowrap rounded-md p-2 text-left text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
-const PANEL_CLASS: &str = "flex h-full w-full flex-col border-r border-gray-200 bg-surface";
+const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg p-2 text-left text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
+const PANEL_CLASS: &str = "flex h-full w-full flex-col border-r border-edge bg-surface";
 const ASIDE_CLASS: &str = "group/sidebar z-50 w-52 shrink-0 overflow-hidden bg-surface duration-200 motion-reduce:duration-0 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:shadow-lg sm:h-full sm:transition-[width]";
 const RAIL_WIDTH_CLASS: &str = "sm:w-12";
 const DRAWER_OPEN_CLASS: &str = "max-sm:visible max-sm:translate-x-0 max-sm:transition-[translate]";
@@ -173,7 +173,7 @@ fn PhoneTopBar(
 ) -> impl IntoView {
     let brand = brand();
     view! {
-        <div class="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 border-b border-gray-200 bg-surface px-3 sm:hidden">
+        <div class="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 border-b border-edge bg-surface px-3 sm:hidden">
             <button
                 node_ref=open_button
                 type="button"
@@ -203,7 +203,7 @@ fn PanelHeader(
     let brand = brand();
     let ghost_button_class = icon_button_class(ButtonTone::Ghost, ButtonSize::Dense);
     view! {
-        <div class="relative flex h-12 shrink-0 items-center border-b border-gray-200 px-2.5">
+        <div class="relative flex h-12 shrink-0 items-center border-b border-edge px-2.5">
             <A
                 href=brand.home_href
                 attr:class=BRAND_CLASS
@@ -307,7 +307,7 @@ pub fn Sidebar(
                     {footer
                         .map(|footer| {
                             view! {
-                                <div class="shrink-0 border-t border-gray-200 p-2">
+                                <div class="shrink-0 border-t border-edge p-2">
                                     {footer.run()}
                                 </div>
                             }

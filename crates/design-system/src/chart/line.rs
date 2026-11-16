@@ -301,7 +301,7 @@ fn hover_layer(
         ></span>
         {markers}
         <div
-            class="absolute top-0 z-10 min-w-44 space-y-1.5 rounded-item border border-gray-200 bg-surface px-3 py-2 text-xs shadow-lg"
+            class="absolute top-0 z-10 min-w-44 space-y-1.5 rounded-lg border border-edge bg-surface px-3 py-2 text-xs shadow-lg"
             style=format!("left: {left_percent:.3}%; transform: translateX({tooltip_offset})")
         >
             <div class="font-medium text-gray-900">{label.long.clone()}</div>

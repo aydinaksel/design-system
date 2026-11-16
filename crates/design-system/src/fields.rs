@@ -32,7 +32,7 @@ use crate::typography::{heading_element, LABEL_CLASS, SECTION_HEADING_ROW_CLASS}
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
 const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-[0.5625rem]";
-const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-surface-inner after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
+const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-[calc(var(--radius-xl)-1px)] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gray-100 last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
 
 pub use crate::typography::HeadingLevel;
 
@@ -571,7 +571,7 @@ fn editing_footer(session: EditSession) -> AnyView {
     let saving = move || session.state.get() == SectionState::Saving;
     let class = move || {
         format!(
-            "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-b-surface-inner border-t border-gray-200 bg-gray-50 px-4 py-2 {}",
+            "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-b-[calc(var(--radius-xl)-1px)] border-t border-edge bg-gray-50 px-4 py-2 {}",
             if session.state.get().is_open() { "" } else { "hidden" },
         )
     };
@@ -730,7 +730,7 @@ pub fn FieldSection(
     let saving = move || state.get() == SectionState::Saving;
     let card_class = move || {
         format!(
-            "rounded-surface border border-gray-200 bg-surface motion-safe:transition-shadow motion-safe:duration-300 {} {}",
+            "rounded-xl border border-edge bg-surface motion-safe:transition-shadow motion-safe:duration-300 {} {}",
             if attention.get() { "ring-2 ring-focus ring-offset-2" } else { "" },
             if loading.get() { "hidden" } else { "" },
         )
@@ -966,7 +966,7 @@ pub fn FieldRow(
         let bottom_corners = if section_open() {
             ""
         } else {
-            "last:rounded-b-surface-inner"
+            "last:rounded-b-[calc(var(--radius-xl)-1px)]"
         };
         format!("{ROW_CLASS} {highlight} {bottom_corners}")
     };

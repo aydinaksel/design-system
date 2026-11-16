@@ -174,7 +174,7 @@ fn CalendarPanel(
             </div>
             <div class="grid grid-cols-7 justify-items-center">{weekday_labels(WEEKDAY_CLASS)}</div>
             <div class="grid grid-cols-7 justify-items-center gap-y-0.5">{day_cells}</div>
-            <div class="mt-2 flex justify-center border-t border-gray-100 pt-2">
+            <div class="mt-2 flex justify-center border-t border-divider pt-2">
                 <button
                     type="button"
                     class=button_class(ButtonTone::Secondary, ButtonSize::Compact)

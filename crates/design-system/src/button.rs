@@ -16,7 +16,7 @@ impl ButtonTone {
                 "border border-transparent bg-blue-600 text-white shadow-sm hover:bg-blue-700"
             }
             ButtonTone::Secondary => {
-                "border border-gray-300 bg-surface text-gray-700 shadow-sm hover:bg-gray-50"
+                "border border-control-edge bg-surface text-gray-700 shadow-sm hover:bg-gray-50"
             }
             ButtonTone::Danger => {
                 "border border-transparent bg-red-600 text-white shadow-sm hover:bg-red-700"
@@ -45,22 +45,22 @@ pub enum ButtonSize {
 impl ButtonSize {
     pub(crate) fn class(self) -> &'static str {
         match self {
-            ButtonSize::Standard => "gap-1.5 px-4 py-2 text-sm",
-            ButtonSize::Compact => "gap-1.5 px-3 py-1.5 text-sm",
+            ButtonSize::Standard => "h-9 gap-1.5 px-3 text-sm",
+            ButtonSize::Compact => "h-8 gap-1.5 px-2.5 text-sm",
             ButtonSize::Dense => "gap-1 px-2.5 py-1 text-xs",
         }
     }
 
     fn square_class(self) -> &'static str {
         match self {
-            ButtonSize::Standard => "size-[2.375rem] shrink-0 text-sm",
-            ButtonSize::Compact => "size-[2.125rem] shrink-0 text-sm",
+            ButtonSize::Standard => "size-9 shrink-0 text-sm",
+            ButtonSize::Compact => "size-8 shrink-0 text-sm",
             ButtonSize::Dense => "size-[1.625rem] shrink-0 text-xs",
         }
     }
 }
 
-pub(crate) const SHARED_CLASS: &str = "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors cursor-pointer focus-ring disabled:opacity-60 disabled:cursor-not-allowed aria-disabled:opacity-60 aria-disabled:cursor-not-allowed";
+pub(crate) const SHARED_CLASS: &str = "inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-colors cursor-pointer focus-ring disabled:opacity-60 disabled:cursor-not-allowed aria-disabled:opacity-60 aria-disabled:cursor-not-allowed";
 
 #[must_use]
 pub fn button_class(tone: ButtonTone, size: ButtonSize) -> String {

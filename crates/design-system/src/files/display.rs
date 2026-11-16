@@ -12,13 +12,14 @@ use crate::icons::{self, LucideGlyph};
 use crate::tone::Tone;
 use crate::tooltip::{OverflowTooltip, Tooltip, TooltipAlign};
 
-const ROW_CLASS: &str = "relative flex min-w-0 items-center gap-3 rounded-surface border bg-surface p-2 transition-colors";
+const ROW_CLASS: &str =
+    "relative flex min-w-0 items-center gap-3 rounded-xl border bg-surface p-2 transition-colors";
 const TILE_CLASS: &str =
-    "relative flex min-w-0 flex-col overflow-hidden rounded-surface border bg-surface transition-colors";
-const SETTLED_BORDER_CLASS: &str = "border-gray-200 hover:border-gray-300";
+    "relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-surface transition-colors";
+const SETTLED_BORDER_CLASS: &str = "border-edge hover:border-edge-hover";
 const FAILED_BORDER_CLASS: &str = "border-red-200 bg-red-50/40";
 const OPEN_OVERLAY_CLASS: &str =
-    "absolute inset-0 z-0 cursor-pointer rounded-surface-inner focus-ring";
+    "absolute inset-0 z-0 cursor-pointer rounded-[calc(var(--radius-xl)-1px)] focus-ring";
 const ROW_MEDIA_CLASS: &str = "pointer-events-none relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100";
 const TILE_MEDIA_CLASS: &str =
     "pointer-events-none relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-gray-100";

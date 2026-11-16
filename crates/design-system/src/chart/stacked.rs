@@ -66,7 +66,7 @@ fn breakdown(heading: &str, parts: &[KeyedValue], format: ValueFormat) -> AnyVie
     view! {
         <div class="font-medium text-gray-900">{heading.to_owned()}</div>
         {rows}
-        <div class="flex justify-between border-t border-gray-200 pt-1.5 font-medium text-gray-900">
+        <div class="flex justify-between border-t border-edge pt-1.5 font-medium text-gray-900">
             <span>"Total"</span>
             <span class="tabular-nums">{format.full(total)}</span>
         </div>

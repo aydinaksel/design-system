@@ -90,7 +90,7 @@ pub fn ImageGallery(
 
 fn empty_gallery() -> AnyView {
     view! {
-        <div class="aspect-square w-full rounded-surface border border-gray-200 bg-gray-100 flex items-center justify-center">
+        <div class="aspect-square w-full rounded-xl border border-edge bg-gray-100 flex items-center justify-center">
             <span class="text-sm text-gray-400">"No images"</span>
         </div>
     }
@@ -114,7 +114,7 @@ fn GalleryStage(
     );
 
     view! {
-        <div class="relative aspect-square w-full rounded-surface border border-gray-200 overflow-hidden bg-surface">
+        <div class="relative aspect-square w-full rounded-xl border border-edge overflow-hidden bg-surface">
             <img
                 src=image.display_url
                 srcset=image.source_set
@@ -163,7 +163,7 @@ fn GalleryThumbnails(
             let border_class = if index == current_index {
                 "ring-2 ring-blue-500"
             } else {
-                "ring-1 ring-gray-200 hover:ring-gray-400"
+                "ring-1 ring-edge hover:ring-edge-hover"
             };
             view! {
                 <button
@@ -237,7 +237,7 @@ pub fn ImageGrid(#[prop(into)] images: Signal<Vec<GalleryImage>>) -> impl IntoVi
                                         class="group block w-full cursor-pointer text-left"
                                         on:click=move |_| enlarged.set(Some(index))
                                     >
-                                        <div class="aspect-square overflow-hidden rounded-surface border border-gray-200 bg-surface group-hover:border-gray-400">
+                                        <div class="aspect-square overflow-hidden rounded-xl border border-edge bg-surface group-hover:border-edge-hover">
                                             <img
                                                 src=image.display_url
                                                 srcset=image.source_set

@@ -98,7 +98,7 @@ pub fn StatTile(
     #[prop(optional, into)] footnote: Option<String>,
 ) -> impl IntoView {
     view! {
-        <div class="flex flex-col gap-1 rounded-surface border border-gray-200 bg-surface p-5">
+        <div class="flex flex-col gap-1 rounded-xl border border-edge bg-surface p-5">
             <p class="text-sm text-gray-500">{label}</p>
             <p class="text-3xl font-semibold tracking-tight tabular-nums text-gray-900">{value}</p>
             {change.map(|change| change_line(&change))}

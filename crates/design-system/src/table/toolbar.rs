@@ -12,16 +12,16 @@ use super::url_query::UrlTableQuery;
 const DEFAULT_SEARCH_PLACEHOLDER: &str = "Search";
 const TYPING_PAUSE_MILLISECONDS: f64 = 300.0;
 const SEARCH_BOX_CLASS: &str = "min-w-0 flex-1 sm:w-80 sm:flex-none";
-const ROW_WITH_VIEWS_CLASS: &str = "mb-4 flex flex-wrap-reverse items-start justify-between gap-x-6 gap-y-2 border-b border-gray-200";
-const ROW_WITHOUT_VIEWS_CLASS: &str = "mb-4 flex";
-const CONTROLS_CLASS: &str =
-    "flex w-full flex-wrap items-center justify-end gap-2 sm:ml-auto sm:w-auto";
-const CONTROLS_ABOVE_SHARED_BORDER_CLASS: &str =
-    "flex w-full flex-wrap items-center justify-end gap-2 pb-2 sm:ml-auto sm:w-auto";
+const TOOLBAR_CLASS: &str = "mb-4 flex flex-col gap-3";
+const TABS_CLASS: &str = "border-b border-edge";
+const CONTROLS_ROW_CLASS: &str = "flex flex-wrap items-center justify-between gap-2";
+const NARROWING_CONTROLS_CLASS: &str = "flex min-w-0 flex-1 flex-wrap items-center gap-2";
+const DISPLAY_CONTROLS_CLASS: &str = "ml-auto flex flex-wrap items-center gap-2";
 
 pub(super) struct TableToolbar {
     pub views: Option<&'static [PageView]>,
     pub filter_toggle: Option<AnyView>,
+    pub facets: Option<AnyView>,
     pub controls: Option<AnyView>,
     pub search: Search,
     pub search_placeholder: String,
@@ -36,32 +36,34 @@ impl TableToolbar {
         let Self {
             views,
             filter_toggle,
+            facets,
             controls,
             ..
         } = self;
-        if views.is_none() && filter_toggle.is_none() && controls.is_none() && search_box.is_none()
-        {
-            return ().into_any();
-        }
-        match views {
-            Some(views) => view! {
-                <div class=ROW_WITH_VIEWS_CLASS>
+        let narrows = filter_toggle.is_some() || search_box.is_some() || facets.is_some();
+        let controls_row = (narrows || controls.is_some()).then(|| {
+            let display_controls = controls
+                .map(|controls| view! { <div class=DISPLAY_CONTROLS_CLASS>{controls}</div> });
+            view! {
+                <div class=CONTROLS_ROW_CLASS>
+                    <div class=NARROWING_CONTROLS_CLASS>{filter_toggle} {search_box} {facets}</div>
+                    {display_controls}
+                </div>
+            }
+        });
+        let tabs = views.map(|views| {
+            view! {
+                <div class=TABS_CLASS>
                     <Provider value=TabsOnSharedBorder>
                         <ViewTabs views=views />
                     </Provider>
-                    <div class=CONTROLS_ABOVE_SHARED_BORDER_CLASS>
-                        {filter_toggle} {search_box} {controls}
-                    </div>
                 </div>
             }
-            .into_any(),
-            None => view! {
-                <div class=ROW_WITHOUT_VIEWS_CLASS>
-                    <div class=CONTROLS_CLASS>{filter_toggle} {search_box} {controls}</div>
-                </div>
-            }
-            .into_any(),
+        });
+        if tabs.is_none() && controls_row.is_none() {
+            return ().into_any();
         }
+        view! { <div class=TOOLBAR_CLASS>{tabs} {controls_row}</div> }.into_any()
     }
 
     fn placeholder(&self) -> String {

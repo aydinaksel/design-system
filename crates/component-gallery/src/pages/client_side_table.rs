@@ -27,9 +27,18 @@ fn stone_columns() -> Vec<Column<Stone>> {
         Column::text("name", "Name", |stone: &Stone| stone.name.clone())
             .sortable()
             .searchable(),
+        Column::text("material", "Material", |stone: &Stone| {
+            stone.material.clone()
+        })
+        .sortable()
+        .filterable(),
+        Column::text("finish", "Finish", |stone: &Stone| stone.finish.clone())
+            .sortable()
+            .filterable(),
         Column::text("warehouse", "Warehouse", |stone: &Stone| {
             stone.warehouse.clone()
-        }),
+        })
+        .filterable(),
         Column::quantity("on_hand", "On Hand", |stone: &Stone| Some(stone.on_hand)).sortable(),
         Column::badge("availability", "Availability", stone_availability)
             .sortable()
@@ -67,6 +76,7 @@ pub fn ClientSideTablePage() -> impl IntoView {
                 search=Search::InMemory
                 search_placeholder="Search Stones"
                 empty_message="No stones found."
+                facet_row=true
             />
         </main>
     }

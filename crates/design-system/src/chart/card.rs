@@ -12,7 +12,7 @@ pub struct ChartMetric {
     pub color: ChartColor,
 }
 
-const METRIC_CLASS: &str = "flex flex-1 cursor-pointer flex-col justify-center gap-1 border-t border-gray-200 px-6 py-4 text-left transition-colors even:border-l hover:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-pressed:bg-gray-50 sm:border-t-0 sm:border-l sm:px-8 sm:py-6";
+const METRIC_CLASS: &str = "flex flex-1 cursor-pointer flex-col justify-center gap-1 border-t border-edge px-6 py-4 text-left transition-colors even:border-l hover:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-pressed:bg-gray-50 sm:border-t-0 sm:border-l sm:px-8 sm:py-6";
 const TITLE_CLASS: &str = "text-base font-semibold text-gray-900";
 
 fn metric_button(index: usize, metric: ChartMetric, selected: RwSignal<usize>) -> impl IntoView {
@@ -106,7 +106,7 @@ pub fn ChartCard(
     let footer_lines = [source_line(source, source_href), notes_list(notes)];
     let footer = footer_lines.iter().any(Option::is_some).then(|| {
         view! {
-            <footer class="space-y-1 border-t border-gray-200 px-6 py-3 text-xs text-gray-500">
+            <footer class="space-y-1 border-t border-edge px-6 py-3 text-xs text-gray-500">
                 {footer_lines}
             </footer>
         }
@@ -115,9 +115,9 @@ pub fn ChartCard(
     view! {
         <section
             aria-labelledby=section_labelled_by
-            class="overflow-hidden rounded-surface border border-gray-200 bg-surface shadow-xs"
+            class="overflow-hidden rounded-xl border border-edge bg-surface shadow-xs"
         >
-            <header class="flex flex-col items-stretch border-b border-gray-200 sm:flex-row">
+            <header class="flex flex-col items-stretch border-b border-edge sm:flex-row">
                 <div class="flex flex-1 flex-col justify-center gap-1 px-6 py-4">
                     {heading_element(heading_level, Some(heading_id), TITLE_CLASS, title)}
                     {subtitle

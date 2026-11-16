@@ -18,13 +18,13 @@ use crate::tooltip::Tooltip;
 
 const MONTH_ROW_CAP: u32 = 500;
 const DATE_FORMAT: &str = "%Y-%m-%d";
-const CELL_SHAPE_CLASS: &str = "flex min-h-20 flex-col border-b border-r border-gray-100 p-1.5 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0";
+const CELL_SHAPE_CLASS: &str = "flex min-h-20 flex-col border-b border-r border-divider p-1.5 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0";
 const DAY_NUMBER_CLASS: &str =
     "flex h-5 w-5 items-center justify-center text-xs leading-none text-gray-500";
 const TODAY_NUMBER_CLASS: &str = "flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold leading-none text-white";
 const COUNT_BADGE_CLASS: &str = "flex h-7 min-w-7 items-center justify-center rounded-full bg-blue-100 px-1 text-xs font-medium text-blue-700 tabular-nums";
 const MONTH_BAR_CLASS: &str =
-    "flex items-center justify-between gap-2 rounded-t-surface-inner bg-gray-50 py-2.5 pl-1.5 pr-2";
+    "flex items-center justify-between gap-2 rounded-t-[calc(var(--radius-xl)-1px)] bg-gray-50 py-2.5 pl-1.5 pr-2";
 const MONTH_STEP_CLASS: &str =
     "cursor-pointer rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-800 focus-ring";
 const TODAY_BUTTON_CLASS: &str = "cursor-pointer rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 hover:text-gray-900 focus-ring";
@@ -175,13 +175,13 @@ where
     view! {
         <div class="space-y-4">
             {error} <div class="relative">
-                <div class="rounded-surface border border-gray-200 bg-surface">
+                <div class="rounded-xl border border-edge bg-surface">
                     {month_navigation(month, summary, show)} {weekday_header()}
                     <div class="grid grid-cols-7" aria-busy=move || pending.get().to_string()>
                         {day_cells}
                     </div>
                 </div>
-                {refresh_cover(pending, "inset-px rounded-surface-inner")}
+                {refresh_cover(pending, "inset-px rounded-[calc(var(--radius-xl)-1px)]")}
             </div> {open_day}
         </div>
     }

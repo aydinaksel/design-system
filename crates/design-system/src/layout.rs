@@ -16,7 +16,7 @@ pub fn Layout() -> impl IntoView {
 
     view! {
         <div class="min-h-screen bg-surface has-data-canvas:bg-canvas">
-            <header class="border-b border-gray-200">
+            <header class="border-b border-edge">
                 <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
                     <A href=brand.home_href>
                         <span class="text-sm font-semibold tracking-tight text-gray-900">
@@ -29,7 +29,7 @@ pub fn Layout() -> impl IntoView {
 
             <Outlet />
 
-            <footer class="mt-16 border-t border-gray-200">
+            <footer class="mt-16 border-t border-edge">
                 <div class="mx-auto max-w-7xl px-6 py-8 text-xs text-gray-500">
                     {brand.footer_note}
                 </div>

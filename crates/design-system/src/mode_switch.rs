@@ -28,7 +28,7 @@ pub fn selected_mode(modes: &'static [PageMode]) -> Memo<&'static str> {
     selected_key(MODE_PARAMETER, modes.iter().map(|mode| mode.key).collect())
 }
 
-const SEGMENT_CLASS: &str = "inline-flex size-9 cursor-pointer items-center justify-center transition-colors focus-ring-inset";
+const SEGMENT_CLASS: &str = "inline-flex size-[2.125rem] cursor-pointer items-center justify-center transition-colors focus-ring-inset";
 const SELECTED_SEGMENT_CLASS: &str = "bg-gray-100 text-gray-900";
 const UNSELECTED_SEGMENT_CLASS: &str =
     "bg-surface text-gray-500 hover:bg-gray-50 hover:text-gray-900";
@@ -38,8 +38,8 @@ fn corner_class(index: usize, count: usize) -> &'static str {
     let is_last = index.saturating_add(1) == count;
     match (is_first, is_last) {
         (true, true) => "rounded-[0.3rem]",
-        (true, false) => "rounded-l-[0.3rem]",
-        (false, true) => "rounded-r-[0.3rem]",
+        (true, false) => "rounded-l-[calc(var(--radius-lg)-1px)]",
+        (false, true) => "rounded-r-[calc(var(--radius-lg)-1px)]",
         (false, false) => "",
     }
 }
@@ -90,7 +90,7 @@ pub fn ModeSwitch(
         .collect_view();
 
     view! {
-        <div class="inline-flex divide-x divide-gray-300 rounded-md border border-gray-300 shadow-sm">
+        <div class="inline-flex divide-x divide-control-edge rounded-lg border border-control-edge shadow-sm">
             {segments}
         </div>
     }

@@ -1,11 +1,13 @@
 @source "../src";
 
 @theme {
-  --radius-surface: 0.75rem;
-  --radius-surface-inner: calc(var(--radius-surface) - 1px);
-  --radius-item: calc(var(--radius-surface) - 0.25rem);
   --color-canvas: var(--color-gray-50);
   --color-surface: var(--color-white);
+  --color-edge: var(--color-gray-200);
+  --color-edge-hover: var(--color-gray-300);
+  --color-control-edge: var(--color-gray-300);
+  --color-control-edge-hover: var(--color-gray-400);
+  --color-divider: var(--color-gray-100);
   --color-focus: var(--color-blue-600);
   --color-row-hover: var(--color-blue-50);
   --color-chart-1: #2a78d6;

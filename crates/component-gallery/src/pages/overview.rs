@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use design_system::icons::{self, LucideGlyph};
 use design_system::{
     address_actions, address_value, badge, button_class, button_icon_class, icon_button_class,
@@ -7,10 +9,10 @@ use design_system::{
     ComboboxSearch, ConfirmDialog, CopyButton, CopyLinkButton, DatePicker, DetailHeader,
     DetailPage, Dialog, DialogSize, DropdownMenu, EmptyState, Field, FieldEditor, FieldGrid,
     FieldRow, FieldSave, FieldSection, Fieldset, FilterChip, GalleryImage, HelpTerm, ImageGallery,
-    ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter, OverflowMenu,
-    PageHeader, PageSection, QrCode, QrCodeButton, RadioGroup, RadioLayout, RadioOption,
-    ResponsiveImage, SearchInput, SearchSize, SectionEditing, Switch, TabStrip, Textarea, Tone,
-    TotalsBar,
+    ImageGrid, Input, InputKind, Listbox, ListboxOption, MenuEntry, MenuItem, Meter,
+    MultiSelectList, MultiSelectOption, OverflowMenu, PageHeader, PageSection, QrCode,
+    QrCodeButton, RadioGroup, RadioLayout, RadioOption, ResponsiveImage, SearchInput, SearchSize,
+    SectionEditing, Switch, TabStrip, Textarea, Tone, TotalsBar,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -467,7 +469,7 @@ fn history_dialog(open: RwSignal<bool>) -> impl IntoView {
                     size=DialogSize::Large
                     on_close=Callback::new(move |()| open.set(false))
                 >
-                    <ul class="divide-y divide-gray-100">{rows}</ul>
+                    <ul class="divide-y divide-divider">{rows}</ul>
                 </Dialog>
             }
         })
@@ -630,7 +632,7 @@ fn fieldsets() -> AnyView {
     let serial_number = RwSignal::new(String::new());
     let disabled = RwSignal::new(false);
     view! {
-        <div class="max-w-md space-y-4 rounded-surface border border-gray-200 p-5">
+        <div class="max-w-md space-y-4 rounded-xl border border-edge p-5">
             <Fieldset legend="Shipment" disabled=disabled>
                 <Field
                     label="Container"
@@ -674,6 +676,59 @@ const COUNTRIES: [(&str, &str); 6] = [
     ("GR", "Greece"),
     ("MX", "Mexico"),
 ];
+
+const STONE_COLORS: [&str; 12] = [
+    "Beige", "Black", "Blue", "Brown", "Cream", "Green", "Grey", "Gold", "Pink", "Red", "Silver",
+    "White",
+];
+const MULTI_SELECT_PANEL_CLASS: &str = "w-64 rounded-xl border border-edge bg-surface";
+
+fn multi_select_list(label: &'static str, options: Vec<MultiSelectOption>) -> AnyView {
+    let selected = RwSignal::new(BTreeSet::new());
+    let on_toggle = Callback::new(move |value: String| {
+        selected.update(|chosen: &mut BTreeSet<String>| {
+            if !chosen.remove(&value) {
+                chosen.insert(value);
+            }
+        });
+    });
+    view! {
+        <div class=MULTI_SELECT_PANEL_CLASS>
+            <MultiSelectList
+                options=Signal::stored(options)
+                selected=selected
+                on_toggle=on_toggle
+                label=label
+            />
+        </div>
+    }
+    .into_any()
+}
+
+fn finish_multi_select() -> AnyView {
+    let options = FINISHES
+        .iter()
+        .skip(1)
+        .map(|(value, label)| MultiSelectOption {
+            value: (*value).to_string(),
+            label: (*label).to_string(),
+            row_count: None,
+        })
+        .collect();
+    multi_select_list("Finishes", options)
+}
+
+fn color_multi_select() -> AnyView {
+    let options = STONE_COLORS
+        .iter()
+        .map(|color| MultiSelectOption {
+            value: (*color).to_string(),
+            label: (*color).to_string(),
+            row_count: None,
+        })
+        .collect();
+    multi_select_list("Colors", options)
+}
 
 fn finish_label(code: &str) -> String {
     FINISHES
@@ -1010,7 +1065,9 @@ fn form_controls() -> AnyView {
                     <Listbox options=finish_options selected=finish placeholder="Choose a Finish" />
                 }
                     .into_any(),
-            )} {labelled("Combobox, Searches as You Type", customer_search())}
+            )} {labelled("Multi-Select List", finish_multi_select())}
+            {labelled("Multi-Select List, Searchable", color_multi_select())}
+            {labelled("Combobox, Searches as You Type", customer_search())}
             {labelled("Combobox, Filters a Fixed List", country_list())}
             {labelled("Combobox, Recent Then Everything", grouped_country_list())}
             {labelled("Date Picker", date_picker())} {labelled("Radio Group", finish_radios())}

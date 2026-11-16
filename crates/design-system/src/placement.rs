@@ -156,6 +156,24 @@ fn place(trigger: Bounds, panel: Extent, viewport: Extent, anchoring: Anchoring)
     }
 }
 
+// Polls each frame because layout shifts move the trigger without any event.
+// <https://floating-ui.com/docs/autoUpdate#animationframe>
+fn reposition_every_frame(
+    open: Signal<bool>,
+    opening: StoredValue<u64>,
+    this_opening: u64,
+    reposition: impl Fn() + Clone + 'static,
+) {
+    let still_this_opening = opening.try_get_value() == Some(this_opening);
+    if open.try_get_untracked() != Some(true) || !still_this_opening {
+        return;
+    }
+    reposition();
+    request_animation_frame(move || {
+        reposition_every_frame(open, opening, this_opening, reposition);
+    });
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct AnchoredPanel {
     pub(crate) node: NodeRef<Div>,
@@ -190,12 +208,18 @@ impl AnchoredPanel {
         if !panel.is_connected() {
             return;
         }
-        self.placement.set(Some(place(
+        let placement = Some(place(
             Bounds::of(trigger),
             Bounds::of(&panel).extent(),
             viewport,
             anchoring,
-        )));
+        ));
+        if self
+            .placement
+            .with_untracked(|current| *current != placement)
+        {
+            self.placement.set(placement);
+        }
     }
 
     pub(crate) fn follow(
@@ -217,6 +241,16 @@ impl AnchoredPanel {
             if self.node.get().is_some() {
                 on_mount();
             }
+        });
+        let opening = StoredValue::new(0_u64);
+        let on_layout_shift = reposition.clone();
+        Effect::new(move |_| {
+            if !open.get() {
+                return;
+            }
+            let current_opening = opening.get_value().wrapping_add(1);
+            opening.set_value(current_opening);
+            reposition_every_frame(open, opening, current_opening, on_layout_shift.clone());
         });
         let on_scroll = reposition.clone();
         drop(use_event_listener_with_options(

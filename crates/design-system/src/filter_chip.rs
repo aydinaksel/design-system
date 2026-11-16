@@ -4,11 +4,11 @@ use crate::button::{button_icon_class, ButtonSize, SHARED_CLASS};
 use crate::icons;
 
 const UNSELECTED_CLASS: &str =
-    "border border-gray-300 bg-surface text-gray-700 shadow-sm hover:bg-gray-50";
-const SELECTED_CLASS: &str =
+    "border border-control-edge bg-surface text-gray-700 shadow-sm hover:bg-gray-50";
+pub(crate) const SELECTED_CLASS: &str =
     "border border-blue-300 bg-blue-50 text-blue-700 shadow-sm hover:bg-blue-100";
 const UNSELECTED_COUNT_CLASS: &str = "text-xs font-normal tabular-nums text-gray-500";
-const SELECTED_COUNT_CLASS: &str = "text-xs font-normal tabular-nums text-blue-600";
+pub(crate) const SELECTED_COUNT_CLASS: &str = "text-xs font-normal tabular-nums text-blue-600";
 
 fn chip_class(selected: bool, size: ButtonSize) -> String {
     let tone = if selected {

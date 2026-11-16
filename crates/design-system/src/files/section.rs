@@ -16,8 +16,8 @@ use super::upload_queue::UploadQueue;
 use super::viewer::FileViewer;
 use super::StoredFile;
 
-const DROP_OVERLAY_CLASS: &str = "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-surface border-2 border-dashed border-blue-500 bg-blue-50/90 text-sm font-medium text-blue-700";
-const SECTION_CLASS: &str = "relative space-y-3 rounded-surface transition-shadow";
+const DROP_OVERLAY_CLASS: &str = "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-blue-500 bg-blue-50/90 text-sm font-medium text-blue-700";
+const SECTION_CLASS: &str = "relative space-y-3 rounded-xl transition-shadow";
 const PAGE_DRAG_CLASS: &str = "ring-2 ring-blue-200 ring-offset-4";
 const CAMERA_ACCEPT: &str = "image/*";
 const REAR_CAMERA: &str = "environment";

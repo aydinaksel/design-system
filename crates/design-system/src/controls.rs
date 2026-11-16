@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-pub(crate) const CONTROL_CLASS: &str = "block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-500";
+pub(crate) const CONTROL_CLASS: &str = "block w-full rounded-lg border border-control-edge bg-surface px-3 py-1.75 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-control-edge-hover focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-500";
 
 #[derive(Clone, Debug)]
 pub(crate) struct FieldElementIds {

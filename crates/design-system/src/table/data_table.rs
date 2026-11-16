@@ -20,6 +20,7 @@ use crate::tooltip::Tooltip;
 use super::calendar_view::CalendarView;
 use super::cell_value::{Align, CellValue};
 use super::column::Column;
+use super::facet_row::FacetRow;
 use super::filter_option::FilterOption;
 use super::layout::Layout;
 use super::toolbar::TableToolbar;
@@ -29,6 +30,36 @@ use table_query::{FilterValue, LoadedFilterValues};
 
 pub type RowAttribute<Row> = Arc<dyn Fn(&Row) -> String + Send + Sync>;
 pub type RowView<Row> = Arc<dyn Fn(&Row) -> AnyView + Send + Sync>;
+pub(super) type TableRows<Row> = Signal<Option<Result<Vec<Row>, String>>>;
+pub(super) type ClientColumnFilters = HashMap<usize, HashSet<String>>;
+
+pub(super) fn matches_search<Row: Send + Sync>(
+    columns: &[Column<Row>],
+    row: &Row,
+    search_lower: &str,
+) -> bool {
+    search_lower.is_empty()
+        || columns
+            .iter()
+            .filter(|column| column.searchable)
+            .any(|column| (column.value)(row).search_text().contains(search_lower))
+}
+
+pub(super) fn passes_column_filters<Row: Send + Sync>(
+    columns: &[Column<Row>],
+    filters: &ClientColumnFilters,
+    row: &Row,
+    ignored_column: Option<usize>,
+) -> bool {
+    filters
+        .iter()
+        .filter(|(index, _)| Some(**index) != ignored_column)
+        .all(|(index, allowed)| {
+            columns
+                .get(*index)
+                .is_none_or(|column| allowed.contains(&(column.value)(row).filter_key()))
+        })
+}
 
 #[derive(Clone, Copy, Default)]
 pub enum Search {
@@ -71,7 +102,7 @@ fn sort_direction_label(ascending: bool) -> &'static str {
 const FILTER_MENU_WIDTH_CLASS: &str = "w-64";
 const SORT_MENU_WIDTH_CLASS: &str = "w-44";
 const HEADER_TRIGGER_CLASS: &str = "-mx-1.5 -my-0.5 inline-flex cursor-pointer select-none items-center rounded-md px-1.5 py-0.5 hover:bg-gray-100 aria-expanded:bg-gray-100 focus-ring";
-const FOOTER_ACTION_CLASS: &str = "cursor-pointer rounded-sm hover:underline focus-ring";
+pub(super) const FOOTER_ACTION_CLASS: &str = "cursor-pointer rounded-sm hover:underline focus-ring";
 const CLICKABLE_ROW_CLASS: &str = "cursor-pointer hover:bg-row-hover";
 
 #[derive(Clone, Copy)]
@@ -179,7 +210,9 @@ const REFRESH_COVER_CLASS: &str = "absolute z-20 items-center justify-center bg-
 
 pub(crate) const BODY_HEIGHT_CLASS: &str = "h-[calc(100vh-18rem)]";
 pub(crate) const BODY_MAX_HEIGHT_CLASS: &str = "max-h-[calc(100vh-18rem)]";
-pub(crate) const HEADER_RULE_CLASS: &str = "shadow-[inset_0_-1px_0_0_rgb(229,231,235)]";
+pub(crate) const HEADER_RULE_CLASS: &str = "shadow-[inset_0_-1px_0_0_var(--color-edge)]";
+pub(crate) const HEADER_ROW_HEIGHT_CLASS: &str = "h-9";
+pub(crate) const ROW_HEIGHT_CLASS: &str = "h-10";
 
 pub(super) fn error_alert(message: String) -> AnyView {
     view! {
@@ -244,7 +277,7 @@ where
             >
                 <CardGrid>{cards}</CardGrid>
             </div>
-            {refresh_cover(pending, "inset-0 rounded-surface")}
+            {refresh_cover(pending, "inset-0 rounded-xl")}
         </div>
     }
     .into_any()
@@ -314,13 +347,13 @@ fn server_filter_section(section: ServerFilterSection) -> AnyView {
     };
 
     view! {
-        <div class="border-b border-gray-100 p-2.5">
+        <div class="border-b border-divider p-2.5">
             <SearchInput value=value_search placeholder="Search Values" size=SearchSize::Compact />
         </div>
         <div class="max-h-56 overflow-auto p-1.5 [scrollbar-gutter:stable] [scrollbar-width:thin]">
             {value_list}
         </div>
-        <div class="flex items-center justify-between border-t border-gray-100 px-3 py-2.5 text-xs text-blue-600">
+        <div class="flex items-center justify-between border-t border-divider px-3 py-2.5 text-xs text-blue-600">
             <button
                 class=FOOTER_ACTION_CLASS
                 on:click=move |_| query.update(|query| query.clear_column_filter(column_key))
@@ -379,6 +412,7 @@ pub fn DataTable<Row>(
     #[prop(optional, into)]
     filter_values: Signal<LoadedFilterValues>,
     #[prop(optional)] layout: Layout<Row>,
+    #[prop(optional)] facet_row: bool,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
@@ -389,9 +423,24 @@ where
             .map(|query| query.with_untracked(|query| query.search.clone()))
             .unwrap_or_default(),
     );
+    let columns = StoredValue::new(columns);
+    let column_filters: RwSignal<ClientColumnFilters> = RwSignal::new(HashMap::new());
+    let facet_row = facet_row && query.is_none();
+    let facets = facet_row
+        .then(|| {
+            FacetRow {
+                rows,
+                columns,
+                column_filters,
+                search_text,
+            }
+            .render()
+        })
+        .flatten();
     let toolbar_row = TableToolbar {
         views,
         filter_toggle,
+        facets,
         controls: toolbar,
         search,
         search_placeholder,
@@ -417,6 +466,8 @@ where
                 filter_column_request
                 filter_values
                 layout
+                column_filters
+                facet_row
             />
         }
     };
@@ -430,8 +481,8 @@ where
 
 #[component]
 fn TableContents<Row>(
-    rows: Signal<Option<Result<Vec<Row>, String>>>,
-    columns: Vec<Column<Row>>,
+    rows: TableRows<Row>,
+    columns: StoredValue<Vec<Column<Row>>>,
     filter: RwSignal<String>,
     empty_message: String,
     row_class: Option<RowAttribute<Row>>,
@@ -444,16 +495,16 @@ fn TableContents<Row>(
     filter_column_request: Option<RwSignal<Option<String>>>,
     filter_values: Signal<LoadedFilterValues>,
     layout: Layout<Row>,
+    column_filters: RwSignal<ClientColumnFilters>,
+    facet_row: bool,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
 {
     let navigate = row_href.as_ref().map(|_| use_navigate());
     let calendar_row_href = row_href.clone();
-    let column_count = columns.len();
-    let columns = StoredValue::new(columns);
+    let column_count = columns.with_value(Vec::len);
     let sort_state: RwSignal<Option<(usize, bool)>> = RwSignal::new(None);
-    let column_filters: RwSignal<HashMap<usize, HashSet<String>>> = RwSignal::new(HashMap::new());
     let value_search = RwSignal::new(String::new());
     let server_query = query;
     let server_driven = server_query.is_some();
@@ -479,7 +530,7 @@ where
         if server_driven {
             column.filterable && server_filtering.is_some()
         } else {
-            column.filterable
+            column.filterable && !facet_row
         }
     };
 
@@ -524,35 +575,18 @@ where
             } else {
                 filter.get().to_lowercase()
             };
-            let mut visible: Vec<Row> = if search_text.is_empty() {
-                all_rows
-            } else {
-                all_rows
-                    .into_iter()
-                    .filter(|row| {
-                        all_columns
-                            .iter()
-                            .filter(|column| column.searchable)
-                            .any(|column| (column.value)(row).search_text().contains(&search_text))
-                    })
-                    .collect()
-            };
-
             let active_filters = if server_driven {
                 HashMap::new()
             } else {
                 column_filters.get()
             };
-            if !active_filters.is_empty() {
-                visible.retain(|row| {
-                    active_filters.iter().all(|(column_index, allowed)| {
-                        match all_columns.get(*column_index) {
-                            Some(column) => allowed.contains(&(column.value)(row).filter_key()),
-                            None => true,
-                        }
-                    })
-                });
-            }
+            let mut visible: Vec<Row> = all_rows
+                .into_iter()
+                .filter(|row| {
+                    matches_search(all_columns, row, &search_text)
+                        && passes_column_filters(all_columns, &active_filters, row, None)
+                })
+                .collect();
 
             if let Some((index, ascending)) = sort_state.get().filter(|_| !server_driven) {
                 if let Some(column) = all_columns.get(index) {
@@ -589,7 +623,7 @@ where
                     .iter()
                     .map(|column| {
                         let class = format!(
-                            "px-4 py-3 text-gray-700 {} truncate",
+                            "{ROW_HEIGHT_CLASS} px-4 py-2.5 text-gray-700 {} truncate",
                             column.align.text_class()
                         );
                         let content = (column.render)(&row);
@@ -807,7 +841,7 @@ where
     };
 
     let filter_chips = move || {
-        if !filters_are_active() {
+        if facet_row || !filters_are_active() {
             return ().into_any();
         }
         let chips = match server_filtering {
@@ -867,7 +901,7 @@ where
                     </button>
                 }
             };
-            view! { <div class="border-b border-gray-100 p-1">{sort_button(true)} {sort_button(false)}</div> }
+            view! { <div class="border-b border-divider p-1">{sort_button(true)} {sort_button(false)}</div> }
             .into_any()
         } else {
             ().into_any()
@@ -929,7 +963,7 @@ where
                 }
             };
             view! {
-                <div class="border-b border-gray-100 p-2.5">
+                <div class="border-b border-divider p-2.5">
                     <SearchInput
                         value=value_search
                         placeholder="Search Values"
@@ -939,7 +973,7 @@ where
                 <div class="max-h-56 overflow-auto p-1.5 [scrollbar-gutter:stable] [scrollbar-width:thin]">
                     {value_list}
                 </div>
-                <div class="flex items-center justify-between border-t border-gray-100 px-3 py-2.5 text-xs text-blue-600">
+                <div class="flex items-center justify-between border-t border-divider px-3 py-2.5 text-xs text-blue-600">
                     <button
                         class=FOOTER_ACTION_CLASS
                         on:click=move |_| {
@@ -1020,7 +1054,7 @@ where
                         </span>
                     };
                     if !interactive {
-                        return view! { <th class=format!("truncate px-4 py-3 select-none {label_class}")>{label}</th> }
+                        return view! { <th class=format!("{HEADER_ROW_HEIGHT_CLASS} truncate px-4 select-none {label_class}")>{label}</th> }
                         .into_any();
                     }
                     let on_open = Callback::new(move |()| {
@@ -1041,7 +1075,7 @@ where
                         SORT_MENU_WIDTH_CLASS
                     };
                     view! {
-                        <th class=format!("truncate px-4 py-3 {}", column.align.text_class())>
+                        <th class=format!("{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {}", column.align.text_class())>
                             <Popover align=menu_alignment(column.align) on_open=on_open>
                                 <PopoverTrigger class=format!(
                                     "{HEADER_TRIGGER_CLASS} {}",
@@ -1127,7 +1161,7 @@ where
         _ => view! {
             <div class="relative">
                 <div class=format!(
-                    "w-full max-w-full overflow-auto rounded-surface border border-gray-200 bg-surface {BODY_MAX_HEIGHT_CLASS}",
+                    "w-full max-w-full overflow-auto rounded-xl border border-edge bg-surface {BODY_MAX_HEIGHT_CLASS}",
                 )>
                     <table class="w-full table-fixed text-sm tabular-nums">
                         <colgroup>{column_widths}</colgroup>
@@ -1135,7 +1169,7 @@ where
                             <tr>{header}</tr>
                         </thead>
                         <tbody
-                            class="divide-y divide-gray-100"
+                            class="divide-y divide-divider"
                             aria-busy=move || pending.get().to_string()
                         >
                             {status_rows}
@@ -1143,7 +1177,7 @@ where
                         </tbody>
                     </table>
                 </div>
-                {refresh_cover(pending, "inset-px rounded-surface-inner")}
+                {refresh_cover(pending, "inset-px rounded-[calc(var(--radius-xl)-1px)]")}
             </div>
         }
         .into_any(),

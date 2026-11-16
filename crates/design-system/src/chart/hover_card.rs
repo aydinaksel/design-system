@@ -6,7 +6,7 @@ use leptos::prelude::*;
 
 use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
 
-const CARD_CLASS: &str = "pointer-events-none fixed z-[70] min-w-44 space-y-1.5 rounded-item border border-gray-200 bg-surface px-3 py-2 text-xs shadow-lg";
+const CARD_CLASS: &str = "pointer-events-none fixed z-[70] min-w-44 space-y-1.5 rounded-lg border border-edge bg-surface px-3 py-2 text-xs shadow-lg";
 const GAP_PIXELS: f64 = 8.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

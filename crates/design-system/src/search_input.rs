@@ -16,8 +16,8 @@ pub enum SearchSize {
 impl SearchSize {
     const fn input_class(self) -> &'static str {
         match self {
-            Self::Standard => "block w-full rounded-md border border-gray-300 bg-surface py-2 pl-9 pr-9 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
-            Self::Compact => "block w-full rounded-md border border-gray-300 bg-surface py-1.5 pl-7 pr-7 text-xs text-gray-900 transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
+            Self::Standard => "block w-full rounded-lg border border-control-edge bg-surface py-1.75 pl-9 pr-9 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-control-edge-hover focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
+            Self::Compact => "block w-full rounded-lg border border-control-edge bg-surface py-1.75 pl-7 pr-7 text-xs text-gray-900 transition-colors placeholder:text-gray-400 hover:border-control-edge-hover focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus",
         }
     }
 
@@ -68,8 +68,13 @@ pub fn SearchInput(
     #[prop(optional, into)] on_clear: Option<Callback<()>>,
     #[prop(optional, into)] applied: Signal<bool>,
     #[prop(optional, into)] pending: Signal<bool>,
+    #[prop(optional, into)] controls: Option<String>,
+    #[prop(optional, into)] active_descendant: Signal<Option<String>>,
+    #[prop(optional)] autofocus: bool,
 ) -> impl IntoView {
     let placeholder = placeholder.unwrap_or_else(|| DEFAULT_PLACEHOLDER.to_owned());
+    let drives_list = controls.is_some();
+    let role = if drives_list { "combobox" } else { "searchbox" };
     let has_something_to_clear = move || !value.read().is_empty() || applied.get();
     let clear = move || {
         value.set(String::new());
@@ -103,7 +108,12 @@ pub fn SearchInput(
             }}
             <input
                 type="text"
-                role="searchbox"
+                role=role
+                aria-controls=controls
+                aria-expanded=drives_list.then_some("true")
+                aria-autocomplete=drives_list.then_some("list")
+                aria-activedescendant=move || active_descendant.get()
+                data-autofocus=autofocus.then_some("")
                 placeholder=placeholder.clone()
                 aria-label=placeholder
                 autocomplete="off"

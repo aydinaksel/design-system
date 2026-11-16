@@ -158,7 +158,7 @@ pub fn DetailPage(
     });
 
     view! {
-        <div class="border-b border-gray-200">
+        <div class="border-b border-edge">
             <div class=band_class>{header.run()} {tabs}</div>
         </div>
         <div class=format!("{PAGE_WIDTH_CLASS} py-6")>{children()}</div>
