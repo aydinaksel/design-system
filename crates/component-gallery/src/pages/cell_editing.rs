@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use design_system::table::{CellEditor, Column, DataTable, RowAttribute};
+use design_system::table::{CellEditor, CellValue, Column, DataTable, RowAttribute};
 use design_system::{FieldSave, Input, Switch};
 use leptos::prelude::*;
 
@@ -110,40 +110,46 @@ fn container_column(
     lines: RwSignal<Vec<ShipmentLine>>,
     save_fails: RwSignal<bool>,
 ) -> Column<ShipmentLine> {
-    Column::custom("container", "Container", move |line: &ShipmentLine| {
-        let line_number = line.line_number;
-        CellEditor::new(
-            "Container",
-            line.container.clone(),
-            String::clone,
-            |draft| view! { <Input value=draft /> }.into_any(),
-            move |container: String, save: FieldSave| {
-                fake_save(save, save_fails.get_untracked(), move || {
-                    update_line(lines, line_number, |line| line.container = container);
-                });
-            },
-        )
-        .normalize(|typed: &String| normalized_container(typed))
-        .validate(|container: &String| container_error(container))
-        .hint(|draft| {
-            let cleared = draft.with(|typed| typed.trim().is_empty());
-            if cleared {
-                "Saving an empty value clears the container number.".into_any()
-            } else {
-                "Spaces are removed and letters are capitalized.".into_any()
-            }
-        })
-        .into_view()
-    })
+    Column::view(
+        "container",
+        "Container",
+        |line: &ShipmentLine| CellValue::optional_text(Some(&line.container)),
+        move |line: &ShipmentLine| {
+            let line_number = line.line_number;
+            CellEditor::new(
+                "Container",
+                line.container.clone(),
+                String::clone,
+                |draft| view! { <Input value=draft /> }.into_any(),
+                move |container: String, save: FieldSave| {
+                    fake_save(save, save_fails.get_untracked(), move || {
+                        update_line(lines, line_number, |line| line.container = container);
+                    });
+                },
+            )
+            .normalize(|typed: &String| normalized_container(typed))
+            .validate(|container: &String| container_error(container))
+            .hint(|draft| {
+                let cleared = draft.with(|typed| typed.trim().is_empty());
+                if cleared {
+                    "Saving an empty value clears the container number.".into_any()
+                } else {
+                    "Spaces are removed and letters are capitalized.".into_any()
+                }
+            })
+            .into_view()
+        },
+    )
 }
 
 fn serial_number_column(
     lines: RwSignal<Vec<ShipmentLine>>,
     save_fails: RwSignal<bool>,
 ) -> Column<ShipmentLine> {
-    Column::custom(
+    Column::view(
         "serial_number",
         "Serial Number",
+        |line: &ShipmentLine| CellValue::optional_text(Some(&line.serial_number)),
         move |line: &ShipmentLine| {
             let line_number = line.line_number;
             CellEditor::text(

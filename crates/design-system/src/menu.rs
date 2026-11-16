@@ -8,11 +8,15 @@ use leptos::web_sys::{HtmlElement, Node};
 use leptos_use_timeout_fn::use_timeout_fn;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
+use crate::confirm_dialog::ConfirmDialog;
 use crate::icons;
 use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
 use crate::tooltip::{focus_is_visible, Tooltip, TooltipControl, TooltipPosition};
 
 const ITEM_MARKER_CLASS: &str = "menu-item";
+const DEFAULT_DELETE_QUESTION: &str = "This cannot be undone.";
+pub(crate) const DESTRUCTIVE_BUTTON_CLASS: &str = "group hover:bg-red-50";
+pub(crate) const DESTRUCTIVE_ICON_CLASS: &str = "h-4 w-4 text-red-400 group-hover:text-red-600";
 pub(crate) const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-none";
 const DANGER_ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-red-700 focus:bg-red-50 focus:text-red-800 focus:outline-none";
 const DANGER_ICON_CLASS: &str = "h-4 w-4 shrink-0 text-red-500 group-focus:text-red-600";
@@ -311,6 +315,9 @@ pub fn DropdownMenu(label: &'static str, entries: Vec<MenuEntry>) -> impl IntoVi
 pub fn RowActions(
     #[prop(optional)] on_edit: Option<Callback<()>>,
     #[prop(default = "Edit")] edit_label: &'static str,
+    #[prop(optional)] on_delete: Option<Callback<()>>,
+    #[prop(default = "Delete")] delete_label: &'static str,
+    #[prop(optional, into)] delete_question: Option<String>,
     #[prop(optional)] entries: Vec<MenuEntry>,
 ) -> impl IntoView {
     let compact_ghost = icon_button_class(ButtonTone::Ghost, ButtonSize::Compact);
@@ -329,6 +336,31 @@ pub fn RowActions(
             </Tooltip>
         }
     });
+    let delete_class = format!("{compact_ghost} {DESTRUCTIVE_BUTTON_CLASS}");
+    let delete_button = on_delete.map(|on_delete| {
+        let confirming = RwSignal::new(false);
+        let question = delete_question.unwrap_or_else(|| DEFAULT_DELETE_QUESTION.to_owned());
+        view! {
+            <Tooltip label=delete_label>
+                <button
+                    type="button"
+                    class=delete_class
+                    aria-label=delete_label
+                    on:click=move |_| confirming.set(true)
+                >
+                    {icons::icon(icons::LucideGlyph::Trash, DESTRUCTIVE_ICON_CLASS)}
+                </button>
+            </Tooltip>
+            <ConfirmDialog
+                open=confirming
+                title=format!("{delete_label}?")
+                body=question
+                confirm_label=delete_label
+                tone=ButtonTone::Danger
+                on_confirm=on_delete
+            />
+        }
+    });
     let overflow = (!entries.is_empty()).then(|| {
         menu(
             &compact_ghost,
@@ -343,6 +375,7 @@ pub fn RowActions(
             on:click=|event: MouseEvent| event.stop_propagation()
         >
             {edit_button}
+            {delete_button}
             {overflow}
         </div>
     }

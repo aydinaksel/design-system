@@ -96,11 +96,15 @@ fn sample_photos() -> Vec<StoredFile> {
 
 fn file_columns() -> Vec<Column<StoredFile>> {
     vec![
-        Column::custom("name", "File", file_cell)
-            .with_value(|file: &StoredFile| CellValue::Text(file.name.clone()))
-            .width_characters(36)
-            .sortable()
-            .searchable(),
+        Column::view(
+            "name",
+            "File",
+            |file: &StoredFile| CellValue::Text(file.name.clone()),
+            file_cell,
+        )
+        .width_characters(36)
+        .sortable()
+        .searchable(),
         Column::text("kind", "Type", |file: &StoredFile| file.type_label())
             .width_characters(12)
             .filterable(),

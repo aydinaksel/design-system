@@ -3,6 +3,7 @@ pub mod cell_editing;
 pub mod charts;
 pub mod client_side_table;
 pub mod files;
+pub mod line_items;
 pub mod overview;
 pub mod popovers;
 pub mod sidebar;

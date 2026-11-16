@@ -1233,6 +1233,7 @@ pub fn OverviewPage() -> impl IntoView {
             {section("Field Sections", field_sections())}
             {section("Form Sections", form_section())}
             {section("Cell Editing", super::cell_editing::cell_editing())}
+            {section("Line Items", super::line_items::line_items())}
             {section("Images and Cards", images())}
         </main>
     }

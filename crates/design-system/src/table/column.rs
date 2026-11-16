@@ -17,6 +17,7 @@ const CUSTOM_WIDTH_CHARACTERS: u16 = 12;
 const ACTIONS_WIDTH_CHARACTERS: u16 = 4;
 const BADGE_WIDTH_CHARACTERS: u16 = 12;
 const ACTIONS_KEY: &str = "actions";
+const LINK_CLASS: &str = "text-blue-600 hover:text-blue-800 hover:underline";
 const HEADER_ICONS_WIDTH_CHARACTERS: u16 = 5;
 const UPPERCASE_LETTER_WIDTH_FIFTHS: u16 = 6;
 const FIFTHS_PER_CHARACTER: u16 = 5;
@@ -25,6 +26,8 @@ const FIFTHS_PER_CHARACTER: u16 = 5;
 /// searching (written once, generically, inside `DataTable`); `render` is the
 /// actual cell view and stays fully custom. Both closures are `Send + Sync` so
 /// the column can live in default reactive storage under multi-threaded SSR.
+pub type ColumnTotal<Row> = Arc<dyn Fn(&[Row]) -> String + Send + Sync>;
+
 pub struct Column<Row: Send + Sync + 'static> {
     pub key: &'static str,
     pub header: &'static str,
@@ -37,6 +40,7 @@ pub struct Column<Row: Send + Sync + 'static> {
     pub filterable: bool,
     pub value: Arc<dyn Fn(&Row) -> CellValue + Send + Sync>,
     pub render: Arc<dyn Fn(&Row) -> AnyView + Send + Sync>,
+    pub total: Option<ColumnTotal<Row>>,
 }
 
 impl<Row: Send + Sync + 'static> Clone for Column<Row> {
@@ -51,6 +55,7 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
             filterable: self.filterable,
             value: Arc::clone(&self.value),
             render: Arc::clone(&self.render),
+            total: self.total.clone(),
         }
     }
 }
@@ -80,6 +85,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
+            total: None,
             value: Arc::new(move |row| CellValue::optional_text(value_accessor(row).as_ref())),
             render: Arc::new(move |row| match present(row) {
                 Some(text) => {
@@ -110,6 +116,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
+            total: None,
             value: Arc::new(move |row| CellValue::Text(value_accessor(row).0.into())),
             render: Arc::new(move |row| {
                 let (label, tone) = accessor(row);
@@ -138,6 +145,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
+            total: None,
             value: Arc::new(move |row| {
                 value_accessor(row).map_or(CellValue::Empty, CellValue::Int)
             }),
@@ -159,6 +167,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
+            total: None,
             value: Arc::new(move |row| match value_accessor(row) {
                 Some(quantity) => CellValue::Number(quantity),
                 None => CellValue::Empty,
@@ -214,6 +223,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
+            total: None,
             value: Arc::new(move |row| match value_accessor(row) {
                 Some(amount) => CellValue::Number(amount),
                 None => CellValue::Empty,
@@ -239,6 +249,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
+            total: None,
             value: Arc::new(move |row| {
                 use rust_decimal::prelude::ToPrimitive;
                 match value_accessor(row).and_then(|amount| amount.to_f64()) {
@@ -253,14 +264,22 @@ impl<Row: Send + Sync + 'static> Column<Row> {
     }
 
     /// A real anchor, so middle-click and open-in-new-tab work even when the
-    /// whole row also navigates via `row_href`.
-    pub fn link(
+    /// whole row also navigates via `row_href`. Without a link it is plain text.
+    pub fn link<Text, Href>(
         key: &'static str,
         header: &'static str,
-        text: impl Fn(&Row) -> String + Send + Sync + Clone + 'static,
-        href: impl Fn(&Row) -> String + Send + Sync + Clone + 'static,
-    ) -> Self {
-        let value_accessor = text.clone();
+        text: impl Fn(&Row) -> Text + Send + Sync + Clone + 'static,
+        href: impl Fn(&Row) -> Href + Send + Sync + Clone + 'static,
+    ) -> Self
+    where
+        Text: Into<Option<String>>,
+        Href: Into<Option<String>>,
+    {
+        let present = move |row: &Row| {
+            let text: Option<String> = text(row).into();
+            text.filter(|text| !text.trim().is_empty())
+        };
+        let value_accessor = present.clone();
         Self {
             key,
             header,
@@ -269,21 +288,23 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            value: Arc::new(move |row| CellValue::Text(value_accessor(row))),
+            total: None,
+            value: Arc::new(move |row| CellValue::optional_text(value_accessor(row).as_ref())),
             render: Arc::new(move |row| {
-                let target = href(row);
-                let label = text(row);
+                let Some(label) = present(row) else {
+                    return missing_value();
+                };
                 let full_label = label.clone();
-                view! {
-                    <a
-                        href=target
-                        title=full_label
-                        class="text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                        {label}
-                    </a>
+                let target: Option<String> = href(row).into();
+                match target {
+                    Some(target) => view! {
+                        <a href=target title=full_label class=LINK_CLASS>
+                            {label}
+                        </a>
+                    }
+                    .into_any(),
+                    None => view! { <span title=full_label>{label}</span> }.into_any(),
                 }
-                .into_any()
             }),
         }
     }
@@ -299,16 +320,16 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
+            total: None,
             value: Arc::new(|_| CellValue::Empty),
             render: Arc::new(render),
         }
     }
 
-    /// Fully custom cell view. Starts non-sortable/non-searchable with an empty
-    /// sort value; attach one with `with_value` to enable sorting/searching.
-    pub fn custom(
+    pub fn view(
         key: &'static str,
         header: &'static str,
+        value: impl Fn(&Row) -> CellValue + Send + Sync + 'static,
         render: impl Fn(&Row) -> AnyView + Send + Sync + 'static,
     ) -> Self {
         Self {
@@ -319,7 +340,8 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             sortable: false,
             searchable: false,
             filterable: false,
-            value: Arc::new(|_| CellValue::Empty),
+            total: None,
+            value: Arc::new(value),
             render: Arc::new(render),
         }
     }
@@ -327,6 +349,12 @@ impl<Row: Send + Sync + 'static> Column<Row> {
     #[must_use]
     pub fn with_value(mut self, value: impl Fn(&Row) -> CellValue + Send + Sync + 'static) -> Self {
         self.value = Arc::new(value);
+        self
+    }
+
+    #[must_use]
+    pub fn total(mut self, total: impl Fn(&[Row]) -> String + Send + Sync + 'static) -> Self {
+        self.total = Some(Arc::new(total));
         self
     }
 

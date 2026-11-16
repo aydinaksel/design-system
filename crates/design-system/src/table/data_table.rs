@@ -30,6 +30,7 @@ use table_query::{FilterValue, LoadedFilterValues};
 
 pub type RowAttribute<Row> = Arc<dyn Fn(&Row) -> String + Send + Sync>;
 pub type RowView<Row> = Arc<dyn Fn(&Row) -> AnyView + Send + Sync>;
+pub type RowReplacement<Row> = Arc<dyn Fn(&Row) -> Option<AnyView> + Send + Sync>;
 pub(super) type TableRows<Row> = Signal<Option<Result<Vec<Row>, String>>>;
 pub(super) type ClientColumnFilters = HashMap<usize, HashSet<String>>;
 
@@ -104,6 +105,12 @@ const SORT_MENU_WIDTH_CLASS: &str = "w-44";
 const HEADER_TRIGGER_CLASS: &str = "-mx-1.5 -my-0.5 inline-flex cursor-pointer select-none items-center rounded-md px-1.5 py-0.5 hover:bg-gray-100 aria-expanded:bg-gray-100 focus-ring";
 pub(super) const FOOTER_ACTION_CLASS: &str = "cursor-pointer rounded-sm hover:underline focus-ring";
 const CLICKABLE_ROW_CLASS: &str = "cursor-pointer hover:bg-row-hover";
+const FOOTER_CELL_CLASS: &str = "truncate px-4 text-sm font-semibold tabular-nums text-gray-900";
+const FOOTER_LABEL: &str = "Total";
+const FOOTER_ROW_CLASS: &str =
+    "sticky bottom-0 z-10 bg-gray-50 shadow-[inset_0_1px_0_0_var(--color-edge)]";
+const ROW_IDENTITY_SEPARATOR: char = '\u{1e}';
+const CELL_SEPARATOR: &str = "\u{1f}";
 
 #[derive(Clone, Copy)]
 enum PageStep {
@@ -351,6 +358,9 @@ pub fn DataTable<Row>(
     /// Stable row identity; sorts and filters then reorder DOM rows instead of rebuilding them.
     #[prop(optional)]
     row_key: Option<RowAttribute<Row>>,
+    #[prop(optional)] row_replacement: Option<RowReplacement<Row>>,
+    #[prop(optional)] trailing_rows: Option<ViewFn>,
+    #[prop(optional)] hides_row_count: bool,
     /// Controls that change how the table is drawn, such as a mode switch,
     /// rendered after the search. Page actions belong in the page header.
     #[prop(optional_no_strip)]
@@ -432,6 +442,8 @@ where
         row_class,
         row_href,
         navigate,
+        row_replacement,
+        hides_row_count,
     };
     let contents = move || {
         view! {
@@ -442,6 +454,7 @@ where
                 sidebar
                 total_rows
                 pending=refreshing.into()
+                trailing_rows
                 layout
             />
         }
@@ -498,6 +511,8 @@ struct TableState<Row: Send + Sync + 'static> {
     row_class: Option<RowAttribute<Row>>,
     row_href: Option<RowAttribute<Row>>,
     navigate: Option<Navigate>,
+    row_replacement: Option<RowReplacement<Row>>,
+    hides_row_count: bool,
 }
 
 impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
@@ -516,6 +531,8 @@ impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
             row_class: self.row_class.clone(),
             row_href: self.row_href.clone(),
             navigate: self.navigate.clone(),
+            row_replacement: self.row_replacement.clone(),
+            hides_row_count: self.hides_row_count,
         }
     }
 }
@@ -662,6 +679,15 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
     }
 
     fn render_row(&self, row: &Row) -> AnyView {
+        let Some(replacement) = self.row_replacement.clone() else {
+            return self.render_table_row(row);
+        };
+        let state = self.clone();
+        let row = row.clone();
+        (move || replacement(&row).unwrap_or_else(|| state.render_table_row(&row))).into_any()
+    }
+
+    fn render_table_row(&self, row: &Row) -> AnyView {
         let cells = self
             .columns
             .iter()
@@ -705,6 +731,19 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         .into_any()
     }
 
+    fn row_identity(&self, key_for_row: &RowAttribute<Row>, row: &Row) -> String {
+        let contents: Vec<String> = self
+            .columns
+            .iter()
+            .map(|column| (column.value)(row).filter_key())
+            .collect();
+        format!(
+            "{}{ROW_IDENTITY_SEPARATOR}{}",
+            key_for_row(row),
+            contents.join(CELL_SEPARATOR)
+        )
+    }
+
     fn data_rows(&self, row_key: Option<RowAttribute<Row>>) -> AnyView {
         let state = self.clone();
         let Some(key_for_row) = row_key else {
@@ -718,10 +757,11 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
             .into_any();
         };
         let each_state = self.clone();
+        let key_state = self.clone();
         view! {
             <For
                 each=move || each_state.visible_rows()
-                key=move |row| key_for_row(row)
+                key=move |row| key_state.row_identity(&key_for_row, row)
                 children=move |row: Row| state.render_row(&row)
             />
         }
@@ -760,6 +800,9 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
     }
 
     fn client_pager(&self) -> AnyView {
+        if self.hides_row_count {
+            return ().into_any();
+        }
         let Some(Ok(all_rows)) = self.current_rows() else {
             return ().into_any();
         };
@@ -1158,7 +1201,49 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         .into_any()
     }
 
-    fn table_body(&self, row_key: Option<RowAttribute<Row>>, pending: Signal<bool>) -> AnyView {
+    fn footer(&self) -> Option<AnyView> {
+        if self.columns.iter().all(|column| column.total.is_none()) {
+            return None;
+        }
+        let state = self.clone();
+        let cells = move || {
+            let rows = state.visible_rows();
+            state
+                .columns
+                .iter()
+                .enumerate()
+                .map(|(index, column)| {
+                    let (text, tone) = match &column.total {
+                        Some(total) => (total(&rows), FOOTER_CELL_CLASS),
+                        None if index == 0 => {
+                            (FOOTER_LABEL.to_owned(), crate::typography::LABEL_CLASS)
+                        }
+                        None => (String::new(), FOOTER_CELL_CLASS),
+                    };
+                    let class = format!(
+                        "{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {tone} {}",
+                        column.align.text_class()
+                    );
+                    view! { <td class=class>{text}</td> }
+                })
+                .collect_view()
+        };
+        Some(
+            view! {
+                <tfoot class=FOOTER_ROW_CLASS>
+                    <tr>{cells}</tr>
+                </tfoot>
+            }
+            .into_any(),
+        )
+    }
+
+    fn table_body(
+        &self,
+        row_key: Option<RowAttribute<Row>>,
+        pending: Signal<bool>,
+        trailing_rows: Option<ViewFn>,
+    ) -> AnyView {
         view! {
             <div class="relative">
                 <div class=format!(
@@ -1175,7 +1260,9 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                         >
                             {self.status_rows()}
                             {self.data_rows(row_key)}
+                            {trailing_rows.map(|rows| move || rows.run())}
                         </tbody>
+                        {self.footer()}
                     </table>
                 </div>
                 {refresh_cover(pending, "inset-px rounded-[calc(var(--radius-xl)-1px)]")}
@@ -1214,6 +1301,7 @@ fn TableContents<Row>(
     total_rows: Signal<Option<u64>>,
     pending: Signal<bool>,
     layout: Layout<Row>,
+    trailing_rows: Option<ViewFn>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
@@ -1250,7 +1338,7 @@ where
             />
         }
         .into_any(),
-        _ => state.table_body(row_key, pending),
+        _ => state.table_body(row_key, pending, trailing_rows),
     };
     let chips_state = state.clone();
     view! {
