@@ -4,6 +4,7 @@ use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::controls::FieldElementIds;
 use crate::element_key::ElementKey;
 use crate::fields::{ALIGNED_WITH_CONTROL_TEXT_CLASS, ROW_CLASS};
+use crate::tooltip::HelpTerm;
 use crate::typography::{heading_element, HeadingLevel, LABEL_CLASS, SECTION_HEADING_ROW_CLASS};
 
 const CARD_CLASS: &str = "rounded-xl border border-edge bg-surface";
@@ -12,7 +13,6 @@ const ERROR_CLASS: &str = "text-sm text-red-600";
 const LABEL_COLUMN_CLASS: &str = "pt-1.5 text-sm text-gray-500 sm:w-48 sm:shrink-0";
 const CONTROL_COLUMN_CLASS: &str = "flex min-w-0 flex-1 pb-1.5 pt-1 text-sm sm:justify-end sm:py-0";
 const CONTROL_CLASS: &str = "min-w-0 max-w-sm flex-1 text-left";
-const DESCRIPTION_CLASS: &str = "mt-1.5 text-xs text-gray-500";
 const SUBMITTING_LABEL: &str = "Saving\u{2026}";
 const CANCEL_LABEL: &str = "Cancel";
 const FOOTER_BUTTON_SIZE: ButtonSize = ButtonSize::Compact;
@@ -95,24 +95,28 @@ pub fn FormSection(
 #[component]
 pub fn FormRow(
     #[prop(into)] label: String,
-    #[prop(optional, into)] description: Option<String>,
+    #[prop(optional, into)] help: Option<String>,
     children: Children,
 ) -> impl IntoView {
     let row_number = ElementKey::next();
     let control_id = format!("form-row-{row_number}");
     let label_id = format!("form-row-{row_number}-label");
-    let description_id = description
-        .as_ref()
-        .map(|_| format!("form-row-{row_number}-description"));
+    let help_id = help.as_ref().map(|_| format!("form-row-{row_number}-help"));
     provide_context(FieldElementIds {
         control: control_id.clone(),
         label: label_id.clone(),
-        description: description_id.clone(),
+        description: help_id.clone(),
         invalid: Signal::default(),
     });
-    let description_view = description.map(|description| {
-        view! { <p id=description_id class=DESCRIPTION_CLASS>{description}</p> }
-    });
+    let label_text = match help.zip(help_id) {
+        Some((help, help_id)) => view! {
+            <HelpTerm help help_id>
+                {label}
+            </HelpTerm>
+        }
+        .into_any(),
+        None => label.into_any(),
+    };
     view! {
         <div class=ROW_CLASS>
             <label
@@ -120,10 +124,10 @@ pub fn FormRow(
                 for=control_id
                 class=format!("{LABEL_COLUMN_CLASS} {ALIGNED_WITH_CONTROL_TEXT_CLASS}")
             >
-                {label}
+                {label_text}
             </label>
             <div class=CONTROL_COLUMN_CLASS>
-                <div class=CONTROL_CLASS>{children()} {description_view}</div>
+                <div class=CONTROL_CLASS>{children()}</div>
             </div>
         </div>
     }

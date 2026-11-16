@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use leptos::ev::KeyboardEvent;
@@ -20,17 +21,18 @@ use super::data_table::{DataTable, RowAttribute, RowReplacement};
 const ACTIONS_KEY: &str = "actions";
 const ACTIONS_WIDTH_CHARACTERS: u16 = 9;
 const EDITING_ROW_CLASS: &str = "bg-blue-50/40";
-const EDITING_CELL_CLASS: &str = "px-2 py-1.5 align-top";
-const RIGHT_ALIGNED_EDITING_CLASS: &str = "[&_input]:text-right [&>div]:justify-end [&_.line-calculated]:flex-row-reverse [&_.line-overridden]:flex-row-reverse";
+const EDITING_CELL_CLASS: &str = "px-1 py-1.5 align-top";
+const RIGHT_ALIGNED_EDITING_CLASS: &str = "[&_input]:text-right [&_.line-shown]:justify-end [&_.line-calculated]:flex-row-reverse [&_.line-calculated]:justify-start [&_.line-overridden]:flex-row-reverse";
 const STATIC_CELL_CLASS: &str = "truncate px-4 py-2.5 align-top text-gray-700";
 const ISSUES_CELL_CLASS: &str = "bg-blue-50/40 px-4 pb-4 pt-3";
 const ISSUE_CLASS: &str = "flex items-start gap-1.5 text-xs text-red-600";
 const ISSUE_ICON_CLASS: &str = "mt-px h-3.5 w-3.5 shrink-0";
 const CALCULATED_CLASS: &str =
-    "line-calculated flex h-9 items-center justify-between gap-1 px-1 text-sm tabular-nums";
+    "line-calculated flex h-9 items-center justify-between gap-1 px-3 text-sm tabular-nums";
 const OVERRIDDEN_CLASS: &str = "line-overridden flex items-center gap-1";
 const CALCULATED_VALUE_CLASS: &str = "text-gray-500";
-const SHOWN_CLASS: &str = "flex h-9 items-center px-1 text-sm tabular-nums text-gray-900";
+const SHOWN_CLASS: &str =
+    "line-shown flex h-9 items-center px-3 text-sm tabular-nums text-gray-900";
 const ICON_CLASS: &str = "h-4 w-4";
 const SAVE_ICON_CLASS: &str = "h-4 w-4 text-blue-600";
 const ACTION_SIZE: ButtonSize = ButtonSize::Compact;
@@ -89,6 +91,7 @@ pub struct LineSave<Draft: Send + Sync + 'static> {
     saving: RwSignal<bool>,
     error: RwSignal<Option<String>>,
     rejected: RwSignal<Vec<LineIssue<Draft>>>,
+    revealed: RwSignal<bool>,
 }
 
 impl<Draft: Send + Sync + 'static> Clone for LineSave<Draft> {
@@ -112,6 +115,7 @@ impl<Draft: Send + Sync + 'static> LineSave<Draft> {
 
     pub fn rejected(self, issues: Vec<LineIssue<Draft>>) {
         self.saving.set(false);
+        self.revealed.set(true);
         self.rejected.set(issues);
     }
 }
@@ -129,6 +133,8 @@ pub type LineCell = (&'static str, AnyView);
 pub struct LineForm<Draft: Send + Sync + 'static> {
     draft: RwSignal<Draft>,
     issues: Signal<Vec<LineIssue<Draft>>>,
+    touched: RwSignal<HashSet<&'static str>>,
+    calculated_keys: RwSignal<HashSet<&'static str>>,
     headers: Arc<[(&'static str, &'static str)]>,
 }
 
@@ -137,6 +143,8 @@ impl<Draft: Send + Sync + 'static> Clone for LineForm<Draft> {
         Self {
             draft: self.draft,
             issues: self.issues,
+            touched: self.touched,
+            calculated_keys: self.calculated_keys,
             headers: Arc::clone(&self.headers),
         }
     }
@@ -198,6 +206,9 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
             on_override,
             on_use_calculated,
         } = field;
+        self.calculated_keys.update(|keys| {
+            keys.insert(key);
+        });
         let control = self.labelled(key, override_control);
         let override_class = icon_button_class(ButtonTone::Ghost, ButtonSize::Dense);
         let reset_class = override_class.clone();
@@ -248,6 +259,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
         let field_number = ElementKey::next();
         let control_id = format!("line-cell-{field_number}");
         let label_id = format!("line-cell-{field_number}-label");
+        let touched = self.touched;
         let issues = self.issues;
         let invalid = Signal::derive(move || {
             issues.with(|issues| issues.iter().any(|issue| issue.field == key))
@@ -266,7 +278,17 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
             <label id=label_id for=control_id class="sr-only">
                 {self.header_of(key)}
             </label>
-            {control_view}
+            <div
+                class="contents"
+                on:focusout=move |_| {
+                    touched
+                        .update(|keys| {
+                            keys.insert(key);
+                        });
+                }
+            >
+                {control_view}
+            </div>
         }
         .into_any()
     }
@@ -344,6 +366,9 @@ struct LineEditor<Row: Send + Sync + 'static, Draft: Send + Sync + 'static> {
     confirming: RwSignal<bool>,
     save_state: LineSave<Draft>,
     issues: Signal<Vec<LineIssue<Draft>>>,
+    shown_issues: Signal<Vec<LineIssue<Draft>>>,
+    touched: RwSignal<HashSet<&'static str>>,
+    calculated_keys: RwSignal<HashSet<&'static str>>,
     form: FormCells<Draft>,
     on_save: Callback<(Option<String>, Draft, LineSave<Draft>)>,
 }
@@ -359,6 +384,9 @@ impl<Row: Send + Sync + 'static, Draft: Send + Sync + 'static> Clone for LineEdi
             confirming: self.confirming,
             save_state: self.save_state,
             issues: self.issues,
+            shown_issues: self.shown_issues,
+            touched: self.touched,
+            calculated_keys: self.calculated_keys,
             form: Arc::clone(&self.form),
             on_save: self.on_save,
         }
@@ -400,6 +428,10 @@ where
     }
 
     fn open(&self, target: EditTarget, draft: Draft) {
+        self.touched.set(HashSet::new());
+        self.save_state
+            .revealed
+            .set(matches!(target, EditTarget::Existing(_)));
         self.baseline.set(Some(draft.clone()));
         self.draft.set(draft);
         self.save_state.error.set(None);
@@ -414,8 +446,11 @@ where
     }
 
     fn save(&self) {
-        let blocked = self.issues.with_untracked(|issues| !issues.is_empty());
-        if blocked || self.save_state.saving.get_untracked() {
+        if self.save_state.saving.get_untracked() {
+            return;
+        }
+        if self.issues.with_untracked(|issues| !issues.is_empty()) {
+            self.save_state.revealed.set(true);
             return;
         }
         let key = match self.editing.get_untracked() {
@@ -438,12 +473,11 @@ where
 
     fn save_controls(&self) -> AnyView {
         let saving = self.save_state.saving;
-        let issues = self.issues;
         let saver = self.clone();
         let canceller = self.clone();
         let save_class = icon_button_class(ButtonTone::Ghost, ACTION_SIZE);
         let cancel_class = format!("{save_class} {DESTRUCTIVE_BUTTON_CLASS}");
-        let blocked = move || issues.with(|issues| !issues.is_empty()) || saving.get();
+        let blocked = move || saving.get();
         let save_icon = move || {
             if saving.get() {
                 icons::spinner(ICON_CLASS)
@@ -505,7 +539,9 @@ where
     fn editing_cells(&self, saved: Option<&Row>) -> AnyView {
         let form = LineForm {
             draft: self.draft,
-            issues: self.issues,
+            issues: self.shown_issues,
+            touched: self.touched,
+            calculated_keys: self.calculated_keys,
             headers: self.headers(),
         };
         let mut cells = (self.form)(&form);
@@ -517,7 +553,7 @@ where
     }
 
     fn issues_row(&self) -> impl IntoView {
-        let issues = self.issues;
+        let issues = self.shown_issues;
         let error = self.save_state.error;
         let draft = self.draft;
         let headers = self.headers();
@@ -583,6 +619,34 @@ where
             {self.issues_row()}
         }
         .into_any()
+    }
+
+    fn add_button(
+        &self,
+        editable: Signal<bool>,
+        new_draft: Arc<dyn Fn() -> Draft + Send + Sync>,
+        add_label: String,
+    ) -> impl Fn() -> Option<AnyView> + Send + Sync + 'static {
+        let editor = self.clone();
+        let editing = self.editing;
+        move || {
+            let adding = editing.get() == Some(EditTarget::New);
+            (editable.get() && !adding).then(|| {
+                let add_editor = editor.clone();
+                let new_draft = Arc::clone(&new_draft);
+                view! {
+                    <button
+                        type="button"
+                        class=button_class(ButtonTone::Secondary, ADD_SIZE)
+                        on:click=move |_| add_editor.start(EditTarget::New, new_draft())
+                    >
+                        {icons::icon(icons::LucideGlyph::Plus, button_icon_class(ADD_SIZE))}
+                        {add_label.clone()}
+                    </button>
+                }
+                .into_any()
+            })
+        }
     }
 
     fn actions_column(
@@ -660,6 +724,7 @@ where
         saving: RwSignal::new(false),
         error: RwSignal::new(None),
         rejected,
+        revealed: RwSignal::new(false),
     };
     let editing = save_state.editing;
     Effect::watch(
@@ -672,6 +737,10 @@ where
         found.extend(rejected.get());
         found
     });
+    let touched: RwSignal<HashSet<&'static str>> = RwSignal::new(HashSet::new());
+    let calculated_keys: RwSignal<HashSet<&'static str>> = RwSignal::new(HashSet::new());
+    let revealed = save_state.revealed;
+    let shown_issues = visible_issues(issues, revealed, touched, calculated_keys);
     let without_columns: LineEditor<Row, Draft> = LineEditor {
         columns: Arc::from(Vec::new()),
         editing,
@@ -681,6 +750,9 @@ where
         confirming: RwSignal::new(false),
         save_state,
         issues,
+        shown_issues,
+        touched,
+        calculated_keys,
         form,
         on_save,
     };
@@ -706,24 +778,7 @@ where
     let confirming = editor.confirming;
     let discarding_editor = editor.clone();
     let on_discard = Callback::new(move |()| discarding_editor.discard_and_switch());
-    let add_editor = editor;
-    let add_button = move || {
-        let adding = editing.get() == Some(EditTarget::New);
-        (editable.get() && !adding).then(|| {
-            let add_editor = add_editor.clone();
-            let new_draft = Arc::clone(&new_draft);
-            view! {
-                <button
-                    type="button"
-                    class=button_class(ButtonTone::Secondary, ADD_SIZE)
-                    on:click=move |_| add_editor.start(EditTarget::New, new_draft())
-                >
-                    {icons::icon(icons::LucideGlyph::Plus, button_icon_class(ADD_SIZE))}
-                    {add_label.clone()}
-                </button>
-            }
-        })
-    };
+    let add_button = editor.add_button(editable, new_draft, add_label);
     let locked_note = move || {
         (!editable.get())
             .then(|| locked_message.clone())
@@ -754,4 +809,25 @@ where
         </div>
     }
     .into_any()
+}
+
+fn visible_issues<Draft: Send + Sync + 'static>(
+    issues: Signal<Vec<LineIssue<Draft>>>,
+    revealed: RwSignal<bool>,
+    touched: RwSignal<HashSet<&'static str>>,
+    calculated_keys: RwSignal<HashSet<&'static str>>,
+) -> Signal<Vec<LineIssue<Draft>>> {
+    Signal::derive(move || {
+        let all = issues.get();
+        if revealed.get() {
+            return all;
+        }
+        let anything_touched = touched.with(|touched| !touched.is_empty());
+        all.into_iter()
+            .filter(|issue| {
+                touched.with(|touched| touched.contains(issue.field))
+                    || (anything_touched && calculated_keys.with(|keys| keys.contains(issue.field)))
+            })
+            .collect()
+    })
 }

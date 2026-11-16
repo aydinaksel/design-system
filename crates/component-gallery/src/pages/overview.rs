@@ -782,7 +782,7 @@ fn form_section() -> AnyView {
             <FormRow label="Finish">
                 <Listbox options=finish_options selected=finish placeholder="Choose a Finish" />
             </FormRow>
-            <FormRow label="Expected Arrival" description="Leave empty if not yet booked.">
+            <FormRow label="Expected Arrival" help="Leave empty if not yet booked.">
                 <DatePicker value=arrival clearable=true />
             </FormRow>
             <FormRow label="Notes">
