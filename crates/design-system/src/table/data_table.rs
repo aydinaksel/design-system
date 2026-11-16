@@ -1099,7 +1099,9 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                     }
                     let filtered = indicator_state.is_filtered(index);
                     let sorted = matches!(
-                        indicator_state.displayed_sort(), Some((current, _)) if current == index
+                        indicator_state.displayed_sort(),
+                        Some((current, _))
+                        if current == index
                     );
                     if sorted && !filtered {
                         return ().into_any();
@@ -1147,7 +1149,10 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         let menu_state = self.clone();
         let menu = move || menu_state.column_menu(index);
         view! {
-            <th class=format!("{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {}", column.align.text_class())>
+            <th class=format!(
+                "{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {}",
+                column.align.text_class(),
+            )>
                 <Popover align=menu_alignment(column.align) on_open=on_open>
                     <PopoverTrigger class=format!(
                         "{HEADER_TRIGGER_CLASS} {}",

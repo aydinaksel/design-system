@@ -265,14 +265,15 @@ pub fn MultiSelectList(
                 aria-label=label
                 tabindex=if searchable { "-1" } else { "0" }
                 data-autofocus=(!searchable).then_some("")
-                aria-activedescendant=move || (!searchable).then(|| active_descendant.get()).flatten()
+                aria-activedescendant=move || {
+                    (!searchable).then(|| active_descendant.get()).flatten()
+                }
                 class=format!("{LIST_CLASS} {SCROLLBAR_GUTTER_CLASS}")
                 on:mousedown=|event: MouseEvent| event.prevent_default()
                 on:mouseleave=move |_| highlighted.set(None)
             >
                 {rows}
-            </div>
-            {clear_item}
+            </div> {clear_item}
         </div>
     }
     .into_any()

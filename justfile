@@ -1,8 +1,8 @@
 default: check
 
 fmt:
-    cargo fmt
     leptosfmt --quiet crates
+    cargo fmt
 
 check:
     #!/usr/bin/env bash

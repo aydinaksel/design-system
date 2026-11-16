@@ -22,12 +22,15 @@ pub(crate) fn checkbox_mark(checked: Signal<bool>) -> AnyView {
     };
     let tick = move || {
         checked.get().then(|| {
-            view! {
-                <Icon glyph=LucideGlyph::Check class=MARK_TICK_CLASS stroke_width=TICK_STROKE_WIDTH />
-            }
+            view! { <Icon glyph=LucideGlyph::Check class=MARK_TICK_CLASS stroke_width=TICK_STROKE_WIDTH /> }
         })
     };
-    view! { <span aria-hidden="true" class=class>{tick}</span> }.into_any()
+    view! {
+        <span aria-hidden="true" class=class>
+            {tick}
+        </span>
+    }
+    .into_any()
 }
 
 /// A native checkbox drawn to match the design system, so labels, keyboard

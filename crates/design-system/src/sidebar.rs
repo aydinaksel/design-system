@@ -307,9 +307,7 @@ pub fn Sidebar(
                     {footer
                         .map(|footer| {
                             view! {
-                                <div class="shrink-0 border-t border-edge p-2">
-                                    {footer.run()}
-                                </div>
+                                <div class="shrink-0 border-t border-edge p-2">{footer.run()}</div>
                             }
                         })}
                 </div>

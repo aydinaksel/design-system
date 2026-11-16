@@ -118,21 +118,14 @@ pub struct ActivityEntry {
 
 fn icon_tile(kind: ActivityKind) -> AnyView {
     if kind == ActivityKind::Event {
-        return view! {
-            <div class=EVENT_TILE_CLASS>{icons::icon(kind.glyph(), EVENT_ICON_CLASS)}</div>
-        }
+        return view! { <div class=EVENT_TILE_CLASS>{icons::icon(kind.glyph(), EVENT_ICON_CLASS)}</div> }
         .into_any();
     }
     let direction = kind
         .direction()
         .map(|glyph| icons::icon(glyph, "h-3 w-3 -ml-0.5"));
-    view! {
-        <div class=ICON_TILE_CLASS>
-            {icons::icon(kind.glyph(), ICON_CLASS)}
-            {direction}
-        </div>
-    }
-    .into_any()
+    view! { <div class=ICON_TILE_CLASS>{icons::icon(kind.glyph(), ICON_CLASS)} {direction}</div> }
+        .into_any()
 }
 
 fn detail_view(detail: ActivityDetail) -> AnyView {
@@ -175,7 +168,12 @@ fn title_view(entry: &ActivityEntry) -> AnyView {
             </a>
         }
         .into_any(),
-        None => view! { <p class=class title=full_title>{title}</p> }.into_any(),
+        None => view! {
+            <p class=class title=full_title>
+                {title}
+            </p>
+        }
+        .into_any(),
     }
 }
 
@@ -221,11 +219,9 @@ fn entry_view(
     let detail = entry.detail.map(detail_view);
     view! {
         <li class=ENTRY_CLASS>
-            {icon_tile(entry.kind)}
-            <div class="min-w-0 flex-1">
+            {icon_tile(entry.kind)} <div class="min-w-0 flex-1">
                 <div class=HEADING_ROW_CLASS>
-                    {title}
-                    <div class="flex shrink-0 items-center gap-2">
+                    {title} <div class="flex shrink-0 items-center gap-2">
                         <span class=META_CLASS>{meta}</span>
                         {actions}
                     </div>
@@ -283,16 +279,24 @@ fn filter_chips(
                         label=filter.label()
                         selected=Signal::derive(move || chosen.get() == Some(filter))
                         on_toggle=Callback::new(move |()| {
-                            chosen.update(|current| {
-                                *current = if *current == Some(filter) { None } else { Some(filter) };
-                            });
+                            chosen
+                                .update(|current| {
+                                    *current = if *current == Some(filter) {
+                                        None
+                                    } else {
+                                        Some(filter)
+                                    };
+                                });
                         })
                         count=count
                     />
                 }
             })
             .collect_view();
-        view! { {all_chip} {kind_chips} }
+        view! {
+            {all_chip}
+            {kind_chips}
+        }
     }
 }
 

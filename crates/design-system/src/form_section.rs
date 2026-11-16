@@ -52,9 +52,13 @@ pub fn FormSection(
         }
     });
     let error_text = move || {
-        error
-            .get()
-            .map(|message| view! { <p role="alert" class=ERROR_CLASS>{message}</p> })
+        error.get().map(|message| {
+            view! {
+                <p role="alert" class=ERROR_CLASS>
+                    {message}
+                </p>
+            }
+        })
     };
     let submit_text = move || {
         if submitting.get() {

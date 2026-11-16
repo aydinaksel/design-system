@@ -51,11 +51,7 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
             .map(|index| self.facet_button(index))
             .collect_view();
         Some(
-            view! {
-                <div class="flex flex-wrap items-center gap-2">
-                    {buttons} {self.clear_all_button()}
-                </div>
-            }
+            view! { <div class="flex flex-wrap items-center gap-2">{buttons} {self.clear_all_button()}</div> }
             .into_any(),
         )
     }
@@ -139,9 +135,10 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         let menu = move || menu_state.menu(index, header, values.clone());
         view! {
             <Popover>
-                <PopoverTrigger class=Signal::derive(move || trigger_state.trigger_class(index))>
-                    {header}
-                    {selected_badge}
+                <PopoverTrigger class=Signal::derive(move || {
+                    trigger_state.trigger_class(index)
+                })>
+                    {header} {selected_badge}
                     {icons::icon(icons::LucideGlyph::ChevronDown, CHEVRON_CLASS)}
                 </PopoverTrigger>
                 <PopoverContent class=MENU_WIDTH_CLASS unpadded=true>
