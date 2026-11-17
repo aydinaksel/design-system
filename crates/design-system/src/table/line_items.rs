@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use leptos::ev::KeyboardEvent;
+use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Tr;
 use leptos::prelude::*;
 
@@ -503,6 +503,7 @@ where
                         type="button"
                         class=cancel_class
                         aria-label=CANCEL_LABEL
+                        on:mousedown=|event: MouseEvent| event.prevent_default()
                         on:click=move |_| canceller.cancel()
                     >
                         {icons::icon(icons::LucideGlyph::X, DESTRUCTIVE_ICON_CLASS)}
