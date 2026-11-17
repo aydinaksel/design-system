@@ -180,7 +180,7 @@ pub fn FilesPage() -> impl IntoView {
 const SIMULATED_UPLOAD_MILLISECONDS: u64 = 1200;
 #[cfg(feature = "ssr")]
 const SIMULATED_REMOVAL_MILLISECONDS: u64 = 600;
-const TEN_MEGABYTES: u64 = 10_485_760;
+pub(crate) const TEN_MEGABYTES: u64 = 10_485_760;
 const PHOTO_LONGEST_EDGE_PIXELS: u32 = 2048;
 const FLAKY_ATTEMPTS_PER_SUCCESS: u64 = 3;
 const DROPPED_ATTEMPTS_PER_SUCCESS: u64 = 2;
@@ -241,7 +241,7 @@ fn uploaded_copy(file: &web_sys::File) -> StoredFile {
     }
 }
 
-fn gallery_uploader() -> FileUploader {
+pub(crate) fn gallery_uploader() -> FileUploader {
     file_uploader(|pending: PendingUpload| async move {
         if connection_drops() {
             return Err(UploadFailure::Interrupted(
@@ -253,13 +253,13 @@ fn gallery_uploader() -> FileUploader {
     })
 }
 
-fn gallery_remover() -> FileRemover {
+pub(crate) fn gallery_remover() -> FileRemover {
     file_remover(|file: StoredFile| async move {
         simulate_removal(file.name).await.map_err(server_message)
     })
 }
 
-fn attached_documents() -> Vec<StoredFile> {
+pub(crate) fn attached_documents() -> Vec<StoredFile> {
     vec![
         added(
             StoredFile::new(

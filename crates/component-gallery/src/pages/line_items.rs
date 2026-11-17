@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use design_system::formatting::format_with_thousands;
 use design_system::table::{
     Align, CalculatedField, Column, LineCell, LineFix, LineForm, LineIssue, LineItems, LineSave,
     RowAttribute,
@@ -20,7 +21,7 @@ const STONES: [&str; 4] = [
 ];
 
 #[derive(Clone, Debug, PartialEq)]
-struct StoneLine {
+pub(crate) struct StoneLine {
     letter: char,
     stone: String,
     quantity_thousandths: u64,
@@ -63,16 +64,28 @@ fn decimal_text(thousandths: u64) -> String {
         .to_owned()
 }
 
+fn shown_decimal(thousandths: u64) -> String {
+    let plain = decimal_text(thousandths);
+    match plain.split_once('.') {
+        Some((whole, fraction)) => format!("{}.{fraction}", format_with_thousands(whole)),
+        None => format_with_thousands(&plain),
+    }
+}
+
+fn shown_count(count: u64) -> String {
+    format_with_thousands(&count.to_string())
+}
+
 fn pence(text: &str) -> Option<u64> {
     thousandths(text)
         .filter(|value| value % 10 == 0)
         .map(|value| value / 10)
 }
 
-fn pounds(pence: u64) -> String {
+pub(crate) fn pounds(pence: u64) -> String {
     format!(
         "£{}.{:02}",
-        pence / PENCE_PER_POUND,
+        format_with_thousands(&(pence / PENCE_PER_POUND).to_string()),
         pence % PENCE_PER_POUND
     )
 }
@@ -84,7 +97,7 @@ fn positive_thousandths(text: &str) -> Option<u64> {
 fn quantity_fix(crates: u64, area_per_crate: u64) -> Option<LineFix<StoneLineDraft>> {
     let quantity = crates.checked_mul(area_per_crate)?;
     Some(LineFix {
-        label: format!("Use {} m²", decimal_text(quantity)),
+        label: format!("Use {} m²", shown_decimal(quantity)),
         apply: Arc::new(move |draft: &mut StoneLineDraft| {
             draft.quantity = decimal_text(quantity);
             draft.crates = None;
@@ -115,8 +128,8 @@ fn part_crate_issue(quantity: u64, area_per_crate: u64) -> LineIssue<StoneLineDr
         field: "crates",
         message: format!(
             "{} m² does not fill a whole number of crates at {} m² per crate. The number of crates must be whole.",
-            decimal_text(quantity),
-            decimal_text(area_per_crate),
+            shown_decimal(quantity),
+            shown_decimal(area_per_crate),
         ),
         fixes: fixes.into_iter().flatten().collect(),
     }
@@ -223,7 +236,7 @@ fn draft_of(line: &StoneLine) -> StoneLineDraft {
     }
 }
 
-fn first_lines() -> Vec<StoneLine> {
+pub(crate) fn first_lines() -> Vec<StoneLine> {
     [
         ("Ivory Honed Travertine 18x18", "115.2", "9.6", "18.40"),
         ("Black Polished Granite 12x24", "48", "9.6", "22.10"),
@@ -355,7 +368,7 @@ fn next_letter(lines: RwSignal<Vec<StoneLine>>) -> char {
     })
 }
 
-fn total_pence(lines: &[StoneLine]) -> u64 {
+pub(crate) fn total_pence(lines: &[StoneLine]) -> u64 {
     lines
         .iter()
         .map(|line| line_total_pence(line.quantity_thousandths, line.unit_price_pence))
@@ -368,30 +381,24 @@ fn columns() -> Vec<Column<StoneLine>> {
             .width_characters(4),
         Column::text("stone", "Stone", |line: &StoneLine| line.stone.clone()).width_characters(28),
         Column::text("quantity", "Quantity (m²)", |line: &StoneLine| {
-            decimal_text(line.quantity_thousandths)
+            shown_decimal(line.quantity_thousandths)
         })
         .align(Align::Right)
         .width_characters(12)
-        .total(|lines| decimal_text(lines.iter().map(|line| line.quantity_thousandths).sum())),
+        .total(|lines| shown_decimal(lines.iter().map(|line| line.quantity_thousandths).sum())),
         Column::text(
             "area_per_crate",
             "Area per Crate (m²)",
-            |line: &StoneLine| decimal_text(line.area_per_crate_thousandths),
+            |line: &StoneLine| shown_decimal(line.area_per_crate_thousandths),
         )
         .align(Align::Right)
         .width_characters(12),
         Column::text("crates", "Crates", |line: &StoneLine| {
-            line.crates.to_string()
+            shown_count(line.crates)
         })
         .align(Align::Right)
         .width_characters(10)
-        .total(|lines| {
-            lines
-                .iter()
-                .map(|line| line.crates)
-                .sum::<u64>()
-                .to_string()
-        }),
+        .total(|lines| shown_count(lines.iter().map(|line| line.crates).sum())),
         Column::text("unit_price", "Unit Price", |line: &StoneLine| {
             pounds(line.unit_price_pence)
         })
@@ -410,7 +417,10 @@ fn columns() -> Vec<Column<StoneLine>> {
 }
 
 pub(crate) fn line_items() -> AnyView {
-    let lines = RwSignal::new(first_lines());
+    line_items_editor(RwSignal::new(first_lines()))
+}
+
+pub(crate) fn line_items_editor(lines: RwSignal<Vec<StoneLine>>) -> AnyView {
     let rows = Signal::derive(move || Some(Ok(lines.get())));
     let row_key: RowAttribute<StoneLine> = Arc::new(|line: &StoneLine| line.letter.to_string());
     let on_save = Callback::new(
@@ -450,6 +460,19 @@ mod tests {
             crates: None,
             unit_price: String::new(),
         }
+    }
+
+    #[test]
+    fn shows_quantities_with_thousands_separators() {
+        assert_eq!(shown_decimal(1_152_500), "1,152.5");
+        assert_eq!(shown_decimal(9_600), "9.6");
+        assert_eq!(shown_count(1_200), "1,200");
+    }
+
+    #[test]
+    fn shows_pounds_with_thousands_separators() {
+        assert_eq!(pounds(318_048), "£3,180.48");
+        assert_eq!(pounds(5), "£0.05");
     }
 
     #[test]

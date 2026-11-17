@@ -254,7 +254,7 @@ const PAGES: [Entry; 2] = [
         title: "Detail Page",
         summary: "A record's header, tabs, fields and totals.",
         glyph: LucideGlyph::PanelsTopLeft,
-        presentation: Presentation::Showcase(detail_page::detail_pages),
+        presentation: Presentation::Page(detail_page::detail_page),
     },
     Entry {
         href: "/sidebar/dashboard",

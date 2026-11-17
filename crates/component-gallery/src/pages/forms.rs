@@ -204,7 +204,7 @@ pub(crate) fn form_section() -> AnyView {
     .into_any()
 }
 
-fn fake_save(save: FieldSave, fails: bool, commit: impl FnOnce() + 'static) {
+pub(crate) fn fake_save(save: FieldSave, fails: bool, commit: impl FnOnce() + 'static) {
     set_timeout(
         move || {
             if fails {
