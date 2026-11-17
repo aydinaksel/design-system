@@ -194,6 +194,7 @@ fn stone_list(view: StoneView, mode: &'static str) -> AnyView {
         <ServerTable
             columns=columns
             layout=layout
+            sticky_first_column=true
             row_href=Arc::new(|stone: &Stone| format!("#{}", stone.code))
             load=load
             query=table_query

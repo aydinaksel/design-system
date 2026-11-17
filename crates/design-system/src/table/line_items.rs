@@ -713,6 +713,9 @@ pub fn LineItems<Row, Draft>(
     #[prop(optional, into)] locked_message: Option<String>,
     #[prop(into, default = "Add Line".to_owned())] add_label: String,
     #[prop(optional, into)] empty_message: Signal<String>,
+    /// Keeps the first column in view while the table scrolls sideways.
+    #[prop(optional)]
+    sticky_first_column: bool,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
@@ -797,6 +800,7 @@ where
                 trailing_rows=trailing_rows
                 empty_message=empty_message
                 hides_row_count=true
+                sticky_first_column=sticky_first_column
             />
             <div class="mt-3 flex items-center gap-3">{add_button} {locked_note}</div>
             <ConfirmDialog

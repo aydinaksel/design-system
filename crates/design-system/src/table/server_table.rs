@@ -85,6 +85,9 @@ pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     #[prop(optional, into)] empty_message: String,
     #[prop(optional)] row_href: Option<RowAttribute<Row>>,
     #[prop(optional)] row_class: Option<RowAttribute<Row>>,
+    /// Keeps the first column in view while the table scrolls sideways.
+    #[prop(optional)]
+    sticky_first_column: bool,
     /// Controls that change how the table is drawn, rendered after the search.
     #[prop(optional, into)]
     toolbar: ViewFn,
@@ -173,6 +176,7 @@ where
             empty_message=empty_message
             row_href=row_href
             row_class=row_class
+            sticky_first_column=sticky_first_column
             toolbar=Some(toolbar.run())
             filter_toggle=filter_toggle
             views=views

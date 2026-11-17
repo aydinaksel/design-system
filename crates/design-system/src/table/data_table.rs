@@ -110,6 +110,8 @@ const FOOTER_LABEL: &str = "Total";
 const FOOTER_ROW_CLASS: &str =
     "sticky bottom-0 z-10 bg-gray-50 shadow-[inset_0_1px_0_0_var(--color-edge)]";
 const ROW_IDENTITY_SEPARATOR: char = '\u{1e}';
+const SCROLLER_CLASS: &str = "table-scroller w-full max-w-full overflow-auto rounded-xl border border-edge bg-surface text-sm tabular-nums";
+const TABLE_CLASS: &str = "w-full table-fixed";
 const CELL_SEPARATOR: &str = "\u{1f}";
 
 #[derive(Clone, Copy)]
@@ -389,6 +391,9 @@ pub fn DataTable<Row>(
     filter_values: Signal<LoadedFilterValues>,
     #[prop(optional)] layout: Layout<Row>,
     #[prop(optional)] facet_row: bool,
+    /// Keeps the first column in view while the table scrolls sideways.
+    #[prop(optional)]
+    sticky_first_column: bool,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
@@ -444,6 +449,7 @@ where
         navigate,
         row_replacement,
         hides_row_count,
+        sticky_first_column,
     };
     let contents = move || {
         view! {
@@ -513,6 +519,7 @@ struct TableState<Row: Send + Sync + 'static> {
     navigate: Option<Navigate>,
     row_replacement: Option<RowReplacement<Row>>,
     hides_row_count: bool,
+    sticky_first_column: bool,
 }
 
 impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
@@ -533,6 +540,7 @@ impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
             navigate: self.navigate.clone(),
             row_replacement: self.row_replacement.clone(),
             hides_row_count: self.hides_row_count,
+            sticky_first_column: self.sticky_first_column,
         }
     }
 }
@@ -716,6 +724,7 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         view! {
             <tr
                 class=format!("{CLICKABLE_ROW_CLASS} {extra}")
+                data-row-link=""
                 on:click=move |event: leptos::ev::MouseEvent| {
                     if !click_asks_for_row_navigation(&event) {
                         return;
@@ -783,6 +792,14 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
             _ => ().into_any(),
         })
         .into_any()
+    }
+
+    fn sticky_column_width(&self) -> Option<String> {
+        let first = self.columns.first().filter(|_| self.sticky_first_column)?;
+        Some(format!(
+            "--sticky-column-width: calc({}ch + {CELL_PADDING_WIDTH})",
+            first.rendered_width_characters()
+        ))
     }
 
     fn column_widths(&self) -> AnyView {
@@ -1249,12 +1266,16 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         pending: Signal<bool>,
         trailing_rows: Option<ViewFn>,
     ) -> AnyView {
+        let sticky_column_width = self.sticky_column_width();
+        let sticky_marker = sticky_column_width.is_some().then_some("");
         view! {
             <div class="relative">
-                <div class=format!(
-                    "w-full max-w-full overflow-auto rounded-xl border border-edge bg-surface {BODY_MAX_HEIGHT_CLASS}",
-                )>
-                    <table class="w-full table-fixed text-sm tabular-nums">
+                <div
+                    class=format!("{SCROLLER_CLASS} {BODY_MAX_HEIGHT_CLASS}")
+                    data-sticky-first-column=sticky_marker
+                    style=sticky_column_width
+                >
+                    <table class=TABLE_CLASS>
                         <colgroup>{self.column_widths()}</colgroup>
                         <thead class=format!("sticky top-0 z-10 bg-gray-50 {HEADER_RULE_CLASS}")>
                             <tr>{self.header()}</tr>
@@ -1269,6 +1290,7 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                         </tbody>
                         {self.footer()}
                     </table>
+                    <div class="table-edges" aria-hidden="true"></div>
                 </div>
                 {refresh_cover(pending, "inset-px rounded-[calc(var(--radius-xl)-1px)]")}
             </div>

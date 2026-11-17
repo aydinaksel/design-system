@@ -87,3 +87,105 @@
     outline-offset: 2px;
   }
 }
+
+@layer components {
+  .table-scroller {
+    display: grid;
+    container-type: inline-size;
+  }
+
+  .table-scroller > * {
+    grid-area: 1 / 1;
+  }
+
+  .table-edges {
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    width: 100cqw;
+    pointer-events: none;
+  }
+
+  .table-edges::before,
+  .table-edges::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    width: 2rem;
+    opacity: 0;
+  }
+
+  .table-edges::before {
+    left: var(--sticky-column-width, 0px);
+    background: linear-gradient(to right, rgb(17 24 39 / 0.1), transparent);
+  }
+
+  .table-edges::after {
+    right: 0;
+    background: linear-gradient(to left, rgb(17 24 39 / 0.1), transparent);
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .table-edges::before {
+      animation: table-edge-appear linear both;
+      animation-timeline: scroll(nearest inline);
+      animation-range: 0 2rem;
+    }
+
+    .table-edges::after {
+      animation: table-edge-disappear linear both;
+      animation-timeline: scroll(nearest inline);
+      animation-range: calc(100% - 2rem) 100%;
+    }
+  }
+
+  @keyframes table-edge-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes table-edge-disappear {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  [data-sticky-first-column] tr > :first-child:not([colspan]) {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+  }
+
+  [data-sticky-first-column] thead tr > :first-child {
+    background-color: var(--color-gray-50);
+    box-shadow: inset 0 -1px 0 0 var(--color-edge);
+  }
+
+  [data-sticky-first-column] tbody tr > :first-child:not([colspan]) {
+    background-color: var(--color-surface);
+  }
+
+  [data-sticky-first-column] tbody tr:not(:last-child) > :first-child:not([colspan]) {
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  [data-sticky-first-column] tbody tr[data-row-link]:hover > :first-child {
+    background-color: var(--color-row-hover);
+  }
+
+  [data-sticky-first-column] tbody tr[data-line-editor] > :first-child {
+    background-color: color-mix(in srgb, var(--color-blue-50) 40%, var(--color-surface));
+  }
+
+  [data-sticky-first-column] tfoot tr > :first-child {
+    background-color: var(--color-gray-50);
+    box-shadow: inset 0 1px 0 0 var(--color-edge);
+  }
+}

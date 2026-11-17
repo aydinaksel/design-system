@@ -432,6 +432,7 @@ pub(crate) fn line_items() -> AnyView {
             check=Arc::new(check)
             on_save=on_save
             on_delete=on_delete
+            sticky_first_column=true
         />
     }
     .into_any()
