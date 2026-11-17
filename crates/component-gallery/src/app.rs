@@ -1,52 +1,22 @@
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, Title};
 use leptos_router::{
-    components::{ParentRoute, Route, Router, Routes, A},
-    StaticSegment, WildcardSegment,
+    components::{ParentRoute, Route, Router, Routes},
+    ParamSegment, StaticSegment, WildcardSegment,
 };
 
-use design_system::{Brand, Layout, NotFoundPage, ToastProvider};
+use design_system::{Brand, NotFoundPage, ToastProvider};
 
-use crate::pages::{
-    articles::ArticlesPage, charts::ChartsPage, client_side_table::ClientSideTablePage,
-    files::FilesPage, overview::OverviewPage, sidebar::SidebarPage, tables::TablesPage,
-};
+use crate::layout::GalleryLayout;
+use crate::pages::{component::ComponentPage, index::IndexPage, sidebar::SidebarPage};
 
 const STYLESHEET_HREF: &str = "/pkg/component-gallery.css";
-
-const NAVIGATION: [(&str, &str); 7] = [
-    ("/", "Overview"),
-    ("/tables", "Tables"),
-    ("/client-side-table", "Client-Side Table"),
-    ("/files", "Files"),
-    ("/charts", "Charts"),
-    ("/articles", "Articles"),
-    ("/sidebar/dashboard", "Sidebar"),
-];
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     design_system::shell(options, STYLESHEET_HREF, App)
 }
 
-fn navigation() -> AnyView {
-    view! {
-        <nav class="flex gap-4 text-sm">
-            {NAVIGATION
-                .iter()
-                .map(|(href, label)| {
-                    view! {
-                        <A href=*href attr:class="text-gray-500 hover:text-gray-900">
-                            {*label}
-                        </A>
-                    }
-                })
-                .collect_view()}
-        </nav>
-    }
-    .into_any()
-}
-
-fn brand() -> Brand {
+const fn brand() -> Brand {
     Brand {
         name: "Component Gallery",
         home_href: "/",
@@ -54,7 +24,6 @@ fn brand() -> Brand {
         footer_note: "Every component here is drawn from design-system with fake data.",
         header_action: None,
     }
-    .with_header_action(navigation)
 }
 
 #[expect(
@@ -71,19 +40,15 @@ pub fn App() -> impl IntoView {
         <ToastProvider>
             <Router>
                 <Routes fallback=NotFoundPage>
-                    <ParentRoute path=StaticSegment("") view=Layout>
-                        <Route path=StaticSegment("") view=OverviewPage />
-                        <Route path=StaticSegment("tables") view=TablesPage />
-                        <Route path=StaticSegment("client-side-table") view=ClientSideTablePage />
-                        <Route path=StaticSegment("files") view=FilesPage />
-                        <Route path=StaticSegment("charts") view=ChartsPage />
-                        <Route path=StaticSegment("articles") view=ArticlesPage />
-                    </ParentRoute>
                     <Route path=StaticSegment("sidebar") view=SidebarPage />
                     <Route
                         path=(StaticSegment("sidebar"), WildcardSegment("page"))
                         view=SidebarPage
                     />
+                    <ParentRoute path=StaticSegment("") view=GalleryLayout>
+                        <Route path=StaticSegment("") view=IndexPage />
+                        <Route path=ParamSegment("slug") view=ComponentPage />
+                    </ParentRoute>
                 </Routes>
             </Router>
         </ToastProvider>

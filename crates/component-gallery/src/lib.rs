@@ -1,5 +1,7 @@
 pub mod app;
+pub mod contents;
 pub mod fake_data;
+pub mod layout;
 pub mod pages;
 
 #[cfg(feature = "hydrate")]
