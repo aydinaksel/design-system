@@ -203,7 +203,6 @@ fn stone_list(view: StoneView, mode: &'static str) -> AnyView {
             empty_message="No stones match."
             facets=STONE_FACETS.to_vec()
             facet_values=facet_values
-            views=STONE_VIEWS
             toolbar=mode_switch
         />
     }
@@ -220,7 +219,7 @@ pub fn TablesPage() -> impl IntoView {
     let selected_mode = design_system::selected_mode(STONE_MODES);
 
     view! {
-        <ListPage title="Tables" actions=page_actions()>
+        <ListPage title="Tables" actions=page_actions() views=STONE_VIEWS>
             {move || stone_list(StoneView::from_key(selected_view.get()), selected_mode.get())}
         </ListPage>
     }

@@ -1,13 +1,11 @@
-use leptos::context::Provider;
 use leptos::prelude::*;
 use leptos_router::components::A;
 
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::clipboard::{copy_current_address_with_toast, copy_with_toast};
 use crate::icons;
-use crate::layout::PAGE_WIDTH_CLASS;
 use crate::menu::{DropdownMenu, MenuEntry, MenuItem};
-use crate::tabs::TabsOnSharedBorder;
+use crate::page_band::banded_page;
 use crate::tooltip::Tooltip;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -125,7 +123,7 @@ pub fn DetailHeader(
     };
 
     view! {
-        <header class="flex flex-wrap items-center justify-between gap-3">
+        <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                 <h1 class="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xl font-bold tracking-tight text-gray-900">
                     <span>{move || title.get()}</span>
@@ -148,20 +146,5 @@ pub fn DetailPage(
     #[prop(optional, into)] tabs: Option<ViewFn>,
     children: Children,
 ) -> impl IntoView {
-    let band_class = if tabs.is_some() {
-        format!("{PAGE_WIDTH_CLASS} space-y-4 pt-6")
-    } else {
-        format!("{PAGE_WIDTH_CLASS} pb-4 pt-6")
-    };
-    let tabs = tabs.map(|tabs| {
-        view! { <Provider value=TabsOnSharedBorder>{tabs.run()}</Provider> }
-    });
-
-    view! {
-        <div class="border-b border-edge">
-            <div class=band_class>{header.run()} {tabs}</div>
-        </div>
-        <div class=format!("{PAGE_WIDTH_CLASS} py-6")>{children()}</div>
-    }
-    .into_any()
+    banded_page(header.run(), tabs, children().into_any())
 }

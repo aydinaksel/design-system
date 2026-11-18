@@ -46,6 +46,7 @@ pub mod meter;
 pub mod mode_switch;
 pub mod multi_select_list;
 pub mod not_found;
+pub(crate) mod page_band;
 pub mod page_header;
 pub mod page_section;
 mod placement;

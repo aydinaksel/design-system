@@ -1,15 +1,12 @@
 use leptos::prelude::*;
 
-use crate::layout::PAGE_WIDTH_CLASS;
 use crate::menu::{DropdownMenu, MenuEntry};
+use crate::page_band::banded_page;
 use crate::page_header::PageHeader;
+use crate::tabs::{PageView, ViewTabs};
 
 const ACTIONS_LABEL: &str = "Actions";
 
-/// A page built around one table: the title, with every page action gathered
-/// into one Actions menu at the top right, then the table, at the same width
-/// as a `DetailPage`. Hand the table its `views` so the tabs share the search
-/// row.
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
@@ -19,6 +16,7 @@ pub fn ListPage(
     #[prop(into)] title: Signal<String>,
     #[prop(optional, into)] description: Option<Signal<String>>,
     #[prop(optional)] actions: Vec<MenuEntry>,
+    #[prop(optional)] views: Option<&'static [PageView]>,
     children: Children,
 ) -> impl IntoView {
     let actions = (!actions.is_empty())
@@ -38,5 +36,6 @@ pub fn ListPage(
         }
         (None, None) => view! { <PageHeader title=title /> }.into_any(),
     };
-    view! { <main class=format!("{PAGE_WIDTH_CLASS} py-8")>{header} {children()}</main> }.into_any()
+    let tabs = views.map(|views| ViewFn::from(move || view! { <ViewTabs views=views /> }));
+    view! { <main>{banded_page(header, tabs, children().into_any())}</main> }.into_any()
 }
