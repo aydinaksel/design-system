@@ -5,22 +5,17 @@ use serde::{Deserialize, Serialize};
 /// Separates selected values in one parameter; names here contain commas.
 pub const FILTER_VALUE_SEPARATOR: char = '\u{1f}';
 
-/// Ticked values per column key: OR within a column, AND across columns. An
-/// absent key is unfiltered; an empty set matches nothing.
 pub type ColumnFilters = BTreeMap<String, BTreeSet<String>>;
 
-/// What one column contributes to a server query.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ColumnSelection {
     Unfiltered,
-    /// Every value was unticked, so the column can match no row at all.
     MatchesNothing,
     /// The selected values, [`FILTER_VALUE_SEPARATOR`] delimited. One empty
     /// value means the blank bucket, not an absent selection.
     AnyOf(String),
 }
 
-/// One window onto a result set the browser never holds in full.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TableQuery {
     pub search: String,
@@ -30,14 +25,12 @@ pub struct TableQuery {
     /// through drop an empty map rather than writing one.
     #[serde(default)]
     pub column_filters: ColumnFilters,
-    /// The window a calendar shows, in place of a page of rows.
     #[serde(default)]
     pub date_range: Option<DateRange>,
     pub skipped_rows: u32,
     pub rows_per_page: u32,
 }
 
-/// An inclusive span of `yyyy-mm-dd` dates on one column.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DateRange {
     pub column_key: String,
@@ -131,8 +124,6 @@ impl TableQuery {
         self.return_to_first_page();
     }
 
-    /// Drops the sort, filters and date range on columns outside
-    /// `column_keys`, so no hidden column silently shapes the rows.
     pub fn keep_only_columns(&mut self, column_keys: &[&str]) {
         let is_kept = |column_key: &str| column_keys.contains(&column_key);
         let before = self.clone();
@@ -158,7 +149,6 @@ impl TableQuery {
         }
     }
 
-    /// What one column's selection asks of the server.
     #[must_use]
     pub fn column_selection(&self, column_key: &str) -> ColumnSelection {
         match self.column_filters.get(column_key) {

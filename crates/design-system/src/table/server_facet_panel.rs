@@ -18,7 +18,6 @@ use super::url_query::UrlTableQuery;
 use table_query::LoadedFacetValues;
 use table_query::TableQuery;
 
-/// One facet in the left rail, naming the column the server counts.
 #[derive(Clone, Copy)]
 pub struct ServerFacet {
     pub column_key: &'static str,
@@ -120,9 +119,6 @@ fn narrow_viewport() -> bool {
     false
 }
 
-/// The facet filters of one table or calendar: a rail beside it on wide
-/// screens, a full-screen sheet on phones, and the toolbar button that brings
-/// either back.
 #[derive(Clone, Copy)]
 pub struct FacetControls {
     facets: StoredValue<Vec<ServerFacet>>,
@@ -134,8 +130,6 @@ pub struct FacetControls {
 }
 
 impl FacetControls {
-    /// `matching_rows` labels the phone sheet's done button with the result
-    /// count.
     #[must_use]
     pub fn new(
         facets: Vec<ServerFacet>,
@@ -161,7 +155,6 @@ impl FacetControls {
         self.query.with(TableQuery::filtered_column_count)
     }
 
-    /// Shown on phones always, and on wide screens while the rail is hidden.
     #[must_use]
     pub fn toggle_button(self, extra_class: &'static str) -> AnyView {
         let wrapper_class = move || {
@@ -195,8 +188,6 @@ impl FacetControls {
         .into_any()
     }
 
-    /// The rail and the phone sheet, for the start of the row the table or
-    /// calendar sits in.
     #[must_use]
     pub fn rail(self) -> AnyView {
         view! {
@@ -416,7 +407,6 @@ fn ServerFacetGroup(
     .into_any()
 }
 
-/// Keeps a facet rail's values in step with the table's search and filters.
 pub fn facet_values_loader<LoadFn, LoadFuture, LoadError>(
     load: LoadFn,
     query: UrlTableQuery,

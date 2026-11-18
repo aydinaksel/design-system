@@ -33,8 +33,6 @@ pub(crate) fn checkbox_mark(checked: Signal<bool>) -> AnyView {
     .into_any()
 }
 
-/// A native checkbox drawn to match the design system, so labels, keyboard
-/// toggling and form semantics stay the browser's own.
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"

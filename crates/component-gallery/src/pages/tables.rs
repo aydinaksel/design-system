@@ -74,13 +74,14 @@ fn stone_columns() -> Vec<Column<Stone>> {
             .sortable()
             .searchable(),
         Column::text("name", "Name", |stone: &Stone| stone.name.clone())
-            .width_characters(28)
+            .minimum_width_characters(28)
             .sortable()
             .searchable(),
         Column::text("warehouse", "Warehouse", |stone: &Stone| {
             stone.warehouse.clone()
         }),
-        Column::text("unit", "Unit", |stone: &Stone| stone.unit.clone()).width_characters(4),
+        Column::text("unit", "Unit", |stone: &Stone| stone.unit.clone())
+            .minimum_width_characters(4),
         Column::quantity("on_hand", "On Hand", |stone: &Stone| Some(stone.on_hand)).sortable(),
         Column::quantity("committed", "Committed", |stone: &Stone| {
             Some(stone.committed)
@@ -88,7 +89,7 @@ fn stone_columns() -> Vec<Column<Stone>> {
         .sortable(),
         Column::quantity("on_order", "On Order", |stone: &Stone| Some(stone.on_order)).sortable(),
         Column::text("arrival", "Arrival", |stone: &Stone| stone.arrival.clone())
-            .width_characters(10)
+            .minimum_width_characters(10)
             .sortable(),
     ]
 }
@@ -122,7 +123,8 @@ fn stone_card() -> RowView<Stone> {
 fn calendar_columns() -> Vec<Column<Stone>> {
     vec![
         Column::text("code", "Code", |stone: &Stone| stone.code.clone()),
-        Column::text("name", "Name", |stone: &Stone| stone.name.clone()).width_characters(28),
+        Column::text("name", "Name", |stone: &Stone| stone.name.clone())
+            .minimum_width_characters(28),
         Column::text("warehouse", "Warehouse", |stone: &Stone| {
             stone.warehouse.clone()
         }),

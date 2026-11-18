@@ -3,8 +3,6 @@ use leptos::prelude::*;
 use crate::element_key::ElementKey;
 use crate::typography::{heading_element, HeadingLevel, LABEL_CLASS, SECTION_HEADING_ROW_CLASS};
 
-/// A titled part of a page that is not a `FieldSection`, such as a table or a
-/// set of files, with the same heading as one so the two sit together.
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"

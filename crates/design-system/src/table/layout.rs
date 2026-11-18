@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use super::data_table::RowView;
 
-/// How a table draws its rows. Every layout keeps the toolbar, tabs and filters.
 #[derive(Default)]
 pub enum Layout<Row> {
     #[default]

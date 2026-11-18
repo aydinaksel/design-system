@@ -20,8 +20,6 @@ type LoadedRows<Row> = Signal<Option<Result<Vec<Row>, String>>>;
 type FilterValuesFuture =
     std::pin::Pin<Box<dyn Future<Output = Result<Vec<FilterValue>, String>> + Send>>;
 
-/// Loads the values a column offers, under everything in the query except that
-/// column's own selection. Build one with [`filter_values_loader`].
 pub type FilterValuesLoader =
     std::sync::Arc<dyn Fn(String, TableQuery) -> FilterValuesFuture + Send + Sync>;
 
@@ -71,7 +69,6 @@ fn requested_filter_values(
     Signal::derive(move || requested.try_get().flatten().flatten())
 }
 
-/// A [`DataTable`] fed one [`Page`] at a time by a server function.
 #[expect(
     clippy::needless_pass_by_value,
     reason = "component props arrive by value"
@@ -85,26 +82,14 @@ pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     #[prop(optional, into)] empty_message: String,
     #[prop(optional)] row_href: Option<RowAttribute<Row>>,
     #[prop(optional)] row_class: Option<RowAttribute<Row>>,
-    /// Keeps the first column in view while the table scrolls sideways.
-    #[prop(optional)]
-    sticky_first_column: bool,
-    /// Controls that change how the table is drawn, rendered after the search.
-    #[prop(optional, into)]
-    toolbar: ViewFn,
-    /// Tabs that pick a subset of the rows, sharing the search row.
-    #[prop(optional)]
-    views: Option<&'static [PageView]>,
-    /// Enables the header filter popover on `filterable` columns.
-    #[prop(optional)]
-    load_filter_values: Option<FilterValuesLoader>,
+    #[prop(optional)] sticky_first_column: bool,
+    #[prop(optional, into)] toolbar: ViewFn,
+    #[prop(optional)] views: Option<&'static [PageView]>,
+    #[prop(optional)] load_filter_values: Option<FilterValuesLoader>,
     #[prop(optional)] facets: Option<Vec<ServerFacet>>,
     #[prop(optional, into)] facet_values: Option<Signal<LoadedFacetValues>>,
-    /// Share the query with a facet rail. Omit to let the table own it.
-    #[prop(optional)]
-    query: Option<UrlTableQuery>,
-    /// Bump to re-read the current page, after an edit saves.
-    #[prop(optional)]
-    reload: Option<RwSignal<u32>>,
+    #[prop(optional)] query: Option<UrlTableQuery>,
+    #[prop(optional)] reload: Option<RwSignal<u32>>,
     #[prop(optional)] layout: Layout<Row>,
 ) -> impl IntoView
 where

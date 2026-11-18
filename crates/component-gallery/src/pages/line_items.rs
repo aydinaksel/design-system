@@ -378,13 +378,14 @@ pub(crate) fn total_pence(lines: &[StoneLine]) -> u64 {
 fn columns() -> Vec<Column<StoneLine>> {
     vec![
         Column::text("letter", "Line", |line: &StoneLine| line.letter.to_string())
-            .width_characters(4),
-        Column::text("stone", "Stone", |line: &StoneLine| line.stone.clone()).width_characters(28),
+            .minimum_width_characters(4),
+        Column::text("stone", "Stone", |line: &StoneLine| line.stone.clone())
+            .minimum_width_characters(28),
         Column::text("quantity", "Quantity (m²)", |line: &StoneLine| {
             shown_decimal(line.quantity_thousandths)
         })
         .align(Align::Right)
-        .width_characters(12)
+        .minimum_width_characters(12)
         .total(|lines| shown_decimal(lines.iter().map(|line| line.quantity_thousandths).sum())),
         Column::text(
             "area_per_crate",
@@ -392,18 +393,18 @@ fn columns() -> Vec<Column<StoneLine>> {
             |line: &StoneLine| shown_decimal(line.area_per_crate_thousandths),
         )
         .align(Align::Right)
-        .width_characters(12),
+        .minimum_width_characters(12),
         Column::text("crates", "Crates", |line: &StoneLine| {
             shown_count(line.crates)
         })
         .align(Align::Right)
-        .width_characters(10)
+        .minimum_width_characters(10)
         .total(|lines| shown_count(lines.iter().map(|line| line.crates).sum())),
         Column::text("unit_price", "Unit Price", |line: &StoneLine| {
             pounds(line.unit_price_pence)
         })
         .align(Align::Right)
-        .width_characters(10),
+        .minimum_width_characters(10),
         Column::text("total", "Total", |line: &StoneLine| {
             pounds(line_total_pence(
                 line.quantity_thousandths,
@@ -411,7 +412,7 @@ fn columns() -> Vec<Column<StoneLine>> {
             ))
         })
         .align(Align::Right)
-        .width_characters(12)
+        .minimum_width_characters(12)
         .total(|lines| pounds(total_pence(lines))),
     ]
 }

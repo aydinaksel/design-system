@@ -18,7 +18,6 @@ pub struct Stone {
     pub image: ResponsiveSource,
 }
 
-/// Which stones a list holds, offered as a tab.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StoneView {
     All,

@@ -1,12 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-/// One selectable value in a server-driven column filter, counted under the
-/// rest of the query's filters.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilterValue {
     pub value: String,
     pub row_count: u64,
-    /// What the rail shows in place of a coded `value`.
     #[serde(default)]
     pub label: Option<String>,
 }
@@ -26,7 +23,6 @@ impl FilterValue {
 
 pub type LoadedFilterValues = Option<Result<Vec<FilterValue>, String>>;
 
-/// Every filterable column's values in one payload, for a facet rail.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FacetValues {
     pub column_key: String,

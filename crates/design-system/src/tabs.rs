@@ -27,9 +27,6 @@ fn tab_list_class() -> &'static str {
 
 pub const VIEW_PARAMETER: &str = "view";
 
-/// One named subset of a page's data, offered as a tab. The first view is the
-/// default and keeps the URL free of its parameter. Changing tab starts the
-/// page's tables over, with nothing searched, sorted, filtered or paged.
 #[derive(Clone, Copy)]
 pub struct PageView {
     pub key: &'static str,
@@ -43,12 +40,8 @@ impl PageView {
     }
 }
 
-/// Rewrites the rest of the URL as one choice gives way to another, in the same
-/// navigation that records it.
 pub type ChoiceTransition = std::sync::Arc<dyn Fn(&'static str, &mut ParamsMap) + Send + Sync>;
 
-/// The key the URL names under `parameter`, or the first key when it names none
-/// of them.
 pub(crate) fn selected_key(parameter: &'static str, keys: Vec<&'static str>) -> Memo<&'static str> {
     let query = use_query_map();
     Memo::new(move |_| {
@@ -61,8 +54,6 @@ pub(crate) fn selected_key(parameter: &'static str, keys: Vec<&'static str>) -> 
     })
 }
 
-/// Navigates to the current page with `parameter` set to `key`, leaving the
-/// first key implicit so the default URL stays clean.
 pub(crate) fn choice_navigator(
     parameter: &'static str,
     default_key: &'static str,

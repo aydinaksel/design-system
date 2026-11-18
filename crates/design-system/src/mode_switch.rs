@@ -6,9 +6,6 @@ use crate::tooltip::Tooltip;
 
 pub const MODE_PARAMETER: &str = "mode";
 
-/// One way of presenting a page's data, offered as an icon in a segmented
-/// switch. The first mode is the default and keeps the URL free of its
-/// parameter.
 #[derive(Clone, Copy)]
 pub struct PageMode {
     pub key: &'static str,

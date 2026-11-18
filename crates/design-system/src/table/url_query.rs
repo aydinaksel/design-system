@@ -164,8 +164,6 @@ fn write_query(parameters: &mut ParamsMap, query: &TableQuery, names: ParameterN
     }
 }
 
-/// Rewrites the [`TableQuery`] held in `parameters`, so a navigation that
-/// changes something else can adjust the table in the same step.
 pub fn rewrite_table_query_parameters(
     parameters: &mut ParamsMap,
     rows_per_page: u32,
@@ -189,8 +187,6 @@ fn is_table_parameter(parameter: &str) -> bool {
     is_plain || is_filter
 }
 
-/// Removes the state of every table, in every namespace, so the page starts
-/// over with nothing searched, sorted or filtered.
 pub fn clear_table_query_parameters(parameters: &mut ParamsMap) {
     let table_parameters: Vec<String> = parameters
         .latest_values()
@@ -275,14 +271,11 @@ impl UrlTableQuery {
     }
 }
 
-/// The page's [`UrlTableQuery`], under unprefixed parameters.
 #[must_use]
 pub fn url_synced_table_query(rows_per_page: u32) -> UrlTableQuery {
     url_synced_table_query_in_namespace(rows_per_page, "")
 }
 
-/// Prefixes every parameter with `namespace`, so two tables on one page keep
-/// separate URL state.
 #[must_use]
 pub fn url_synced_table_query_in_namespace(
     rows_per_page: u32,

@@ -690,7 +690,7 @@ where
             }
             .into_any()
         })
-        .width_characters(ACTIONS_WIDTH_CHARACTERS)
+        .minimum_width_characters(ACTIONS_WIDTH_CHARACTERS)
     }
 }
 
@@ -713,9 +713,7 @@ pub fn LineItems<Row, Draft>(
     #[prop(optional, into)] locked_message: Option<String>,
     #[prop(into, default = "Add Line".to_owned())] add_label: String,
     #[prop(optional, into)] empty_message: Signal<String>,
-    /// Keeps the first column in view while the table scrolls sideways.
-    #[prop(optional)]
-    sticky_first_column: bool,
+    #[prop(optional)] sticky_first_column: bool,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,

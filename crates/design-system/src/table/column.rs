@@ -22,19 +22,13 @@ const HEADER_ICONS_WIDTH_CHARACTERS: u16 = 5;
 const UPPERCASE_LETTER_WIDTH_FIFTHS: u16 = 6;
 const FIFTHS_PER_CHARACTER: u16 = 5;
 
-/// A single table column. `value` is the typed value used for sorting and
-/// searching (written once, generically, inside `DataTable`); `render` is the
-/// actual cell view and stays fully custom. Both closures are `Send + Sync` so
-/// the column can live in default reactive storage under multi-threaded SSR.
 pub type ColumnTotal<Row> = Arc<dyn Fn(&[Row]) -> String + Send + Sync>;
 
 pub struct Column<Row: Send + Sync + 'static> {
     pub key: &'static str,
     pub header: &'static str,
     pub align: Align,
-    /// The column's share of the table, in `ch` of the cell text. It is the
-    /// narrowest the column gets; spare room is shared out in proportion.
-    pub width_characters: u16,
+    pub minimum_width_characters: u16,
     pub sortable: bool,
     pub searchable: bool,
     pub filterable: bool,
@@ -49,7 +43,7 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
             key: self.key,
             header: self.header,
             align: self.align,
-            width_characters: self.width_characters,
+            minimum_width_characters: self.minimum_width_characters,
             sortable: self.sortable,
             searchable: self.searchable,
             filterable: self.filterable,
@@ -61,9 +55,6 @@ impl<Row: Send + Sync + 'static> Clone for Column<Row> {
 }
 
 impl<Row: Send + Sync + 'static> Column<Row> {
-    /// Plain text cell, shown in full on hover when the column cuts it short.
-    /// Missing or blank text shows a dash and sorts last, so the accessor can
-    /// return a `String` or an `Option<String>`.
     pub fn text<Text>(
         key: &'static str,
         header: &'static str,
@@ -81,7 +72,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Left,
-            width_characters: TEXT_WIDTH_CHARACTERS,
+            minimum_width_characters: TEXT_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -97,8 +88,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
         }
     }
 
-    /// A badge naming the row's state in its tone, such as a status. The
-    /// label is what the column sorts, searches and filters by.
     pub fn badge<Label>(
         key: &'static str,
         header: &'static str,
@@ -112,7 +101,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Left,
-            width_characters: BADGE_WIDTH_CHARACTERS,
+            minimum_width_characters: BADGE_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -125,8 +114,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
         }
     }
 
-    /// Integer cell: right-aligned with thousands separators. `None` is an
-    /// empty cell and sorts last.
     pub fn integer<Number>(
         key: &'static str,
         header: &'static str,
@@ -141,7 +128,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
-            width_characters: INTEGER_WIDTH_CHARACTERS,
+            minimum_width_characters: INTEGER_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -163,7 +150,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
-            width_characters: QUANTITY_WIDTH_CHARACTERS,
+            minimum_width_characters: QUANTITY_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -181,8 +168,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
         }
     }
 
-    /// Quantity cell followed by its unit in muted text, so a number is never
-    /// read without the unit it counts.
     pub fn quantity_in_unit(
         key: &'static str,
         header: &'static str,
@@ -203,7 +188,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
                     },
                 )
             }),
-            width_characters: QUANTITY_IN_UNIT_WIDTH_CHARACTERS,
+            minimum_width_characters: QUANTITY_IN_UNIT_WIDTH_CHARACTERS,
             ..Self::quantity(key, header, accessor)
         }
     }
@@ -219,7 +204,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
-            width_characters: MONEY_WIDTH_CHARACTERS,
+            minimum_width_characters: MONEY_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -245,7 +230,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Right,
-            width_characters: MONEY_WIDTH_CHARACTERS,
+            minimum_width_characters: MONEY_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -263,8 +248,6 @@ impl<Row: Send + Sync + 'static> Column<Row> {
         }
     }
 
-    /// A real anchor, so middle-click and open-in-new-tab work even when the
-    /// whole row also navigates via `row_href`. Without a link it is plain text.
     pub fn link<Text, Href>(
         key: &'static str,
         header: &'static str,
@@ -284,7 +267,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Left,
-            width_characters: TEXT_WIDTH_CHARACTERS,
+            minimum_width_characters: TEXT_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -309,14 +292,12 @@ impl<Row: Send + Sync + 'static> Column<Row> {
         }
     }
 
-    /// The row's own actions, such as `RowActions`: no header, right-aligned
-    /// and only as wide as the menu button.
     pub fn actions(render: impl Fn(&Row) -> AnyView + Send + Sync + 'static) -> Self {
         Self {
             key: ACTIONS_KEY,
             header: "",
             align: Align::Right,
-            width_characters: ACTIONS_WIDTH_CHARACTERS,
+            minimum_width_characters: ACTIONS_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -336,7 +317,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             key,
             header,
             align: Align::Left,
-            width_characters: CUSTOM_WIDTH_CHARACTERS,
+            minimum_width_characters: CUSTOM_WIDTH_CHARACTERS,
             sortable: false,
             searchable: false,
             filterable: false,
@@ -365,13 +346,11 @@ impl<Row: Send + Sync + 'static> Column<Row> {
     }
 
     #[must_use]
-    pub fn width_characters(mut self, width_characters: u16) -> Self {
-        self.width_characters = width_characters;
+    pub fn minimum_width_characters(mut self, minimum_width_characters: u16) -> Self {
+        self.minimum_width_characters = minimum_width_characters;
         self
     }
 
-    /// The declared width, widened so the header label and its icons never
-    /// get cut short.
     #[must_use]
     pub fn rendered_width_characters(&self) -> u16 {
         let header_letters = u16::try_from(self.header.chars().count()).unwrap_or(u16::MAX);
@@ -379,7 +358,7 @@ impl<Row: Send + Sync + 'static> Column<Row> {
             .saturating_mul(UPPERCASE_LETTER_WIDTH_FIFTHS)
             .div_ceil(FIFTHS_PER_CHARACTER)
             .saturating_add(self.header_icons_width_characters());
-        self.width_characters.max(header_width)
+        self.minimum_width_characters.max(header_width)
     }
 
     fn header_icons_width_characters(&self) -> u16 {

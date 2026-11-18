@@ -81,9 +81,6 @@ enum BodyState {
     Rows,
 }
 
-/// Generic table: absorbs loading / error / empty states, a sticky
-/// header, client-side search, click-to-sort, and Excel-style per-column value
-/// filters. Cells stay custom via each `Column`'s `render`.
 fn sort_arrow_glyph(ascending: bool) -> icons::LucideGlyph {
     if ascending {
         icons::LucideGlyph::ArrowUp
@@ -357,25 +354,14 @@ pub fn DataTable<Row>(
     #[prop(optional, into)] empty_message: Signal<String>,
     #[prop(optional)] row_class: Option<RowAttribute<Row>>,
     #[prop(optional)] row_href: Option<RowAttribute<Row>>,
-    /// Stable row identity; sorts and filters then reorder DOM rows instead of rebuilding them.
-    #[prop(optional)]
-    row_key: Option<RowAttribute<Row>>,
+    #[prop(optional)] row_key: Option<RowAttribute<Row>>,
     #[prop(optional)] row_replacement: Option<RowReplacement<Row>>,
     #[prop(optional)] trailing_rows: Option<ViewFn>,
     #[prop(optional)] hides_row_count: bool,
-    /// Controls that change how the table is drawn, such as a mode switch,
-    /// rendered after the search. Page actions belong in the page header.
-    #[prop(optional_no_strip)]
-    toolbar: Option<AnyView>,
-    /// Opens the filters, rendered before the search.
-    #[prop(optional_no_strip)]
-    filter_toggle: Option<AnyView>,
-    /// Tabs that pick a subset of the rows, sharing the search row.
-    #[prop(optional_no_strip)]
-    views: Option<&'static [PageView]>,
-    /// Rendered beside the table body, below the toolbar, such as a facet rail.
-    #[prop(optional_no_strip)]
-    sidebar: Option<AnyView>,
+    #[prop(optional_no_strip)] toolbar: Option<AnyView>,
+    #[prop(optional_no_strip)] filter_toggle: Option<AnyView>,
+    #[prop(optional_no_strip)] views: Option<&'static [PageView]>,
+    #[prop(optional_no_strip)] sidebar: Option<AnyView>,
     /// Switches the table to server-driven mode, reading `rows` as one page.
     #[prop(optional)]
     query: Option<UrlTableQuery>,
@@ -391,9 +377,7 @@ pub fn DataTable<Row>(
     filter_values: Signal<LoadedFilterValues>,
     #[prop(optional)] layout: Layout<Row>,
     #[prop(optional)] facet_row: bool,
-    /// Keeps the first column in view while the table scrolls sideways.
-    #[prop(optional)]
-    sticky_first_column: bool,
+    #[prop(optional)] sticky_first_column: bool,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,

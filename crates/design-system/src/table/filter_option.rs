@@ -4,7 +4,6 @@ use leptos::prelude::*;
 use crate::checkbox::Checkbox;
 use crate::tooltip::OverflowTooltip;
 
-/// One value a filter offers, with how many rows carry it.
 #[component]
 pub fn FilterOption(
     label: String,

@@ -2,9 +2,6 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-/// Everything a shared layout needs to render one company's chrome. Provide it
-/// once per application with `provide_context`; the shared components read it
-/// rather than branching on which site they are running inside.
 #[derive(Clone, Default)]
 pub struct Brand {
     pub name: &'static str,

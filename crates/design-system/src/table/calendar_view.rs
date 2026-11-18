@@ -51,8 +51,6 @@ impl Month {
     }
 }
 
-/// Every row of the month the query shows, or of the current month when it
-/// names none, in one unsorted page.
 pub(crate) fn month_query(mut query: TableQuery, date_column_key: &str) -> TableQuery {
     Month::shown_by(&query, date_column_key).show_in(&mut query, date_column_key);
     query.sort_column_key = None;
@@ -93,7 +91,6 @@ where
     by_day
 }
 
-/// A month of rows, counted per day; a day opens its rows in a dialog.
 #[component]
 pub(crate) fn CalendarView<Row>(
     rows: Signal<Option<Result<Vec<Row>, String>>>,

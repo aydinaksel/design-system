@@ -3,7 +3,6 @@ use leptos_router::components::A;
 
 const IMAGE_CLASS: &str = "aspect-square w-full bg-gray-100 object-cover";
 
-/// The widths of one photograph a browser picks between.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ResponsiveSource {
     pub display_url: String,
@@ -55,7 +54,6 @@ pub fn CardGrid(#[prop(optional)] class: &'static str, children: Children) -> im
     .into_any()
 }
 
-/// One linked tile of a [`CardGrid`]: a square image over a padded body.
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"

@@ -1,9 +1,6 @@
 use leptos::prelude::*;
 use leptos_meta::MetaTags;
 
-/// The document every site server-renders around its own `App`. Keeping one
-/// copy means a change to the head, the language, or the hydration scripts
-/// reaches all of them.
 pub fn shell<AppView, AppComponent>(
     options: LeptosOptions,
     stylesheet_href: &'static str,
