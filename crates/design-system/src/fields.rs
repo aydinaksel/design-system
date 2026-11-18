@@ -31,8 +31,10 @@ use crate::typography::{heading_element, LABEL_CLASS, SECTION_HEADING_ROW_CLASS}
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 
-pub(crate) const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "sm:py-2";
-pub(crate) const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-[calc(var(--radius-xl)-1px)] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-divider last:after:hidden sm:flex-row sm:items-center sm:gap-4 motion-safe:transition-colors";
+pub(crate) const SECTION_WIDTH_CLASS: &str = "@container w-full max-w-xl";
+pub(crate) const LABEL_COLUMN_CLASS: &str = "pt-1.5 text-sm text-gray-500 @sm:w-48 @sm:shrink-0";
+pub(crate) const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "@sm:py-2";
+pub(crate) const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-[calc(var(--radius-xl)-1px)] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-divider last:after:hidden @sm:flex-row @sm:items-center @sm:gap-4 motion-safe:transition-colors";
 
 pub use crate::typography::HeadingLevel;
 
@@ -735,7 +737,7 @@ pub fn FieldSection(
         <section
             node_ref=section
             aria-labelledby=heading_id
-            class="w-full max-w-2xl"
+            class=SECTION_WIDTH_CLASS
             on:keydown=on_keydown
         >
             {heading}
@@ -967,12 +969,12 @@ pub fn FieldRow(
         view! {
             <div class=move || {
                 if showing_editor.get() {
-                    "flex items-start gap-2 pb-1.5 pt-1 sm:justify-end sm:py-0"
+                    "flex items-start gap-2 pb-1.5 pt-1 @sm:justify-end @sm:py-0"
                 } else {
                     "hidden"
                 }
             }>
-                <div class="order-last mt-0.5 sm:order-none">{revert}</div>
+                <div class="order-last mt-0.5 @sm:order-none">{revert}</div>
                 <div class="min-w-0 max-w-sm flex-1 text-left">
                     {editor.view.run()}
                     <p
@@ -996,19 +998,19 @@ pub fn FieldRow(
     view! {
         <div node_ref=row class=row_class>
             <dt class=format!(
-                "pt-1.5 text-sm text-gray-500 sm:w-48 sm:shrink-0 {ALIGNED_WITH_CONTROL_TEXT_CLASS}",
+                "{LABEL_COLUMN_CLASS} {ALIGNED_WITH_CONTROL_TEXT_CLASS}",
             )>{label_view}</dt>
             <dd class="min-w-0 flex-1 text-sm text-gray-900">
                 <div class=move || {
                     if showing_editor.get() {
                         "hidden"
                     } else {
-                        "flex items-center gap-3 sm:justify-end"
+                        "flex items-center gap-3 @sm:justify-end"
                     }
                 }>
                     <div class=move || {
                         format!(
-                            "min-w-0 pb-1.5 pt-0.5 motion-safe:transition-opacity sm:text-right {ALIGNED_WITH_CONTROL_TEXT_CLASS} {}",
+                            "min-w-0 pb-1.5 pt-0.5 motion-safe:transition-opacity @sm:text-right {ALIGNED_WITH_CONTROL_TEXT_CLASS} {}",
                             if read_only_while_editing() { "opacity-60" } else { "" },
                         )
                     }>{children()}</div>

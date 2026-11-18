@@ -3,15 +3,17 @@ use leptos::prelude::*;
 use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::controls::FieldElementIds;
 use crate::element_key::ElementKey;
-use crate::fields::{ALIGNED_WITH_CONTROL_TEXT_CLASS, ROW_CLASS};
+use crate::fields::{
+    ALIGNED_WITH_CONTROL_TEXT_CLASS, LABEL_COLUMN_CLASS, ROW_CLASS, SECTION_WIDTH_CLASS,
+};
 use crate::tooltip::HelpTerm;
 use crate::typography::{heading_element, HeadingLevel, LABEL_CLASS, SECTION_HEADING_ROW_CLASS};
 
 const CARD_CLASS: &str = "rounded-xl border border-edge bg-surface";
 const FOOTER_CLASS: &str = "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-b-[calc(var(--radius-xl)-1px)] border-t border-edge bg-gray-50 px-4 py-2";
 const ERROR_CLASS: &str = "text-sm text-red-600";
-const LABEL_COLUMN_CLASS: &str = "pt-1.5 text-sm text-gray-500 sm:w-48 sm:shrink-0";
-const CONTROL_COLUMN_CLASS: &str = "flex min-w-0 flex-1 pb-1.5 pt-1 text-sm sm:justify-end sm:py-0";
+const CONTROL_COLUMN_CLASS: &str =
+    "flex min-w-0 flex-1 pb-1.5 pt-1 text-sm @sm:justify-end @sm:py-0";
 const CONTROL_CLASS: &str = "min-w-0 max-w-sm flex-1 text-left";
 const SUBMITTING_LABEL: &str = "Saving\u{2026}";
 const CANCEL_LABEL: &str = "Cancel";
@@ -68,7 +70,7 @@ pub fn FormSection(
         }
     };
     view! {
-        <section aria-labelledby=heading_id class="w-full max-w-2xl">
+        <section aria-labelledby=heading_id class=SECTION_WIDTH_CLASS>
             {heading}
             <div class=CARD_CLASS>
                 <div>{children()}</div>
