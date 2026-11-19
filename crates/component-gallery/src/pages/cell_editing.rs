@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use design_system::table::{CellEditor, CellValue, Column, DataTable, RowAttribute};
-use design_system::{FieldSave, Input, Switch};
+use design_system::{DatePicker, FieldSave, Input, Listbox, ListboxOption, Switch};
 use leptos::prelude::*;
 
 const FAKE_SAVE_MILLISECONDS: u64 = 900;
@@ -17,7 +17,11 @@ struct ShipmentLine {
     description: &'static str,
     container: String,
     serial_number: String,
+    expected: String,
+    status: String,
 }
+
+const STATUSES: [&str; 3] = ["Booked", "At Sea", "Arrived"];
 
 fn shipment_lines() -> Vec<ShipmentLine> {
     vec![
@@ -27,6 +31,8 @@ fn shipment_lines() -> Vec<ShipmentLine> {
             description: "Ivory Honed Travertine 18x18",
             container: "CSQU3054383".to_owned(),
             serial_number: "SN-4410".to_owned(),
+            expected: "2026-12-04".to_owned(),
+            status: "At Sea".to_owned(),
         },
         ShipmentLine {
             line_number: 2,
@@ -34,6 +40,8 @@ fn shipment_lines() -> Vec<ShipmentLine> {
             description: "Black Polished Granite 12x24",
             container: String::new(),
             serial_number: String::new(),
+            expected: String::new(),
+            status: "Booked".to_owned(),
         },
         ShipmentLine {
             line_number: 3,
@@ -41,6 +49,8 @@ fn shipment_lines() -> Vec<ShipmentLine> {
             description: "Green Brushed Slate 16x16",
             container: "MSKU7219004".to_owned(),
             serial_number: "SN-4412".to_owned(),
+            expected: "2026-11-20".to_owned(),
+            status: "Arrived".to_owned(),
         },
     ]
 }
@@ -170,6 +180,65 @@ fn serial_number_column(
     )
 }
 
+fn expected_column(
+    lines: RwSignal<Vec<ShipmentLine>>,
+    save_fails: RwSignal<bool>,
+) -> Column<ShipmentLine> {
+    Column::view(
+        "expected",
+        "Expected",
+        |line: &ShipmentLine| CellValue::optional_text(Some(&line.expected)),
+        move |line: &ShipmentLine| {
+            let line_number = line.line_number;
+            CellEditor::new(
+                "Expected",
+                line.expected.clone(),
+                String::clone,
+                |draft| view! { <DatePicker value=draft clearable=true /> }.into_any(),
+                move |expected: String, save: FieldSave| {
+                    fake_save(save, save_fails.get_untracked(), move || {
+                        update_line(lines, line_number, |line| line.expected = expected);
+                    });
+                },
+            )
+            .into_view()
+        },
+    )
+}
+
+fn status_options() -> Vec<ListboxOption> {
+    STATUSES
+        .into_iter()
+        .map(|status| ListboxOption::new(status, status))
+        .collect()
+}
+
+fn status_column(
+    lines: RwSignal<Vec<ShipmentLine>>,
+    save_fails: RwSignal<bool>,
+) -> Column<ShipmentLine> {
+    Column::view(
+        "status",
+        "Status",
+        |line: &ShipmentLine| CellValue::Text(line.status.clone()),
+        move |line: &ShipmentLine| {
+            let line_number = line.line_number;
+            CellEditor::new(
+                "Status",
+                line.status.clone(),
+                String::clone,
+                |draft| view! { <Listbox options=status_options() selected=draft /> }.into_any(),
+                move |status: String, save: FieldSave| {
+                    fake_save(save, save_fails.get_untracked(), move || {
+                        update_line(lines, line_number, |line| line.status = status);
+                    });
+                },
+            )
+            .into_view()
+        },
+    )
+}
+
 pub(crate) fn cell_editing() -> AnyView {
     let lines = RwSignal::new(shipment_lines());
     let save_fails = RwSignal::new(false);
@@ -185,6 +254,8 @@ pub(crate) fn cell_editing() -> AnyView {
         }),
         container_column(lines, save_fails),
         serial_number_column(lines, save_fails),
+        expected_column(lines, save_fails),
+        status_column(lines, save_fails),
     ];
     view! {
         <div class="mb-4 flex items-center gap-3 text-sm text-gray-700">

@@ -4,7 +4,7 @@ use leptos::html::Button;
 use leptos::portal::Portal;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::{EventTarget, HtmlElement, Node};
+use leptos::web_sys::{Element, EventTarget, HtmlElement, Node};
 use leptos_use_event_listener::{use_event_listener_with_options, UseEventListenerOptions};
 use leptos_use_window::use_window;
 
@@ -18,6 +18,8 @@ const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal
 const PADDED_PANEL_CLASS: &str = "p-3";
 const UNPADDED_PANEL_CLASS: &str = "overflow-hidden";
 const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
+const OPENED_FROM_ATTRIBUTE: &str = "data-opened-from-popover";
+const OPENED_FROM_SELECTOR: &str = "[data-opened-from-popover]";
 const TABBABLE_SELECTOR: &str = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -179,13 +181,33 @@ impl PopoverState {
             .trigger
             .get_untracked()
             .is_some_and(|trigger| trigger.contains(Some(&node)));
-        in_panel || on_trigger
+        in_panel || on_trigger || self.opened_the_popover_holding(&node)
     }
+
+    fn opened_the_popover_holding(self, node: &Node) -> bool {
+        let own_panel_id = self.panel_id();
+        let innermost = node
+            .dyn_ref::<Element>()
+            .cloned()
+            .or_else(|| node.parent_element())
+            .and_then(|element| element.closest(OPENED_FROM_SELECTOR).ok().flatten());
+        std::iter::successors(innermost, panel_that_opened)
+            .filter_map(|panel| panel.get_attribute(OPENED_FROM_ATTRIBUTE))
+            .any(|opened_from| opened_from == own_panel_id)
+    }
+}
+
+fn panel_that_opened(panel: &Element) -> Option<Element> {
+    let opened_from = panel.get_attribute(OPENED_FROM_ATTRIBUTE)?;
+    document()
+        .get_element_by_id(&opened_from)
+        .filter(|opener| opener.has_attribute(OPENED_FROM_ATTRIBUTE))
 }
 
 #[derive(Clone, Copy)]
 struct PopoverContext {
     state: PopoverState,
+    opened_from: Option<PopoverState>,
     align: PopoverAlign,
     on_open: Option<Callback<()>>,
     before_dismiss: Option<Callback<Dismissal, bool>>,
@@ -270,6 +292,7 @@ pub fn Popover(
 ) -> impl IntoView {
     let context = PopoverContext {
         state: state.unwrap_or_default(),
+        opened_from: use_popover(),
         align,
         on_open,
         before_dismiss,
@@ -356,6 +379,7 @@ pub fn PopoverContent(
                     id=state.panel_id()
                     role="dialog"
                     tabindex="-1"
+                    data-opened-from-popover=context.opened_from.map(PopoverState::panel_id)
                     aria-labelledby=move || state.titled.get().then(|| state.title_id())
                     aria-describedby=move || state.described.get().then(|| state.description_id())
                     class=move || format!("{PANEL_CLASS} {padding_class} {}", class.get())
