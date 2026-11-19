@@ -89,13 +89,10 @@ impl<Row> RowSelection<Row> {
 
     pub(super) fn pick(&self, key: &str, extends_range: bool, keys_in_view: &[String]) {
         let anchor_key = self.range_anchor_key.get_untracked();
+        let run_anchor_key = anchor_key.filter(|_| extends_range && self.picks_many());
         let mode = self.mode;
-        self.keys.update(|keys| match anchor_key {
-            Some(anchor_key) if extends_range && mode == SelectionMode::Multiple => {
-                select_run(keys, keys_in_view, &anchor_key, key);
-            }
-            _ => toggle(keys, mode, key),
-        });
+        self.keys
+            .update(|keys| pick_row(keys, mode, run_anchor_key.as_deref(), key, keys_in_view));
         self.range_anchor_key.set(Some(key.to_owned()));
     }
 
@@ -106,6 +103,19 @@ impl<Row> RowSelection<Row> {
     pub(super) fn toggle_rows_in_view(&self, keys_in_view: &[String]) {
         self.keys.update(|keys| toggle_every(keys, keys_in_view));
         self.range_anchor_key.set(None);
+    }
+}
+
+fn pick_row(
+    keys: &mut BTreeSet<String>,
+    mode: SelectionMode,
+    run_anchor_key: Option<&str>,
+    key: &str,
+    keys_in_view: &[String],
+) {
+    match run_anchor_key.filter(|anchor_key| keys.contains(*anchor_key)) {
+        Some(anchor_key) => select_run(keys, keys_in_view, anchor_key, key),
+        None => toggle(keys, mode, key),
     }
 }
 
@@ -205,6 +215,29 @@ mod tests {
         let mut keys = keys_of(&["gone"]);
         select_run(&mut keys, &in_view(&["a", "b"]), "gone", "b");
         assert_eq!(keys, keys_of(&["b", "gone"]));
+    }
+
+    #[test]
+    fn a_run_does_not_start_from_a_row_that_is_no_longer_picked() {
+        let shown = in_view(&["a", "b", "c", "d"]);
+        let mut cleared_by_the_page = keys_of(&[]);
+        pick_row(
+            &mut cleared_by_the_page,
+            SelectionMode::Multiple,
+            Some("a"),
+            "c",
+            &shown,
+        );
+        assert_eq!(cleared_by_the_page, keys_of(&["c"]));
+        let mut still_picked = keys_of(&["a"]);
+        pick_row(
+            &mut still_picked,
+            SelectionMode::Multiple,
+            Some("a"),
+            "c",
+            &shown,
+        );
+        assert_eq!(still_picked, keys_of(&["a", "b", "c"]));
     }
 
     #[test]
