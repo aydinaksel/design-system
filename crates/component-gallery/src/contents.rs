@@ -7,8 +7,8 @@ use crate::pages::client_side_table::ClientSideTablePage;
 use crate::pages::files::FilesPage;
 use crate::pages::tables::TablesPage;
 use crate::pages::{
-    actions, activity, cell_editing, content, detail_page, forms, line_items, overlays, popovers,
-    row_selection,
+    actions, activity, cell_editing, content, detail_page, forms, line_items, overlays,
+    period_filter, popovers, row_selection,
 };
 
 #[derive(Clone, Copy)]
@@ -114,7 +114,7 @@ const OVERLAYS: [Entry; 3] = [
     },
 ];
 
-const FORMS: [Entry; 6] = [
+const FORMS: [Entry; 7] = [
     Entry {
         href: "/form-controls",
         title: "Form Controls",
@@ -149,6 +149,13 @@ const FORMS: [Entry; 6] = [
         summary: "A card of fields saved together.",
         glyph: LucideGlyph::ClipboardList,
         presentation: Presentation::Showcase(forms::form_section),
+    },
+    Entry {
+        href: "/period-filter",
+        title: "Period Filter",
+        summary: "A named period or custom dates for a report, kept in the URL.",
+        glyph: LucideGlyph::CalendarRange,
+        presentation: Presentation::Showcase(period_filter::period_filter),
     },
     Entry {
         href: "/cell-editing",

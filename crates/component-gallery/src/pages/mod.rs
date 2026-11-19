@@ -13,6 +13,7 @@ pub mod forms;
 pub mod index;
 pub mod line_items;
 pub mod overlays;
+pub mod period_filter;
 pub mod popovers;
 pub mod row_selection;
 pub mod sidebar;

@@ -16,6 +16,7 @@ pub mod combobox;
 pub mod confirm_dialog;
 pub mod controls;
 pub mod currency;
+pub mod date_period;
 pub mod date_picker;
 pub mod detail_header;
 pub mod dialog;
@@ -88,6 +89,7 @@ pub use combobox::{
 pub use confirm_dialog::ConfirmDialog;
 pub use controls::{Input, InputKind, Switch, Textarea};
 pub use currency::Currency;
+pub use date_period::{resolve_date_span, DatePeriod, DateSpan, PeriodFilter};
 pub use date_picker::DatePicker;
 pub use detail_header::{DetailHeader, DetailPage, DocumentStatus, IdentifierKind};
 pub use dialog::{use_dialog_close, Dialog, DialogSize};
