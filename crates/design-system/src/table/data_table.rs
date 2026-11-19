@@ -1465,12 +1465,11 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         let sticky_marker = sticky_column_width.is_some().then_some("");
         let selectable_marker = self.selection.is_some().then_some("");
         view! {
-            <div class="relative">
+            <div class="table-frame relative" style=sticky_column_width>
                 <div
                     class=format!("{SCROLLER_CLASS} {BODY_MAX_HEIGHT_CLASS}")
                     data-sticky-first-column=sticky_marker
                     data-selectable-rows=selectable_marker
-                    style=sticky_column_width
                 >
                     <table class=TABLE_CLASS>
                         <colgroup>{self.column_widths()}</colgroup>
@@ -1487,8 +1486,8 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                         </tbody>
                         {self.footer()}
                     </table>
-                    <div class="table-edges" aria-hidden="true"></div>
                 </div>
+                <div class="table-edges text-sm" aria-hidden="true"></div>
                 {refresh_cover(pending, "inset-px rounded-[calc(var(--radius-xl)-1px)]")}
             </div>
         }

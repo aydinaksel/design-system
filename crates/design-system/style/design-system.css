@@ -89,20 +89,21 @@
 }
 
 @layer components {
-  .table-scroller {
-    display: grid;
-    container-type: inline-size;
+  .table-frame {
+    timeline-scope: --table-inline-scroll;
   }
 
-  .table-scroller > * {
-    grid-area: 1 / 1;
+  .table-scroller {
+    display: grid;
+    scroll-timeline: --table-inline-scroll inline;
   }
 
   .table-edges {
-    position: sticky;
-    left: 0;
+    position: absolute;
+    inset: 1px;
     z-index: 20;
-    width: 100cqw;
+    overflow: hidden;
+    border-radius: calc(var(--radius-xl) - 1px);
     pointer-events: none;
   }
 
@@ -125,16 +126,16 @@
     background: linear-gradient(to left, rgb(17 24 39 / 0.1), transparent);
   }
 
-  @supports (animation-timeline: scroll()) {
+  @supports (animation-timeline: scroll()) and (timeline-scope: --table-inline-scroll) {
     .table-edges::before {
       animation: table-edge-appear linear both;
-      animation-timeline: scroll(nearest inline);
+      animation-timeline: --table-inline-scroll;
       animation-range: 0 2rem;
     }
 
     .table-edges::after {
       animation: table-edge-disappear linear both;
-      animation-timeline: scroll(nearest inline);
+      animation-timeline: --table-inline-scroll;
       animation-range: calc(100% - 2rem) 100%;
     }
   }
