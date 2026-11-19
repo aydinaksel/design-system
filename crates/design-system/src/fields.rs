@@ -30,6 +30,7 @@ use crate::tooltip::{HelpTerm, Tooltip};
 use crate::typography::{heading_element, LABEL_CLASS, SECTION_HEADING_ROW_CLASS};
 
 type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
+type AfterDiscard = StoredValue<Option<Callback<()>>>;
 
 pub(crate) const SECTION_WIDTH_CLASS: &str = "@container w-full max-w-xl";
 pub(crate) const LABEL_COLUMN_CLASS: &str = "pt-1.5 text-sm text-gray-500 @sm:w-48 @sm:shrink-0";
@@ -203,7 +204,7 @@ struct ActiveEditor {
     section_number: ElementKey,
     has_changes: Signal<bool>,
     discard: Callback<()>,
-    draw_attention: Callback<()>,
+    ask_to_discard_then: Callback<Callback<()>>,
 }
 
 #[derive(Clone, Copy)]
@@ -339,7 +340,9 @@ impl EditSession {
             .filter(|editor| editor.section_number != self.number);
         match other {
             Some(other) if other.has_changes.get_untracked() => {
-                other.draw_attention.run(());
+                other
+                    .ask_to_discard_then
+                    .run(Callback::new(move |()| self.start(entry)));
                 return false;
             }
             Some(other) => other.discard.run(()),
@@ -519,6 +522,7 @@ fn discard_dialog(
     session: EditSession,
     title: Option<String>,
     pending_navigation: PendingNavigation,
+    after_discard: AfterDiscard,
 ) -> AnyView {
     let warning =
         Signal::derive(move || discard_warning(session.changed_count(), title.as_deref()));
@@ -527,6 +531,22 @@ fn discard_dialog(
         let navigation = pending_navigation.try_update_value(Option::take).flatten();
         if let Some(anchor) = navigation {
             anchor.click();
+        }
+        if let Some(next) = after_discard.try_update_value(Option::take).flatten() {
+            next.run(());
+        }
+    });
+    Effect::new(move |_| {
+        if session.discard_prompt_open.get() {
+            return;
+        }
+        pending_navigation.try_set_value(None);
+        let was_asked_by_another_section = after_discard
+            .try_update_value(Option::take)
+            .flatten()
+            .is_some();
+        if was_asked_by_another_section {
+            session.draw_attention();
         }
     });
     view! {
@@ -688,13 +708,17 @@ pub fn FieldSection(
     }
 
     let pending_navigation: PendingNavigation = StoredValue::new(None);
+    let after_discard: AfterDiscard = StoredValue::new(None);
     let edit_controls = session.map(|session| {
         guard_navigation(session, pending_navigation);
         let entry = ActiveEditor {
             section_number,
             has_changes: Signal::derive(move || session.changed_count() > 0),
             discard: Callback::new(move |()| session.discard()),
-            draw_attention: Callback::new(move |()| session.draw_attention()),
+            ask_to_discard_then: Callback::new(move |next| {
+                after_discard.set_value(Some(next));
+                session.discard_prompt_open.set(true);
+            }),
         };
         let label = title
             .as_ref()
@@ -702,7 +726,8 @@ pub fn FieldSection(
         edit_button(session, entry, label)
     });
     let footer = session.map(editing_footer);
-    let dialog = session.map(|session| discard_dialog(session, title.clone(), pending_navigation));
+    let dialog = session
+        .map(|session| discard_dialog(session, title.clone(), pending_navigation, after_discard));
 
     let announcement = saved_announcement(title.as_deref());
     let heading = (title.is_some() || actions.is_some() || edit_controls.is_some()).then(|| {
