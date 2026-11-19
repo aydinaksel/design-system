@@ -8,6 +8,7 @@ use crate::pages::files::FilesPage;
 use crate::pages::tables::TablesPage;
 use crate::pages::{
     actions, activity, cell_editing, content, detail_page, forms, line_items, overlays, popovers,
+    row_selection,
 };
 
 #[derive(Clone, Copy)]
@@ -158,7 +159,7 @@ const FORMS: [Entry; 6] = [
     },
 ];
 
-const DATA: [Entry; 6] = [
+const DATA: [Entry; 7] = [
     Entry {
         href: "/tables",
         title: "Tables",
@@ -172,6 +173,13 @@ const DATA: [Entry; 6] = [
         summary: "A table that sorts and filters in the browser.",
         glyph: LucideGlyph::Sheet,
         presentation: Presentation::Page(client_side_table_page),
+    },
+    Entry {
+        href: "/row-selection",
+        title: "Row Selection",
+        summary: "Tables whose rows are picked with a checkbox or a click.",
+        glyph: LucideGlyph::SquareCheck,
+        presentation: Presentation::Showcase(row_selection::row_selection),
     },
     Entry {
         href: "/line-items",

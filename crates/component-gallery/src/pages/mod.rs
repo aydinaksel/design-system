@@ -14,6 +14,7 @@ pub mod index;
 pub mod line_items;
 pub mod overlays;
 pub mod popovers;
+pub mod row_selection;
 pub mod sidebar;
 pub mod tables;
 

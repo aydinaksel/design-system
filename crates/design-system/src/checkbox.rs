@@ -10,6 +10,9 @@ const MARK_CLASS: &str =
 const UNCHECKED_MARK_CLASS: &str = "border-control-edge bg-surface";
 const CHECKED_MARK_CLASS: &str = "border-blue-600 bg-blue-600";
 const MARK_TICK_CLASS: &str = "size-3 text-white";
+const MIXED_BAR_CLASS: &str = "h-0.5 w-2 rounded-full bg-white";
+const CHECK_BUTTON_CLASS: &str =
+    "inline-flex size-4 cursor-pointer items-center justify-center rounded align-middle focus-ring";
 
 pub(crate) fn checkbox_mark(checked: Signal<bool>) -> AnyView {
     let class = move || {
@@ -29,6 +32,76 @@ pub(crate) fn checkbox_mark(checked: Signal<bool>) -> AnyView {
         <span aria-hidden="true" class=class>
             {tick}
         </span>
+    }
+    .into_any()
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CheckState {
+    Unchecked,
+    Mixed,
+    Checked,
+}
+
+impl CheckState {
+    pub(crate) fn of(checked: bool) -> Self {
+        if checked {
+            Self::Checked
+        } else {
+            Self::Unchecked
+        }
+    }
+
+    fn spoken(self) -> &'static str {
+        match self {
+            Self::Unchecked => "false",
+            Self::Mixed => "mixed",
+            Self::Checked => "true",
+        }
+    }
+
+    fn mark_class(self) -> &'static str {
+        match self {
+            Self::Unchecked => UNCHECKED_MARK_CLASS,
+            Self::Mixed | Self::Checked => CHECKED_MARK_CLASS,
+        }
+    }
+
+    fn mark(self) -> Option<AnyView> {
+        match self {
+            Self::Unchecked => None,
+            Self::Mixed => Some(view! { <span class=MIXED_BAR_CLASS></span> }.into_any()),
+            Self::Checked => Some(
+                view! { <Icon glyph=LucideGlyph::Check class=MARK_TICK_CLASS stroke_width=TICK_STROKE_WIDTH /> }
+                    .into_any(),
+            ),
+        }
+    }
+}
+
+pub(crate) fn check_button(
+    state: Signal<CheckState>,
+    label: &'static str,
+    on_click: impl Fn(leptos::ev::MouseEvent) + 'static,
+) -> AnyView {
+    view! {
+        <button
+            type="button"
+            role="checkbox"
+            aria-checked=move || state.get().spoken()
+            aria-label=label
+            class=CHECK_BUTTON_CLASS
+            on:click=on_click
+        >
+            <span
+                aria-hidden="true"
+                class=move || {
+                    format!("pointer-events-none {MARK_CLASS} {}", state.get().mark_class())
+                }
+            >
+                {move || state.get().mark()}
+            </span>
+        </button>
     }
     .into_any()
 }

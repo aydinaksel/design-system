@@ -7,6 +7,7 @@ mod facet_row;
 mod filter_option;
 mod layout;
 mod line_items;
+mod row_selection;
 mod server_facet_panel;
 mod server_table;
 mod toolbar;
@@ -21,6 +22,7 @@ pub use layout::{Layout, ServerLayout};
 pub use line_items::{
     CalculatedField, LineCell, LineFix, LineForm, LineIssue, LineItems, LineSave,
 };
+pub use row_selection::RowSelection;
 pub use server_facet_panel::{facet_values_loader, FacetControls, ServerFacet};
 pub use server_table::{filter_values_loader, FilterValuesLoader, ServerTable};
 pub use table_query::{

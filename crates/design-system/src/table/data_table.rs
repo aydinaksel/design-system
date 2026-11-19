@@ -8,6 +8,7 @@ use leptos_router::NavigateOptions;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::catalog::CardGrid;
+use crate::checkbox::{check_button, CheckState};
 use crate::empty_state::EmptyState;
 use crate::icons;
 use crate::loading_state::LoadingState;
@@ -23,6 +24,7 @@ use super::column::Column;
 use super::facet_row::FacetRow;
 use super::filter_option::FilterOption;
 use super::layout::{Layout, ServerRows};
+use super::row_selection::RowSelection;
 use super::toolbar::TableToolbar;
 use super::url_query::UrlTableQuery;
 use table_query::TableQuery;
@@ -102,6 +104,13 @@ const SORT_MENU_WIDTH_CLASS: &str = "w-44";
 const HEADER_TRIGGER_CLASS: &str = "-mx-1.5 -my-0.5 inline-flex cursor-pointer select-none items-center rounded-md px-1.5 py-0.5 hover:bg-gray-100 aria-expanded:bg-gray-100 focus-ring";
 pub(super) const FOOTER_ACTION_CLASS: &str = "cursor-pointer rounded-sm hover:underline focus-ring";
 const CLICKABLE_ROW_CLASS: &str = "cursor-pointer hover:bg-row-hover";
+const SELECTABLE_LINK_ROW_CLASS: &str =
+    "cursor-pointer bg-surface hover:bg-row-hover data-selected:bg-blue-50";
+const PICKABLE_ROW_CLASS: &str = "cursor-pointer bg-surface hover:bg-gray-50 data-selected:bg-blue-50 data-selected:hover:bg-blue-100";
+const SELECTION_COLUMN_WIDTH: &str = "2.75rem";
+const SELECTION_CELL_CLASS: &str = "pl-4 pr-0 leading-none";
+const SELECT_ROW_LABEL: &str = "Select Row";
+const SELECT_EVERY_ROW_LABEL: &str = "Select All Rows";
 const FOOTER_CELL_CLASS: &str = "truncate px-4 text-sm font-semibold tabular-nums text-gray-900";
 const FOOTER_LABEL: &str = "Total";
 const FOOTER_ROW_CLASS: &str =
@@ -163,17 +172,20 @@ fn menu_alignment(align: Align) -> PopoverAlign {
 }
 
 #[cfg(feature = "hydrate")]
-fn click_asks_for_row_navigation(event: &leptos::ev::MouseEvent) -> bool {
-    use leptos::wasm_bindgen::JsCast;
-    if event.ctrl_key() || event.meta_key() || event.shift_key() || event.alt_key() {
-        return false;
-    }
-    let selecting_text = web_sys::window()
+fn text_is_being_selected() -> bool {
+    web_sys::window()
         .and_then(|window| window.get_selection().ok().flatten())
-        .is_some_and(|selection| !selection.is_collapsed());
-    if selecting_text {
-        return false;
-    }
+        .is_some_and(|selection| !selection.is_collapsed())
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn text_is_being_selected() -> bool {
+    false
+}
+
+#[cfg(feature = "hydrate")]
+fn click_lands_outside_controls(event: &leptos::ev::MouseEvent) -> bool {
+    use leptos::wasm_bindgen::JsCast;
     let Some(target) = event.target() else {
         return true;
     };
@@ -188,8 +200,19 @@ fn click_asks_for_row_navigation(event: &leptos::ev::MouseEvent) -> bool {
 }
 
 #[cfg(not(feature = "hydrate"))]
-fn click_asks_for_row_navigation(_event: &leptos::ev::MouseEvent) -> bool {
+fn click_lands_outside_controls(_event: &leptos::ev::MouseEvent) -> bool {
     true
+}
+
+fn click_asks_for_row_navigation(event: &leptos::ev::MouseEvent) -> bool {
+    let modified = event.ctrl_key() || event.meta_key() || event.shift_key() || event.alt_key();
+    !modified && !text_is_being_selected() && click_lands_outside_controls(event)
+}
+
+fn click_asks_for_row_selection(event: &leptos::ev::MouseEvent) -> bool {
+    let modified = event.ctrl_key() || event.meta_key() || event.alt_key();
+    let dragged_over_text = !event.shift_key() && text_is_being_selected();
+    !modified && !dragged_over_text && click_lands_outside_controls(event)
 }
 
 #[derive(Clone, Copy)]
@@ -355,6 +378,7 @@ pub fn DataTable<Row>(
     #[prop(optional)] row_class: Option<RowAttribute<Row>>,
     #[prop(optional)] row_href: Option<RowAttribute<Row>>,
     #[prop(optional)] row_key: Option<RowAttribute<Row>>,
+    #[prop(optional)] selection: Option<RowSelection<Row>>,
     #[prop(optional)] row_replacement: Option<RowReplacement<Row>>,
     #[prop(optional)] trailing_rows: Option<ViewFn>,
     #[prop(optional)] hides_row_count: bool,
@@ -378,6 +402,7 @@ where
             .calendar_date_column_key
             .map(|date_column_key| (date_column_key, server.query))
     });
+    let row_key = row_key.or_else(|| selection.as_ref().map(RowSelection::row_key));
     let (refreshing, set_refreshing) = signal(false);
     let search_text = ArcRwSignal::new(
         query
@@ -427,6 +452,7 @@ where
         row_class,
         row_href,
         navigate,
+        selection,
         row_replacement,
         hides_row_count,
         sticky_first_column,
@@ -498,6 +524,7 @@ struct TableState<Row: Send + Sync + 'static> {
     row_class: Option<RowAttribute<Row>>,
     row_href: Option<RowAttribute<Row>>,
     navigate: Option<Navigate>,
+    selection: Option<RowSelection<Row>>,
     row_replacement: Option<RowReplacement<Row>>,
     hides_row_count: bool,
     sticky_first_column: bool,
@@ -519,6 +546,7 @@ impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
             row_class: self.row_class.clone(),
             row_href: self.row_href.clone(),
             navigate: self.navigate.clone(),
+            selection: self.selection.clone(),
             row_replacement: self.row_replacement.clone(),
             hides_row_count: self.hides_row_count,
             sticky_first_column: self.sticky_first_column,
@@ -676,9 +704,37 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         (move || replacement(&row).unwrap_or_else(|| state.render_table_row(&row))).into_any()
     }
 
-    fn render_table_row(&self, row: &Row) -> AnyView {
-        let cells = self
-            .columns
+    fn keys_in_view(&self, selection: &RowSelection<Row>) -> Vec<String> {
+        self.visible_rows()
+            .iter()
+            .map(|row| selection.key_of(row))
+            .collect()
+    }
+
+    fn selection_header_cell(&self, selection: &RowSelection<Row>) -> AnyView {
+        let class = format!("{HEADER_ROW_HEIGHT_CLASS} {SELECTION_CELL_CLASS}");
+        if !selection.picks_many() {
+            return view! { <th class=class></th> }.into_any();
+        }
+        let reading_state = self.clone();
+        let reading_selection = selection.clone();
+        let rows_in_view = Signal::derive(move || {
+            reading_selection.state_of_rows_in_view(&reading_state.keys_in_view(&reading_selection))
+        });
+        let state = self.clone();
+        let selection = selection.clone();
+        let toggle_rows_in_view =
+            move |_| selection.toggle_rows_in_view(&state.keys_in_view(&selection));
+        view! {
+            <th class=class>
+                {check_button(rows_in_view, SELECT_EVERY_ROW_LABEL, toggle_rows_in_view)}
+            </th>
+        }
+        .into_any()
+    }
+
+    fn row_cells(&self, row: &Row) -> AnyView {
+        self.columns
             .iter()
             .map(|column| {
                 let class = format!(
@@ -687,34 +743,122 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                 );
                 view! { <td class=class>{(column.render)(row)}</td> }
             })
-            .collect_view();
+            .collect_view()
+            .into_any()
+    }
+
+    fn row_target(&self, row: &Row) -> Option<String> {
+        self.row_href
+            .as_ref()
+            .map(|href_for_row| href_for_row(row))
+            .filter(|target| !target.is_empty())
+    }
+
+    fn navigation_on_click(&self, target: String) -> impl Fn(leptos::ev::MouseEvent) + 'static {
+        let navigate = self.navigate.clone();
+        move |event: leptos::ev::MouseEvent| {
+            if !click_asks_for_row_navigation(&event) {
+                return;
+            }
+            if let Some(navigate) = navigate.as_ref() {
+                navigate(&target, NavigateOptions::default());
+            }
+        }
+    }
+
+    fn render_table_row(&self, row: &Row) -> AnyView {
+        let cells = self.row_cells(row);
         let extra = self
             .row_class
             .as_ref()
             .map(|class_for_row| class_for_row(row))
             .unwrap_or_default();
-        let target = self
-            .row_href
-            .as_ref()
-            .map(|href_for_row| href_for_row(row))
-            .filter(|target| !target.is_empty());
+        let target = self.row_target(row);
+        if let Some(selection) = self.selection.clone() {
+            return self.selectable_row(selection, row, cells, &extra, target);
+        }
         let Some(target) = target else {
             return view! { <tr class=extra>{cells}</tr> }.into_any();
         };
-        let navigate = self.navigate.clone();
         view! {
             <tr
                 class=format!("{CLICKABLE_ROW_CLASS} {extra}")
                 data-row-link=""
-                on:click=move |event: leptos::ev::MouseEvent| {
-                    if !click_asks_for_row_navigation(&event) {
-                        return;
-                    }
-                    if let Some(navigate) = navigate.as_ref() {
-                        navigate(&target, NavigateOptions::default());
-                    }
-                }
+                on:click=self.navigation_on_click(target)
             >
+                {cells}
+            </tr>
+        }
+        .into_any()
+    }
+
+    fn selectable_row(
+        &self,
+        selection: RowSelection<Row>,
+        row: &Row,
+        cells: AnyView,
+        extra_class: &str,
+        target: Option<String>,
+    ) -> AnyView {
+        let key = selection.key_of(row);
+        let is_selected = {
+            let selection = selection.clone();
+            let key = key.clone();
+            Signal::derive(move || selection.contains(&key))
+        };
+        let picks_many = selection.picks_many();
+        let pick = {
+            let state = self.clone();
+            move |event: &leptos::ev::MouseEvent| {
+                let keys_in_view = state.keys_in_view(&selection);
+                selection.pick(&key, event.shift_key(), &keys_in_view);
+            }
+        };
+        let pick_from_checkbox = pick.clone();
+        let checkbox = view! {
+            <td class=format!(
+                "{ROW_HEIGHT_CLASS} {SELECTION_CELL_CLASS}",
+            )>
+                {check_button(
+                    Signal::derive(move || CheckState::of(is_selected.get())),
+                    SELECT_ROW_LABEL,
+                    move |event| pick_from_checkbox(&event),
+                )}
+            </td>
+        };
+        let selected_marker = move || is_selected.get().then_some("");
+        let Some(target) = target else {
+            return view! {
+                <tr
+                    class=format!("{PICKABLE_ROW_CLASS} {extra_class}")
+                    data-selectable-row=""
+                    data-selected=selected_marker
+                    on:mousedown=move |event: leptos::ev::MouseEvent| {
+                        if picks_many && event.shift_key() {
+                            event.prevent_default();
+                        }
+                    }
+                    on:click=move |event: leptos::ev::MouseEvent| {
+                        if click_asks_for_row_selection(&event) {
+                            pick(&event);
+                        }
+                    }
+                >
+                    {checkbox}
+                    {cells}
+                </tr>
+            }
+            .into_any();
+        };
+        view! {
+            <tr
+                class=format!("{SELECTABLE_LINK_ROW_CLASS} {extra_class}")
+                data-row-link=""
+                data-selectable-row=""
+                data-selected=selected_marker
+                on:click=self.navigation_on_click(target)
+            >
+                {checkbox}
                 {cells}
             </tr>
         }
@@ -760,7 +904,11 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
 
     fn status_rows(&self) -> AnyView {
         let state = self.clone();
-        let column_count = self.columns.len().to_string();
+        let column_count = self
+            .columns
+            .len()
+            .saturating_add(usize::from(self.selection.is_some()))
+            .to_string();
         (move || match state.current_rows() {
             Some(Err(message)) => view! {
                 <tr>
@@ -777,14 +925,26 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
 
     fn sticky_column_width(&self) -> Option<String> {
         let first = self.columns.first().filter(|_| self.sticky_first_column)?;
-        Some(format!(
-            "--sticky-column-width: calc({}ch + {CELL_PADDING_WIDTH})",
+        let first_column_width = format!(
+            "calc({}ch + {CELL_PADDING_WIDTH})",
             first.rendered_width_characters()
-        ))
+        );
+        Some(if self.selection.is_some() {
+            format!(
+                "--selection-column-width: {SELECTION_COLUMN_WIDTH}; --sticky-column-width: calc({first_column_width} + {SELECTION_COLUMN_WIDTH})"
+            )
+        } else {
+            format!("--sticky-column-width: {first_column_width}")
+        })
     }
 
     fn column_widths(&self) -> AnyView {
-        self.columns
+        let selection_column = self
+            .selection
+            .is_some()
+            .then(|| view! { <col style=format!("width: {SELECTION_COLUMN_WIDTH}") /> });
+        let columns = self
+            .columns
             .iter()
             .map(|column| {
                 let style = format!(
@@ -793,33 +953,67 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                 );
                 view! { <col style=style /> }
             })
-            .collect_view()
-            .into_any()
+            .collect_view();
+        view! {
+            {selection_column}
+            {columns}
+        }
+        .into_any()
     }
 
-    fn client_pager(&self) -> AnyView {
+    fn selection_summary(&self) -> Option<AnyView> {
+        let selection = self.selection.clone()?;
+        let selected_count = selection.selected_count();
+        if selected_count == 0 {
+            return None;
+        }
+        Some(
+            view! {
+                <span class="flex items-center gap-2 text-sm text-gray-500 tabular-nums">
+                    {format!("{selected_count} selected")}
+                    <button
+                        type="button"
+                        class=format!("text-blue-600 {FOOTER_ACTION_CLASS}")
+                        on:click=move |_| selection.clear()
+                    >
+                        "Clear"
+                    </button>
+                </span>
+            }
+            .into_any(),
+        )
+    }
+
+    fn row_count_summary(&self) -> Option<String> {
         if self.hides_row_count {
-            return ().into_any();
+            return None;
         }
         let Some(Ok(all_rows)) = self.current_rows() else {
-            return ().into_any();
+            return None;
         };
         let shown = self.visible_rows().len();
         if shown == 0 {
-            return ().into_any();
+            return None;
         }
         let total = all_rows.len();
-        let summary = if shown == total {
+        Some(if shown == total {
             format!("Showing {total}")
         } else {
             format!("Showing {shown} of {total}")
-        };
-        view! {
-            <div class="mt-4 flex">
-                <span class="text-sm text-gray-500 tabular-nums">{summary}</span>
-            </div>
+        })
+    }
+
+    fn client_pager(&self) -> AnyView {
+        let row_count = self.row_count_summary();
+        let selection_summary = self.selection_summary();
+        if row_count.is_none() && selection_summary.is_none() {
+            return ().into_any();
         }
-        .into_any()
+        let row_count = row_count.map(
+            |summary| view! { <span class="text-sm text-gray-500 tabular-nums">{summary}</span> },
+        );
+        view! { <div class="mt-4 flex items-center gap-4">{row_count} {selection_summary}</div> }
+            .into_any()
     }
 
     fn server_pager(&self, query: UrlTableQuery, total_rows: Signal<Option<u64>>) -> AnyView {
@@ -844,7 +1038,10 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         let next_page = move || query.update(TableQuery::advance_to_next_page);
         view! {
             <div class="mt-4 flex items-center justify-between gap-4">
-                <span class="text-sm text-gray-500 tabular-nums">{range}</span>
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-gray-500 tabular-nums">{range}</span>
+                    {self.selection_summary()}
+                </div>
                 <div class="flex items-center gap-2">
                     {page_step_button(PageStep::Previous, on_first_page, previous_page)}
                     {page_step_button(PageStep::Next, on_last_page, next_page)}
@@ -1166,12 +1363,21 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
     }
 
     fn header(&self) -> AnyView {
-        self.columns
+        let selection_cell = self
+            .selection
+            .as_ref()
+            .map(|selection| self.selection_header_cell(selection));
+        let cells = self
+            .columns
             .iter()
             .enumerate()
             .map(|(index, column)| self.header_cell(index, column))
-            .collect_view()
-            .into_any()
+            .collect_view();
+        view! {
+            {selection_cell}
+            {cells}
+        }
+        .into_any()
     }
 
     fn empty_state(&self, empty_message: Signal<String>) -> AnyView {
@@ -1231,10 +1437,11 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                 })
                 .collect_view()
         };
+        let selection_cell = self.selection.is_some().then(|| view! { <td></td> });
         Some(
             view! {
                 <tfoot class=FOOTER_ROW_CLASS>
-                    <tr>{cells}</tr>
+                    <tr>{selection_cell} {cells}</tr>
                 </tfoot>
             }
             .into_any(),
@@ -1249,11 +1456,13 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
     ) -> AnyView {
         let sticky_column_width = self.sticky_column_width();
         let sticky_marker = sticky_column_width.is_some().then_some("");
+        let selectable_marker = self.selection.is_some().then_some("");
         view! {
             <div class="relative">
                 <div
                     class=format!("{SCROLLER_CLASS} {BODY_MAX_HEIGHT_CLASS}")
                     data-sticky-first-column=sticky_marker
+                    data-selectable-rows=selectable_marker
                     style=sticky_column_width
                 >
                     <table class=TABLE_CLASS>
