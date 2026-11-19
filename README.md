@@ -42,6 +42,23 @@ before building, so the same relative paths resolve inside the sandbox.
 The imported stylesheet adds the crate's sources to Tailwind's scan and
 defines the animations the components use.
 
+## Choosing an Editing Pattern
+
+The same kind of edit should look and behave the same on every page, so pick
+by what is being edited:
+
+| Editing | Use | Gallery |
+| --- | --- | --- |
+| One value on an existing table row | `CellEditor`, a popover on the cell | `/cell-editing` |
+| A row of values typed in sequence, such as document lines | `LineItems`, edited in place | `/line-items` |
+| A record with more fields than its table shows, such as a contact or an address | `FormDialog`, opened from the row | `/dialogs` |
+| The page's own header fields | `FieldSection` with `SectionEditing` | `/field-sections` |
+
+Offer one way to edit a value: a cell with a `CellEditor` does not also get a
+row button that opens a dialog for the same field. A save that removes
+something asks first with a `ConfirmDialog`, as the container cell on
+`/cell-editing` does.
+
 ## Gallery
 
 ```sh
