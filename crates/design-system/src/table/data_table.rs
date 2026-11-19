@@ -108,7 +108,9 @@ const SELECTABLE_LINK_ROW_CLASS: &str =
     "cursor-pointer bg-surface hover:bg-row-hover data-selected:bg-blue-50";
 const PICKABLE_ROW_CLASS: &str = "cursor-pointer bg-surface hover:bg-gray-50 data-selected:bg-blue-50 data-selected:hover:bg-blue-100";
 const SELECTION_COLUMN_WIDTH: &str = "2.75rem";
-const SELECTION_CELL_CLASS: &str = "pl-4 pr-0 leading-none";
+const SELECTION_CELL_CLASS: &str = "pl-4 pr-0 text-left leading-none";
+const SELECTION_SUMMARY_CLASS: &str = "flex items-center gap-2 text-sm text-gray-500 tabular-nums";
+const SUMMARY_DIVIDER_CLASS: &str = "border-l border-edge pl-4";
 const SELECT_ROW_LABEL: &str = "Select Row";
 const SELECT_EVERY_ROW_LABEL: &str = "Select All Rows";
 const FOOTER_CELL_CLASS: &str = "truncate px-4 text-sm font-semibold tabular-nums text-gray-900";
@@ -961,15 +963,20 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         .into_any()
     }
 
-    fn selection_summary(&self) -> Option<AnyView> {
+    fn selection_summary(&self, follows_row_count: bool) -> Option<AnyView> {
         let selection = self.selection.clone()?;
         let selected_count = selection.selected_count();
         if selected_count == 0 {
             return None;
         }
+        let class = if follows_row_count {
+            format!("{SELECTION_SUMMARY_CLASS} {SUMMARY_DIVIDER_CLASS}")
+        } else {
+            SELECTION_SUMMARY_CLASS.to_owned()
+        };
         Some(
             view! {
-                <span class="flex items-center gap-2 text-sm text-gray-500 tabular-nums">
+                <span class=class>
                     {format!("{selected_count} selected")}
                     <button
                         type="button"
@@ -1005,7 +1012,7 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
 
     fn client_pager(&self) -> AnyView {
         let row_count = self.row_count_summary();
-        let selection_summary = self.selection_summary();
+        let selection_summary = self.selection_summary(row_count.is_some());
         if row_count.is_none() && selection_summary.is_none() {
             return ().into_any();
         }
@@ -1040,7 +1047,7 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
             <div class="mt-4 flex items-center justify-between gap-4">
                 <div class="flex items-center gap-4">
                     <span class="text-sm text-gray-500 tabular-nums">{range}</span>
-                    {self.selection_summary()}
+                    {self.selection_summary(true)}
                 </div>
                 <div class="flex items-center gap-2">
                     {page_step_button(PageStep::Previous, on_first_page, previous_page)}
