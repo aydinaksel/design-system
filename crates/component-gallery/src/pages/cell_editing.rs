@@ -2,7 +2,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use design_system::table::{CellEditor, CellValue, Column, DataTable, RowAttribute};
-use design_system::{DatePicker, FieldSave, Input, Listbox, ListboxOption, Switch};
+use design_system::{
+    ButtonTone, ConfirmDialog, DatePicker, FieldSave, Input, Listbox, ListboxOption, Switch,
+};
 use leptos::prelude::*;
 
 const FAKE_SAVE_MILLISECONDS: u64 = 900;
@@ -101,6 +103,41 @@ fn fake_save(save: FieldSave, fails: bool, commit: impl FnOnce() + 'static) {
     );
 }
 
+#[derive(Clone, Copy)]
+struct ContainerRemoval {
+    confirming: RwSignal<bool>,
+    awaiting_answer: StoredValue<Option<(u32, FieldSave)>>,
+}
+
+impl ContainerRemoval {
+    fn new() -> Self {
+        let removal = Self {
+            confirming: RwSignal::new(false),
+            awaiting_answer: StoredValue::new(None),
+        };
+        Effect::new(move |_| {
+            if removal.confirming.get() {
+                return;
+            }
+            if let Some((_, save)) = removal.take() {
+                save.invalid();
+            }
+        });
+        removal
+    }
+
+    fn ask(self, line_number: u32, save: FieldSave) {
+        self.awaiting_answer.set_value(Some((line_number, save)));
+        self.confirming.set(true);
+    }
+
+    fn take(self) -> Option<(u32, FieldSave)> {
+        self.awaiting_answer
+            .try_update_value(Option::take)
+            .flatten()
+    }
+}
+
 fn update_line(
     lines: RwSignal<Vec<ShipmentLine>>,
     line_number: u32,
@@ -119,6 +156,7 @@ fn update_line(
 fn container_column(
     lines: RwSignal<Vec<ShipmentLine>>,
     save_fails: RwSignal<bool>,
+    removal: ContainerRemoval,
 ) -> Column<ShipmentLine> {
     Column::view(
         "container",
@@ -126,12 +164,17 @@ fn container_column(
         |line: &ShipmentLine| CellValue::optional_text(Some(&line.container)),
         move |line: &ShipmentLine| {
             let line_number = line.line_number;
+            let has_container = !line.container.is_empty();
             CellEditor::new(
                 "Container",
                 line.container.clone(),
                 String::clone,
                 |draft| view! { <Input value=draft /> }.into_any(),
                 move |container: String, save: FieldSave| {
+                    if has_container && container.is_empty() {
+                        removal.ask(line_number, save);
+                        return;
+                    }
                     fake_save(save, save_fails.get_untracked(), move || {
                         update_line(lines, line_number, |line| line.container = container);
                     });
@@ -142,7 +185,7 @@ fn container_column(
             .hint(|draft| {
                 let cleared = draft.with(|typed| typed.trim().is_empty());
                 if cleared {
-                    "Saving an empty value clears the container number.".into_any()
+                    "Saving an empty value clears the container number, after asking.".into_any()
                 } else {
                     "Spaces are removed and letters are capitalized.".into_any()
                 }
@@ -245,6 +288,15 @@ pub(crate) fn cell_editing() -> AnyView {
     let rows = Signal::derive(move || Some(Ok(lines.get())));
     let row_key: RowAttribute<ShipmentLine> =
         Arc::new(|line: &ShipmentLine| line.line_number.to_string());
+    let removal = ContainerRemoval::new();
+    let remove_container = move |()| {
+        let Some((line_number, save)) = removal.take() else {
+            return;
+        };
+        fake_save(save, save_fails.get_untracked(), move || {
+            update_line(lines, line_number, |line| line.container = String::new());
+        });
+    };
     let columns = vec![
         Column::text("item", "Item", |line: &ShipmentLine| {
             line.item_code.to_owned()
@@ -252,7 +304,7 @@ pub(crate) fn cell_editing() -> AnyView {
         Column::text("description", "Description", |line: &ShipmentLine| {
             line.description.to_owned()
         }),
-        container_column(lines, save_fails),
+        container_column(lines, save_fails, removal),
         serial_number_column(lines, save_fails),
         expected_column(lines, save_fails),
         status_column(lines, save_fails),
@@ -267,6 +319,14 @@ pub(crate) fn cell_editing() -> AnyView {
             "Make the Next Save Fail"
         </div>
         <DataTable rows=rows columns=columns row_key=row_key />
+        <ConfirmDialog
+            open=removal.confirming
+            title="Remove the Container Number?"
+            body="The line will have no container until one is entered again."
+            confirm_label="Remove Container"
+            tone=ButtonTone::Danger
+            on_confirm=Callback::new(remove_container)
+        />
     }
     .into_any()
 }

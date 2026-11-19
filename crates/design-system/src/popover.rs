@@ -20,6 +20,7 @@ const UNPADDED_PANEL_CLASS: &str = "overflow-hidden";
 const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
 const OPENED_FROM_ATTRIBUTE: &str = "data-opened-from-popover";
 const OPENED_FROM_SELECTOR: &str = "[data-opened-from-popover]";
+const MODAL_DIALOG_SELECTOR: &str = "[aria-modal=\"true\"]";
 const TABBABLE_SELECTOR: &str = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -181,7 +182,23 @@ impl PopoverState {
             .trigger
             .get_untracked()
             .is_some_and(|trigger| trigger.contains(Some(&node)));
-        in_panel || on_trigger || self.opened_the_popover_holding(&node)
+        in_panel
+            || on_trigger
+            || self.opened_the_popover_holding(&node)
+            || self.sits_under_the_modal_dialog_holding(&node)
+    }
+
+    fn sits_under_the_modal_dialog_holding(self, node: &Node) -> bool {
+        let Some(dialog) = node
+            .dyn_ref::<Element>()
+            .cloned()
+            .or_else(|| node.parent_element())
+            .and_then(|element| element.closest(MODAL_DIALOG_SELECTOR).ok().flatten())
+        else {
+            return false;
+        };
+        let trigger: Option<Node> = self.trigger.get_untracked().map(Into::into);
+        !dialog.contains(trigger.as_ref())
     }
 
     fn opened_the_popover_holding(self, node: &Node) -> bool {
