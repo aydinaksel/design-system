@@ -17,7 +17,7 @@ pub use cell_value::{Align, CellValue};
 pub use column::{Column, ColumnTotal};
 pub use data_table::{DataTable, RowAttribute, RowReplacement, RowView, Search};
 pub use filter_option::FilterOption;
-pub use layout::Layout;
+pub use layout::{Layout, ServerLayout};
 pub use line_items::{
     CalculatedField, LineCell, LineFix, LineForm, LineIssue, LineItems, LineSave,
 };

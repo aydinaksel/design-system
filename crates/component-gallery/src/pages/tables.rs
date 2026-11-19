@@ -4,7 +4,7 @@ use design_system::formatting::format_quantity;
 use design_system::icons::LucideGlyph;
 use design_system::table::{
     facet_values_loader, rewrite_table_query_parameters, url_synced_table_query, Column,
-    FacetValues, Layout, Page, RowView, ServerTable, TableQuery,
+    FacetValues, Page, RowView, ServerLayout, ServerTable, TableQuery,
 };
 use design_system::{
     Card, ChoiceTransition, ListPage, MenuEntry, MenuItem, ModeSwitch, PageMode, PageView,
@@ -160,16 +160,16 @@ fn keep_only_the_mode_columns() -> ChoiceTransition {
     })
 }
 
-fn stone_layout(mode: &str) -> (Vec<Column<Stone>>, Layout<Stone>) {
+fn stone_layout(mode: &str) -> (Vec<Column<Stone>>, ServerLayout<Stone>) {
     match mode {
-        CARDS_MODE => (Vec::new(), Layout::Cards(stone_card())),
+        CARDS_MODE => (Vec::new(), ServerLayout::Cards(stone_card())),
         CALENDAR_MODE => (
             calendar_columns(),
-            Layout::Calendar {
+            ServerLayout::Calendar {
                 date_column_key: ARRIVAL_COLUMN,
             },
         ),
-        _ => (stone_columns(), Layout::Table),
+        _ => (stone_columns(), ServerLayout::Table),
     }
 }
 

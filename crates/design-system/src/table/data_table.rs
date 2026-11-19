@@ -22,7 +22,7 @@ use super::cell_value::{Align, CellValue};
 use super::column::Column;
 use super::facet_row::FacetRow;
 use super::filter_option::FilterOption;
-use super::layout::Layout;
+use super::layout::{Layout, ServerRows};
 use super::toolbar::TableToolbar;
 use super::url_query::UrlTableQuery;
 use table_query::TableQuery;
@@ -362,19 +362,7 @@ pub fn DataTable<Row>(
     #[prop(optional_no_strip)] filter_toggle: Option<AnyView>,
     #[prop(optional_no_strip)] views: Option<&'static [PageView]>,
     #[prop(optional_no_strip)] sidebar: Option<AnyView>,
-    /// Switches the table to server-driven mode, reading `rows` as one page.
-    #[prop(optional)]
-    query: Option<UrlTableQuery>,
-    /// Rows matching the query in full. Server-driven mode only.
-    #[prop(optional, into)]
-    total_rows: Signal<Option<u64>>,
-    /// The column key whose values the page should load, written when a filter
-    /// popover opens. Enables `filterable` columns in server-driven mode.
-    #[prop(optional_no_strip)]
-    filter_column_request: Option<RwSignal<Option<String>>>,
-    /// The answer to `filter_column_request`. Server-driven mode only.
-    #[prop(optional, into)]
-    filter_values: Signal<LoadedFilterValues>,
+    #[prop(optional)] server: Option<ServerRows>,
     #[prop(optional)] layout: Layout<Row>,
     #[prop(optional)] facet_row: bool,
     #[prop(optional)] sticky_first_column: bool,
@@ -382,6 +370,14 @@ pub fn DataTable<Row>(
 where
     Row: Clone + Send + Sync + 'static,
 {
+    let query = server.map(|server| server.query);
+    let total_rows = server.map_or_else(Signal::default, |server| server.total_rows);
+    let filtering = server.and_then(|server| server.filtering);
+    let calendar = server.and_then(|server| {
+        server
+            .calendar_date_column_key
+            .map(|date_column_key| (date_column_key, server.query))
+    });
     let (refreshing, set_refreshing) = signal(false);
     let search_text = ArcRwSignal::new(
         query
@@ -425,8 +421,8 @@ where
         sort_state: ArcRwSignal::new(None),
         value_search: ArcRwSignal::new(String::new()),
         server_query: query,
-        server_filtering: query.zip(filter_column_request),
-        filter_values,
+        server_filtering: query.zip(filtering.map(|filtering| filtering.requested_column)),
+        filter_values: filtering.map_or_else(Signal::default, |filtering| filtering.values),
         facet_row,
         row_class,
         row_href,
@@ -446,6 +442,7 @@ where
                 pending=refreshing.into()
                 trailing_rows
                 layout
+                calendar
             />
         }
     };
@@ -1312,12 +1309,13 @@ fn TableContents<Row>(
     total_rows: Signal<Option<u64>>,
     pending: Signal<bool>,
     layout: Layout<Row>,
+    calendar: Option<(&'static str, UrlTableQuery)>,
     trailing_rows: Option<ViewFn>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
 {
-    let shows_empty_state = !layout.is_calendar();
+    let shows_empty_state = calendar.is_none();
     let body_state_reader = state.clone();
     let body_state = ArcMemo::new(move |_| match body_state_reader.current_rows() {
         None => BodyState::Loading,
@@ -1335,9 +1333,8 @@ where
     };
     let pager_state = state.clone();
     let pager = move || shows_empty_state.then(|| pager_state.pager(total_rows));
-    let body = match (layout, state.server_query) {
-        (Layout::Cards(card_for_row), _) => state.card_body(card_for_row, pending),
-        (Layout::Calendar { date_column_key }, Some(query)) => view! {
+    let body = match (calendar, layout) {
+        (Some((date_column_key, query)), _) => view! {
             <CalendarView
                 rows=state.rows
                 columns=state.columns.to_vec()
@@ -1349,7 +1346,8 @@ where
             />
         }
         .into_any(),
-        _ => state.table_body(row_key, pending, trailing_rows),
+        (None, Layout::Cards(card_for_row)) => state.card_body(card_for_row, pending),
+        (None, Layout::Table) => state.table_body(row_key, pending, trailing_rows),
     };
     let chips_state = state.clone();
     view! {

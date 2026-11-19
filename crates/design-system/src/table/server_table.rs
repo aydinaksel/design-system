@@ -8,7 +8,7 @@ use table_query::Page;
 use super::calendar_view::month_query;
 use super::column::Column;
 use super::data_table::{DataTable, RowAttribute, Search};
-use super::layout::Layout;
+use super::layout::{ServerFiltering, ServerLayout, ServerRows};
 use super::server_facet_panel::{FacetControls, ServerFacet};
 use super::url_query::UrlTableQuery;
 use crate::tabs::PageView;
@@ -90,7 +90,7 @@ pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     #[prop(optional, into)] facet_values: Option<Signal<LoadedFacetValues>>,
     #[prop(optional)] query: Option<UrlTableQuery>,
     #[prop(optional)] reload: Option<RwSignal<u32>>,
-    #[prop(optional)] layout: Layout<Row>,
+    #[prop(optional)] layout: ServerLayout<Row>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + Serialize + DeserializeOwned + 'static,
@@ -101,10 +101,7 @@ where
     let table_query =
         query.unwrap_or_else(|| super::url_query::url_synced_table_query(rows_per_page));
 
-    let calendar_date_column = match &layout {
-        Layout::Calendar { date_column_key } => Some(*date_column_key),
-        Layout::Table | Layout::Cards(_) => None,
-    };
+    let calendar_date_column = layout.calendar_date_column_key();
     let loaded_query = move || {
         let query = table_query.get();
         match calendar_date_column {
@@ -138,11 +135,18 @@ where
     let row_href = row_href.unwrap_or_else(|| std::sync::Arc::new(|_| String::new()));
     let row_class = row_class.unwrap_or_else(|| std::sync::Arc::new(|_| String::new()));
 
-    let filter_column_request: RwSignal<Option<String>> = RwSignal::new(None);
+    let requested_column: RwSignal<Option<String>> = RwSignal::new(None);
     let filtering_is_enabled = load_filter_values.is_some();
-    let filter_values =
-        requested_filter_values(load_filter_values, table_query, filter_column_request);
-    let filter_column_request = filtering_is_enabled.then_some(filter_column_request);
+    let filter_values = requested_filter_values(load_filter_values, table_query, requested_column);
+    let server = ServerRows {
+        query: table_query,
+        total_rows,
+        filtering: filtering_is_enabled.then_some(ServerFiltering {
+            requested_column,
+            values: filter_values,
+        }),
+        calendar_date_column_key: calendar_date_column,
+    };
 
     let facet_controls = facets
         .filter(|facets| !facets.is_empty())
@@ -166,11 +170,8 @@ where
             filter_toggle=filter_toggle
             views=views
             sidebar=facet_controls.map(FacetControls::rail)
-            query=table_query
-            total_rows=total_rows
-            filter_column_request=filter_column_request
-            filter_values=filter_values
-            layout=layout
+            server=server
+            layout=layout.row_layout()
         />
     }
     .into_any()
