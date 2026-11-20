@@ -79,3 +79,120 @@ pub fn button_icon_class(size: ButtonSize) -> &'static str {
         ButtonSize::Dense => "h-3.5 w-3.5 shrink-0 opacity-70",
     }
 }
+
+fn leading_icon(
+    glyph: Option<crate::icons::LucideGlyph>,
+    size: ButtonSize,
+    busy: leptos::prelude::Signal<bool>,
+) -> impl Fn() -> Option<leptos::prelude::AnyView> {
+    use leptos::prelude::Get;
+    move || {
+        if busy.get() {
+            Some(crate::icons::spinner(button_icon_class(size)))
+        } else {
+            glyph.map(|glyph| crate::icons::icon(glyph, button_icon_class(size)))
+        }
+    }
+}
+
+mod components {
+    use leptos::ev::MouseEvent;
+    use leptos::prelude::*;
+
+    use super::{
+        button_class, button_icon_class, icon_button_class, leading_icon, ButtonSize, ButtonTone,
+    };
+    use crate::icons::{self, LucideGlyph};
+    use crate::tooltip::Tooltip;
+
+    /// A button with a label. `busy` shows a spinner in place of the icon and
+    /// ignores clicks for as long as the work the button started is running.
+    #[component]
+    pub fn Button(
+        #[prop(optional)] tone: ButtonTone,
+        #[prop(optional)] size: ButtonSize,
+        #[prop(optional_no_strip)] glyph: Option<LucideGlyph>,
+        #[prop(optional, into)] disabled: Signal<bool>,
+        #[prop(optional, into)] busy: Signal<bool>,
+        #[prop(optional)] submits_form: bool,
+        #[prop(optional, into)] on_click: Option<Callback<MouseEvent>>,
+        children: Children,
+    ) -> impl IntoView {
+        view! {
+            <button
+                type=if submits_form { "submit" } else { "button" }
+                class=button_class(tone, size)
+                prop:disabled=move || disabled.get() || busy.get()
+                aria-busy=move || busy.get().then_some("true")
+                on:click=move |event: MouseEvent| {
+                    if let Some(on_click) = on_click {
+                        on_click.run(event);
+                    }
+                }
+            >
+                {leading_icon(glyph, size, busy)}
+                {children()}
+            </button>
+        }
+        .into_any()
+    }
+
+    /// A button that is only an icon. `label` names it for assistive
+    /// technology and is shown as its tooltip.
+    #[component]
+    pub fn IconButton(
+        glyph: LucideGlyph,
+        #[prop(into)] label: String,
+        #[prop(default = ButtonTone::Ghost)] tone: ButtonTone,
+        #[prop(optional)] size: ButtonSize,
+        #[prop(optional, into)] disabled: Signal<bool>,
+        #[prop(optional, into)] on_click: Option<Callback<MouseEvent>>,
+    ) -> impl IntoView {
+        view! {
+            <Tooltip label=label.clone()>
+                <button
+                    type="button"
+                    aria-label=label
+                    class=icon_button_class(tone, size)
+                    prop:disabled=move || disabled.get()
+                    on:click=move |event: MouseEvent| {
+                        if let Some(on_click) = on_click {
+                            on_click.run(event);
+                        }
+                    }
+                >
+                    {icons::icon(glyph, button_icon_class(size))}
+                </button>
+            </Tooltip>
+        }
+        .into_any()
+    }
+
+    /// A link drawn as a button, for an action that is a place to go.
+    #[component]
+    pub fn LinkButton(
+        #[prop(into)] href: Signal<String>,
+        #[prop(optional)] tone: ButtonTone,
+        #[prop(optional)] size: ButtonSize,
+        #[prop(optional_no_strip)] glyph: Option<LucideGlyph>,
+        #[prop(optional)] opens_new_tab: bool,
+        #[prop(optional)] downloads: bool,
+        children: Children,
+    ) -> impl IntoView {
+        view! {
+            <a
+                href=move || href.get()
+                class=button_class(tone, size)
+                target=opens_new_tab.then_some("_blank")
+                rel=opens_new_tab.then_some("noopener noreferrer")
+                download=downloads.then_some("")
+            >
+                {glyph.map(|glyph| icons::icon(glyph, button_icon_class(size)))}
+                {children()}
+            </a>
+        }
+        .into_any()
+    }
+}
+
+pub use components::{Button, IconButton, LinkButton};

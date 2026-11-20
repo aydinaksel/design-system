@@ -547,7 +547,7 @@ pub fn file_cell(file: &StoredFile) -> AnyView {
         kind.glyph(),
         format!("h-4 w-4 shrink-0 {}", kind.icon_color_class()),
     );
-    let link_class = "min-w-0 text-blue-600 hover:text-blue-800 hover:underline";
+    let link_class = format!("min-w-0 {}", crate::link::LINK_CLASS);
     let link = if file.opens_in_viewer() {
         view! {
             <a href=file.url.clone() target="_blank" rel="noopener" class=link_class>

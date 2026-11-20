@@ -42,7 +42,7 @@ pub fn partner_value(code: Option<String>, name: Option<String>, href: Option<St
     };
     match href {
         Some(href) => view! {
-            <a href=href class="text-blue-600 hover:text-blue-800 hover:underline">
+            <a href=href class=crate::link::LINK_CLASS>
                 {line}
             </a>
         }

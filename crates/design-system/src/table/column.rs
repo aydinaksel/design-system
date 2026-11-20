@@ -17,7 +17,7 @@ const CUSTOM_WIDTH_CHARACTERS: u16 = 12;
 const ACTIONS_WIDTH_CHARACTERS: u16 = 4;
 const BADGE_WIDTH_CHARACTERS: u16 = 12;
 const ACTIONS_KEY: &str = "actions";
-const LINK_CLASS: &str = "text-blue-600 hover:text-blue-800 hover:underline";
+use crate::link::LINK_CLASS;
 const HEADER_ICONS_WIDTH_CHARACTERS: u16 = 5;
 const UPPERCASE_LETTER_WIDTH_FIFTHS: u16 = 6;
 const FIFTHS_PER_CHARACTER: u16 = 5;

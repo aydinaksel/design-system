@@ -1,7 +1,7 @@
-use design_system::icons::{self, LucideGlyph};
+use design_system::icons::LucideGlyph;
 use design_system::{
-    button_class, button_icon_class, icon_button_class, ButtonGroup, ButtonSize, ButtonTone,
-    DropdownMenu, FilterChip, MenuEntry, MenuItem, OverflowMenu,
+    button_class, Button, ButtonGroup, ButtonSize, ButtonTone, DropdownMenu, FilterChip,
+    IconButton, Link, LinkButton, MenuEntry, MenuItem, OverflowMenu,
 };
 use leptos::prelude::*;
 
@@ -13,6 +13,8 @@ const BUTTON_TONES: [(ButtonTone, &str); 6] = [
     (ButtonTone::Ghost, "Ghost"),
     (ButtonTone::Subtle, "Subtle"),
 ];
+
+const BUSY_DEMONSTRATION_MILLISECONDS: u64 = 1500;
 
 const BUTTON_SIZES: [(ButtonSize, &str); 3] = [
     (ButtonSize::Standard, "Standard"),
@@ -28,9 +30,9 @@ pub(crate) fn buttons() -> AnyView {
                 .iter()
                 .map(|(tone, tone_label)| {
                     view! {
-                        <button type="button" class=button_class(*tone, *size)>
+                        <Button tone=*tone size=*size>
                             {*tone_label}
-                        </button>
+                        </Button>
                     }
                 })
                 .collect_view();
@@ -38,18 +40,41 @@ pub(crate) fn buttons() -> AnyView {
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="w-20 text-xs text-gray-500">{*size_label}</span>
                     {buttons}
-                    <button
-                        type="button"
-                        class=icon_button_class(ButtonTone::Secondary, *size)
-                        aria-label="Back"
-                    >
-                        {icons::icon(LucideGlyph::ArrowLeft, button_icon_class(*size))}
-                    </button>
+                    <IconButton
+                        glyph=LucideGlyph::ArrowLeft
+                        label="Back"
+                        tone=ButtonTone::Secondary
+                        size=*size
+                    />
                 </div>
             }
         })
         .collect_view();
-    view! { <div class="space-y-4">{rows}</div> }.into_any()
+    let saving = RwSignal::new(false);
+    let save = move |_| {
+        saving.set(true);
+        set_timeout(
+            move || saving.set(false),
+            std::time::Duration::from_millis(BUSY_DEMONSTRATION_MILLISECONDS),
+        );
+    };
+    view! {
+        <div class="space-y-4">
+            {rows} <div class="flex flex-wrap items-center gap-3">
+                <span class="w-20 text-xs text-gray-500">"States"</span>
+                <Button glyph=Some(LucideGlyph::Plus)>"Add Contact"</Button>
+                <Button tone=ButtonTone::Primary busy=saving on_click=save>
+                    "Save"
+                </Button>
+                <Button disabled=true>"Disabled"</Button>
+                <LinkButton href="/tables" glyph=Some(LucideGlyph::Table)>
+                    "Go to Tables"
+                </LinkButton>
+                <Link href="/tables">"A Text Link"</Link>
+            </div>
+        </div>
+    }
+    .into_any()
 }
 
 pub(crate) fn button_group() -> AnyView {

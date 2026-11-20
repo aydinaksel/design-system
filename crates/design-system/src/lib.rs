@@ -37,6 +37,7 @@ pub mod gallery;
 pub mod icons;
 pub mod layout;
 pub mod layout_motion;
+pub mod link;
 pub mod list_page;
 pub mod listbox;
 pub mod loading_state;
@@ -71,7 +72,10 @@ pub use alert::Alert;
 pub use badge::badge;
 pub use brand::{brand, Brand};
 pub use busy_overlay::BusyOverlay;
-pub use button::{button_class, button_icon_class, icon_button_class, ButtonSize, ButtonTone};
+pub use button::{
+    button_class, button_icon_class, icon_button_class, Button, ButtonSize, ButtonTone, IconButton,
+    LinkButton,
+};
 pub use button_group::ButtonGroup;
 pub use catalog::{Card, CardGrid, ResponsiveImage, ResponsiveSource};
 pub use chart::{
@@ -116,6 +120,7 @@ pub use form_section::{FormRow, FormSection};
 pub use gallery::{GalleryImage, ImageGallery, ImageGrid};
 pub use icons::loading_indicator;
 pub use layout::{Layout, PAGE_WIDTH_CLASS};
+pub use link::{Link, LINK_CLASS};
 pub use list_page::ListPage;
 pub use listbox::{Listbox, ListboxOption};
 pub use loading_state::LoadingState;
