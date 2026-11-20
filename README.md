@@ -54,6 +54,10 @@ by what is being edited:
 | A record with more fields than its table shows, such as a contact or an address | `FormDialog`, opened from the row | `/dialogs` |
 | The page's own header fields | `FieldSection` with `SectionEditing` | `/field-sections` |
 
+A document's lines are always `LineItems`, on a new document and on a posted
+one alike. Where a posted document's lines can be corrected but not added to,
+pass `existing_lines_only`.
+
 Offer one way to edit a value: a cell with a `CellEditor` does not also get a
 row button that opens a dialog for the same field. A save that removes
 something asks first with a `ConfirmDialog`, as the container cell on

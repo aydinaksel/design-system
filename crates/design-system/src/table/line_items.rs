@@ -712,6 +712,10 @@ pub fn LineItems<Row, Draft>(
     #[prop(into, default = Signal::stored(true))] editable: Signal<bool>,
     #[prop(optional, into)] locked_message: Option<String>,
     #[prop(into, default = "Add Line".to_owned())] add_label: String,
+    /// For the lines of a document that is already posted: each line can be
+    /// edited but none can be added.
+    #[prop(optional)]
+    existing_lines_only: bool,
     #[prop(optional, into)] empty_message: Signal<String>,
     #[prop(optional)] sticky_first_column: bool,
 ) -> impl IntoView
@@ -780,7 +784,8 @@ where
     let confirming = editor.confirming;
     let discarding_editor = editor.clone();
     let on_discard = Callback::new(move |()| discarding_editor.discard_and_switch());
-    let add_button = editor.add_button(editable, new_draft, add_label);
+    let add_button =
+        (!existing_lines_only).then(|| editor.add_button(editable, new_draft, add_label));
     let locked_note = move || {
         (!editable.get())
             .then(|| locked_message.clone())
@@ -800,7 +805,7 @@ where
                 hides_row_count=true
                 sticky_first_column=sticky_first_column
             />
-            <div class="mt-3 flex items-center gap-3">{add_button} {locked_note}</div>
+            <div class="mt-3 flex items-center gap-3 empty:hidden">{add_button} {locked_note}</div>
             <ConfirmDialog
                 open=confirming
                 title=DISCARD_TITLE
