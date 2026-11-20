@@ -333,7 +333,7 @@ pub fn NavigationSection(
     let open = move || state.rail.get() || !state.section_closed(key);
 
     view! {
-        <div role="group" aria-label=title class="flex flex-col">
+        <div role="group" aria-label=title class="mt-3 flex flex-col">
             <div class="relative">
                 <button
                     type="button"
