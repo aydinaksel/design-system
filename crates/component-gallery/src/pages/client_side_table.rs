@@ -76,7 +76,6 @@ pub fn ClientSideTablePage() -> impl IntoView {
                 search=Search::InMemory
                 search_placeholder="Search Stones"
                 empty_message="No stones found."
-                facet_row=true
             />
         </main>
     }

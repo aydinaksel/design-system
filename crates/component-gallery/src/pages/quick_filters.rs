@@ -110,7 +110,6 @@ pub fn QuickFiltersPage() -> impl IntoView {
                 rows_per_page=ROWS_PER_PAGE
                 search_placeholder="Search Stones"
                 empty_message="No stones match."
-                facet_row=true
                 load_filter_values=filter_values_loader(load_stone_filter_values)
                 filters=arrival_filter
             />

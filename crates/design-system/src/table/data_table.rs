@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use leptos::prelude::*;
@@ -14,7 +14,6 @@ use crate::icons;
 use crate::loading_state::LoadingState;
 use crate::menu::{focus_on_hover, ICON_CLASS, ITEM_CLASS};
 use crate::popover::{use_popover, Popover, PopoverAlign, PopoverContent, PopoverTrigger};
-use crate::search_input::{SearchInput, SearchSize};
 use crate::tabs::PageView;
 use crate::tooltip::Tooltip;
 
@@ -22,14 +21,12 @@ use super::calendar_view::CalendarView;
 use super::cell_value::{Align, CellValue};
 use super::column::Column;
 use super::facet_row::FacetRow;
-use super::filter_option::FilterOption;
 use super::layout::{Layout, ServerFiltering, ServerRows};
 use super::row_selection::RowSelection;
 use super::server_facet_row::{FacetColumn, ServerFacetRow};
 use super::toolbar::TableToolbar;
 use super::url_query::UrlTableQuery;
 use table_query::TableQuery;
-use table_query::{FilterValue, LoadedFilterValues};
 
 pub type RowAttribute<Row> = Arc<dyn Fn(&Row) -> String + Send + Sync>;
 pub type RowView<Row> = Arc<dyn Fn(&Row) -> AnyView + Send + Sync>;
@@ -104,7 +101,6 @@ fn sort_direction_label(ascending: bool) -> &'static str {
     }
 }
 
-const FILTER_MENU_WIDTH_CLASS: &str = "w-64";
 const SORT_MENU_WIDTH_CLASS: &str = "w-44";
 const HEADER_TRIGGER_CLASS: &str = "-mx-1.5 -my-0.5 inline-flex cursor-pointer select-none items-center rounded-md px-1.5 py-0.5 hover:bg-gray-100 aria-expanded:bg-gray-100 focus-ring";
 pub(super) const FOOTER_ACTION_CLASS: &str = "cursor-pointer rounded-sm hover:underline focus-ring";
@@ -222,25 +218,6 @@ fn click_asks_for_row_selection(event: &leptos::ev::MouseEvent) -> bool {
     !modified && !dragged_over_text && click_lands_outside_controls(event)
 }
 
-#[derive(Clone, Copy)]
-struct ServerFilterSection {
-    query: UrlTableQuery,
-    column_key: &'static str,
-    filter_values: Signal<LoadedFilterValues>,
-    value_search: RwSignal<String>,
-}
-
-fn selected_values(query: UrlTableQuery, column_key: &str) -> Option<BTreeSet<String>> {
-    query.with(|query| query.selected_filter_values(column_key).cloned())
-}
-
-fn every_offered_value(filter_values: Signal<LoadedFilterValues>) -> BTreeSet<String> {
-    match filter_values.get() {
-        Some(Ok(values)) => values.into_iter().map(|value| value.value).collect(),
-        _ => BTreeSet::new(),
-    }
-}
-
 const CELL_PADDING_WIDTH: &str = "2rem";
 const REFRESH_COVER_CLASS: &str = "absolute z-20 items-center justify-center bg-gray-50";
 
@@ -285,96 +262,6 @@ pub(super) fn refresh_cover(pending: Signal<bool>, shape_class: &'static str) ->
     .into_any()
 }
 
-fn server_value_row(
-    section: ServerFilterSection,
-    offered: &FilterValue,
-    every_value: &BTreeSet<String>,
-) -> AnyView {
-    let ServerFilterSection {
-        query, column_key, ..
-    } = section;
-    let value = offered.value.clone();
-    let label = offered.label().to_string();
-    let row_count = offered.row_count;
-    let checked = selected_values(query, column_key).is_none_or(|set| set.contains(&value));
-    let every_value = every_value.clone();
-    let on_toggle = move |()| {
-        let mut selected =
-            selected_values(query, column_key).unwrap_or_else(|| every_value.clone());
-        if !selected.remove(&value) {
-            selected.insert(value.clone());
-        }
-        query.update(|query| {
-            if selected == every_value {
-                query.clear_column_filter(column_key);
-            } else {
-                query.set_column_filter(column_key, selected);
-            }
-        });
-    };
-    view! { <FilterOption label=label row_count=row_count checked=checked on_toggle=on_toggle /> }
-        .into_any()
-}
-
-fn server_filter_section(section: ServerFilterSection) -> AnyView {
-    let ServerFilterSection {
-        query,
-        column_key,
-        filter_values,
-        value_search,
-    } = section;
-
-    let value_list = move || match filter_values.get() {
-        None => view! {
-            <p class="flex items-center gap-2 px-3 py-2 text-xs text-gray-400">
-                {icons::spinner("h-3.5 w-3.5")} "Loading Values\u{2026}"
-            </p>
-        }
-        .into_any(),
-        Some(Err(message)) => {
-            view! { <p class="px-3 py-2 text-xs text-red-600">{message}</p> }.into_any()
-        }
-        Some(Ok(offered)) => {
-            let every_value = every_offered_value(filter_values);
-            let search_lower = value_search.get().to_lowercase();
-            offered
-                .iter()
-                .filter(|value| {
-                    search_lower.is_empty() || value.label().to_lowercase().contains(&search_lower)
-                })
-                .map(|value| server_value_row(section, value, &every_value))
-                .collect_view()
-                .into_any()
-        }
-    };
-
-    view! {
-        <div class="border-b border-divider p-2.5">
-            <SearchInput value=value_search placeholder="Search Values" size=SearchSize::Compact />
-        </div>
-        <div class="max-h-56 overflow-auto p-1.5 [scrollbar-gutter:stable] [scrollbar-width:thin]">
-            {value_list}
-        </div>
-        <div class="flex items-center justify-between border-t border-divider px-3 py-2.5 text-xs text-blue-600">
-            <button
-                class=FOOTER_ACTION_CLASS
-                on:click=move |_| query.update(|query| query.clear_column_filter(column_key))
-            >
-                "Select All"
-            </button>
-            <button
-                class=FOOTER_ACTION_CLASS
-                on:click=move |_| {
-                    query.update(|query| query.deselect_every_value(column_key));
-                }
-            >
-                "Clear"
-            </button>
-        </div>
-    }
-    .into_any()
-}
-
 #[component]
 pub fn DataTable<Row>(
     #[prop(into)] rows: Signal<Option<Result<Vec<Row>, String>>>,
@@ -403,7 +290,6 @@ pub fn DataTable<Row>(
     #[prop(optional_no_strip)] sidebar: Option<AnyView>,
     #[prop(optional)] server: Option<ServerRows>,
     #[prop(optional)] layout: Layout<Row>,
-    #[prop(optional)] facet_row: bool,
     #[prop(optional)] sticky_first_column: bool,
 ) -> impl IntoView
 where
@@ -426,19 +312,17 @@ where
     );
     let columns: Arc<[Column<Row>]> = columns.into();
     let column_filters: ArcRwSignal<ClientColumnFilters> = ArcRwSignal::new(HashMap::new());
-    let facet_row = facet_row && (query.is_none() || filtering.is_some());
-    let facets = facet_row
-        .then(|| match query.zip(filtering) {
-            Some((query, filtering)) => server_facet_row(&columns, query, filtering).render(),
-            None => FacetRow {
-                rows,
-                columns: Arc::clone(&columns),
-                column_filters: column_filters.clone(),
-                search_text: search_text.clone(),
-            }
-            .render(),
-        })
-        .flatten();
+    let facets = match (query, filtering) {
+        (Some(query), Some(filtering)) => server_facet_row(&columns, query, filtering).render(),
+        (Some(_), None) => None,
+        (None, _) => FacetRow {
+            rows,
+            columns: Arc::clone(&columns),
+            column_filters: column_filters.clone(),
+            search_text: search_text.clone(),
+        }
+        .render(),
+    };
     let toolbar_row = TableToolbar {
         views,
         filter_toggle,
@@ -461,11 +345,7 @@ where
         search_text,
         column_filters,
         sort_state: ArcRwSignal::new(None),
-        value_search: ArcRwSignal::new(String::new()),
         server_query: query,
-        server_filtering: query.zip(filtering.map(|filtering| filtering.requested_column)),
-        filter_values: filtering.map_or_else(Signal::default, |filtering| filtering.values),
-        facet_row,
         row_class,
         row_href,
         navigate,
@@ -553,11 +433,7 @@ struct TableState<Row: Send + Sync + 'static> {
     search_text: ArcRwSignal<String>,
     column_filters: ArcRwSignal<ClientColumnFilters>,
     sort_state: ArcRwSignal<Option<(usize, bool)>>,
-    value_search: ArcRwSignal<String>,
     server_query: Option<UrlTableQuery>,
-    server_filtering: Option<(UrlTableQuery, RwSignal<Option<String>>)>,
-    filter_values: Signal<LoadedFilterValues>,
-    facet_row: bool,
     row_class: Option<RowAttribute<Row>>,
     row_href: Option<RowAttribute<Row>>,
     navigate: Option<Navigate>,
@@ -576,11 +452,7 @@ impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
             search_text: self.search_text.clone(),
             column_filters: self.column_filters.clone(),
             sort_state: self.sort_state.clone(),
-            value_search: self.value_search.clone(),
             server_query: self.server_query,
-            server_filtering: self.server_filtering,
-            filter_values: self.filter_values,
-            facet_row: self.facet_row,
             row_class: self.row_class.clone(),
             row_href: self.row_href.clone(),
             navigate: self.navigate.clone(),
@@ -606,13 +478,6 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         self.columns.get(index).map(|column| column.key)
     }
 
-    fn header_for_key(&self, column_key: &str) -> &'static str {
-        self.columns
-            .iter()
-            .find(|column| column.key == column_key)
-            .map_or("", |column| column.header)
-    }
-
     fn displayed_sort(&self) -> Option<(usize, bool)> {
         let Some(query) = self.server_query else {
             return self.sort_state.get();
@@ -627,31 +492,9 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         })
     }
 
-    fn is_filterable(&self, column: &Column<Row>) -> bool {
-        if self.facet_row {
-            return false;
-        }
-        if self.server_driven() {
-            column.filterable && self.server_filtering.is_some()
-        } else {
-            column.filterable
-        }
-    }
-
-    fn is_filtered(&self, index: usize) -> bool {
-        match self.server_filtering {
-            Some((query, _)) => self
-                .column_key_at(index)
-                .is_some_and(|key| query.with(|query| query.is_column_filtered(key))),
-            None => self
-                .column_filters
-                .with(|filters| filters.contains_key(&index)),
-        }
-    }
-
     fn filters_are_active(&self) -> bool {
-        match self.server_filtering {
-            Some((query, _)) => query.with(|query| query.filtered_column_count() > 0),
+        match self.server_query {
+            Some(query) => query.with(|query| query.filtered_column_count() > 0),
             None => self.column_filters.with(|active| !active.is_empty()),
         }
     }
@@ -672,23 +515,6 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                 query.clear_all_column_filters();
             });
         }
-    }
-
-    fn distinct_values(&self, index: usize) -> Vec<(String, String)> {
-        let Some(Ok(all_rows)) = self.current_rows() else {
-            return Vec::new();
-        };
-        let Some(column) = self.columns.get(index) else {
-            return Vec::new();
-        };
-        let mut distinct: BTreeMap<String, String> = BTreeMap::new();
-        for row in &all_rows {
-            let cell = (column.value)(row);
-            distinct
-                .entry(cell.filter_key())
-                .or_insert_with(|| cell.filter_label());
-        }
-        distinct.into_iter().collect()
     }
 
     fn visible_rows(&self) -> Vec<Row> {
@@ -1080,80 +906,6 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         }
     }
 
-    fn server_filter_chips(&self, query: UrlTableQuery) -> AnyView {
-        query.with(|current| {
-            current
-                .column_filters
-                .iter()
-                .map(|(column_key, values)| {
-                    let owned_key = column_key.clone();
-                    filter_chip(
-                        self.header_for_key(column_key).to_string(),
-                        format!("{} selected", values.len()),
-                        Arc::new(move || {
-                            query.update(|query| query.clear_column_filter(&owned_key));
-                        }),
-                    )
-                })
-                .collect_view()
-                .into_any()
-        })
-    }
-
-    fn client_filter_chips(&self) -> AnyView {
-        let mut entries: Vec<(usize, usize)> = self.column_filters.with(|active| {
-            active
-                .iter()
-                .map(|(index, allowed)| (*index, allowed.len()))
-                .collect()
-        });
-        entries.sort_by_key(|(index, _)| *index);
-        entries
-            .into_iter()
-            .map(|(index, selected_count)| {
-                let header = self.columns.get(index).map_or("", |column| column.header);
-                let total = self.distinct_values(index).len();
-                let column_filters = self.column_filters.clone();
-                filter_chip(
-                    header.to_string(),
-                    format!("{selected_count} of {total}"),
-                    Arc::new(move || {
-                        column_filters.update(|filters| {
-                            filters.remove(&index);
-                        });
-                    }),
-                )
-            })
-            .collect_view()
-            .into_any()
-    }
-
-    fn filter_chips(&self) -> AnyView {
-        if self.facet_row || !self.filters_are_active() {
-            return ().into_any();
-        }
-        let chips = match self.server_filtering {
-            Some((query, _)) => self.server_filter_chips(query),
-            None => self.client_filter_chips(),
-        };
-        let state = self.clone();
-        view! {
-            <div class="mb-4 flex flex-wrap items-center gap-2">
-                {chips}
-                <button
-                    class="cursor-pointer text-xs text-gray-500 underline hover:text-gray-700"
-                    on:click=move |_| match state.server_filtering {
-                        Some((query, _)) => query.update(TableQuery::clear_all_column_filters),
-                        None => state.column_filters.set(HashMap::new()),
-                    }
-                >
-                    "Clear All"
-                </button>
-            </div>
-        }
-        .into_any()
-    }
-
     fn sort_button(&self, index: usize, ascending: bool) -> AnyView {
         let state = self.clone();
         let popover = use_popover();
@@ -1179,124 +931,14 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         .into_any()
     }
 
-    fn toggle_client_filter_value(&self, index: usize, key: &str, every_key: &HashSet<String>) {
-        self.column_filters.update(|filters| {
-            let allowed = filters.entry(index).or_insert_with(|| every_key.clone());
-            if !allowed.remove(key) {
-                allowed.insert(key.to_string());
-            }
-            if allowed == every_key {
-                filters.remove(&index);
-            }
-        });
+    fn sort_menu(&self, index: usize) -> AnyView {
+        view! { <div class="p-1">{self.sort_button(index, true)} {self.sort_button(index, false)}</div> }
+            .into_any()
     }
 
-    fn client_filter_section(&self, index: usize) -> AnyView {
-        let all_values = self.distinct_values(index);
-        let every_key: Arc<HashSet<String>> =
-            Arc::new(all_values.iter().map(|(key, _)| key.clone()).collect());
-        let value_search = self.value_search.clone();
-        let state = self.clone();
-        let value_list = move || {
-            let search_lower = value_search.get().to_lowercase();
-            all_values
-                .iter()
-                .filter(|(_, label)| {
-                    search_lower.is_empty() || label.to_lowercase().contains(&search_lower)
-                })
-                .cloned()
-                .map(|(key, label)| {
-                    let checked = state.column_filters.with(|filters| {
-                        filters
-                            .get(&index)
-                            .is_none_or(|allowed| allowed.contains(&key))
-                    });
-                    let toggling_state = state.clone();
-                    let every_key = Arc::clone(&every_key);
-                    let on_toggle = move |()| {
-                        toggling_state.toggle_client_filter_value(index, &key, &every_key);
-                    };
-                    view! { <FilterOption label=label checked=checked on_toggle=on_toggle /> }
-                })
-                .collect_view()
-        };
-        let select_all = self.column_filters.clone();
-        let clear = self.column_filters.clone();
-        view! {
-            <div class="border-b border-divider p-2.5">
-                <SearchInput
-                    value=RwSignal::from(self.value_search.clone())
-                    placeholder="Search Values"
-                    size=SearchSize::Compact
-                />
-            </div>
-            <div class="max-h-56 overflow-auto p-1.5 [scrollbar-gutter:stable] [scrollbar-width:thin]">
-                {value_list}
-            </div>
-            <div class="flex items-center justify-between border-t border-divider px-3 py-2.5 text-xs text-blue-600">
-                <button
-                    class=FOOTER_ACTION_CLASS
-                    on:click=move |_| {
-                        select_all
-                            .update(|filters| {
-                                filters.remove(&index);
-                            });
-                    }
-                >
-                    "Select All"
-                </button>
-                <button
-                    class=FOOTER_ACTION_CLASS
-                    on:click=move |_| {
-                        clear
-                            .update(|filters| {
-                                filters.insert(index, HashSet::new());
-                            });
-                    }
-                >
-                    "Clear"
-                </button>
-            </div>
-        }
-        .into_any()
-    }
-
-    fn column_menu(&self, index: usize) -> AnyView {
-        let (sortable, filterable) = self.columns.get(index).map_or((false, false), |column| {
-            (column.sortable, self.is_filterable(column))
-        });
-        let sort_section = sortable.then(|| {
-            view! {
-                <div class="border-b border-divider p-1">
-                    {self.sort_button(index, true)} {self.sort_button(index, false)}
-                </div>
-            }
-        });
-        let filter_section = match (filterable, self.server_filtering) {
-            (false, _) => ().into_any(),
-            (true, Some((query, _))) => self.column_key_at(index).map_or_else(
-                || ().into_any(),
-                |column_key| {
-                    server_filter_section(ServerFilterSection {
-                        query,
-                        column_key,
-                        filter_values: self.filter_values,
-                        value_search: RwSignal::from(self.value_search.clone()),
-                    })
-                },
-            ),
-            (true, None) => self.client_filter_section(index),
-        };
-        view! {
-            {sort_section}
-            {filter_section}
-        }
-        .into_any()
-    }
-
-    fn header_label(&self, index: usize, column: &Column<Row>, interactive: bool) -> AnyView {
+    fn header_label(&self, index: usize, column: &Column<Row>) -> AnyView {
         let sort_state = self.clone();
-        let indicator_state = self.clone();
+        let sortable = column.sortable;
         view! {
             <span class="inline-flex items-center gap-1 align-middle">
                 {column.header}
@@ -1308,27 +950,14 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                             sort_direction_label(ascending),
                         )
                     }
+                    _ if sortable => {
+                        icons::labelled_icon(
+                            icons::LucideGlyph::ChevronDown,
+                            "h-3.5 w-3.5 shrink-0 text-gray-400",
+                            "Sort",
+                        )
+                    }
                     _ => ().into_any(),
-                }}
-                {move || {
-                    if !interactive {
-                        return ().into_any();
-                    }
-                    let filtered = indicator_state.is_filtered(index);
-                    let sorted = matches!(
-                        indicator_state.displayed_sort(),
-                        Some((current, _))
-                        if current == index
-                    );
-                    if sorted && !filtered {
-                        return ().into_any();
-                    }
-                    let (class, title) = if filtered {
-                        ("h-3.5 w-3.5 shrink-0 text-blue-600", "Filtered")
-                    } else {
-                        ("h-3.5 w-3.5 shrink-0 text-gray-400", "Sort and Filter")
-                    };
-                    icons::labelled_icon(icons::LucideGlyph::ChevronDown, class, title)
                 }}
             </span>
         }
@@ -1336,10 +965,8 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
     }
 
     fn header_cell(&self, index: usize, column: &Column<Row>) -> AnyView {
-        let filterable = self.is_filterable(column);
-        let interactive = column.sortable || filterable;
-        let label = self.header_label(index, column, interactive);
-        if !interactive {
+        let label = self.header_label(index, column);
+        if !column.sortable {
             let class = format!(
                 "{HEADER_ROW_HEIGHT_CLASS} truncate px-4 select-none {} {}",
                 column.align.text_class(),
@@ -1347,35 +974,19 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
             );
             return view! { <th class=class>{label}</th> }.into_any();
         }
-        let opening_state = self.clone();
-        let on_open = Callback::new(move |()| {
-            opening_state.value_search.set(String::new());
-            if let Some((_, requested_column)) = opening_state.server_filtering {
-                let requested = filterable
-                    .then(|| opening_state.column_key_at(index))
-                    .flatten()
-                    .map(str::to_string);
-                requested_column.try_set(requested);
-            }
-        });
-        let menu_width_class = if filterable {
-            FILTER_MENU_WIDTH_CLASS
-        } else {
-            SORT_MENU_WIDTH_CLASS
-        };
         let menu_state = self.clone();
-        let menu = move || menu_state.column_menu(index);
+        let menu = move || menu_state.sort_menu(index);
         view! {
             <th class=format!(
                 "{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {}",
                 column.align.text_class(),
             )>
-                <Popover align=menu_alignment(column.align) on_open=on_open>
+                <Popover align=menu_alignment(column.align)>
                     <PopoverTrigger class=format!(
                         "{HEADER_TRIGGER_CLASS} {}",
                         crate::typography::LABEL_CLASS,
                     )>{label}</PopoverTrigger>
-                    <PopoverContent class=menu_width_class unpadded=true>
+                    <PopoverContent class=SORT_MENU_WIDTH_CLASS unpadded=true>
                         {menu.clone()}
                     </PopoverContent>
                 </Popover>
@@ -1545,22 +1156,6 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
     }
 }
 
-fn filter_chip(label: String, summary: String, clear: Arc<dyn Fn() + Send + Sync>) -> AnyView {
-    view! {
-        <span class="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
-            <span class="font-medium">{label}": "</span>
-            <span>{summary}</span>
-            <button
-                class="ml-0.5 cursor-pointer text-blue-500 hover:text-blue-800"
-                on:click=move |_| clear()
-            >
-                "\u{00D7}"
-            </button>
-        </span>
-    }
-    .into_any()
-}
-
 pub(super) fn is_pending(pending: Signal<bool>) -> bool {
     pending.try_get().unwrap_or(false)
 }
@@ -1616,10 +1211,8 @@ where
         (None, Layout::Cards(card_for_row)) => state.card_body(card_for_row, pending),
         (None, Layout::Table) => state.table_body(row_key, pending, trailing_rows),
     };
-    let chips_state = state.clone();
     view! {
         <div>
-            {move || chips_state.filter_chips()}
             <div class="flex items-start gap-6">
                 {sidebar}
                 <div class="min-w-0 flex-1">

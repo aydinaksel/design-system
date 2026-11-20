@@ -4,7 +4,6 @@ mod cell_value;
 mod column;
 mod data_table;
 mod facet_row;
-mod filter_option;
 mod layout;
 mod line_items;
 mod row_selection;
@@ -18,7 +17,6 @@ pub use cell_editor::CellEditor;
 pub use cell_value::{Align, CellValue};
 pub use column::{Column, ColumnTotal};
 pub use data_table::{DataTable, RowAttribute, RowReplacement, RowView, Search};
-pub use filter_option::FilterOption;
 pub use layout::{Layout, ServerLayout};
 pub use line_items::{
     CalculatedField, LineCell, LineFix, LineForm, LineIssue, LineItems, LineSave,
