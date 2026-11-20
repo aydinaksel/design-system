@@ -5,6 +5,7 @@ use crate::pages::articles::ArticlesPage;
 use crate::pages::charts::ChartsPage;
 use crate::pages::client_side_table::ClientSideTablePage;
 use crate::pages::files::FilesPage;
+use crate::pages::quick_filters::QuickFiltersPage;
 use crate::pages::tables::TablesPage;
 use crate::pages::{
     actions, activity, cell_editing, content, detail_page, forms, line_items, overlays,
@@ -45,6 +46,10 @@ fn tables_page() -> AnyView {
 
 fn client_side_table_page() -> AnyView {
     view! { <ClientSideTablePage /> }.into_any()
+}
+
+fn quick_filters_page() -> AnyView {
+    view! { <QuickFiltersPage /> }.into_any()
 }
 
 fn files_page() -> AnyView {
@@ -166,7 +171,7 @@ const FORMS: [Entry; 7] = [
     },
 ];
 
-const DATA: [Entry; 7] = [
+const DATA: [Entry; 8] = [
     Entry {
         href: "/tables",
         title: "Tables",
@@ -180,6 +185,13 @@ const DATA: [Entry; 7] = [
         summary: "A table that sorts and filters in the browser.",
         glyph: LucideGlyph::Sheet,
         presentation: Presentation::Page(client_side_table_page),
+    },
+    Entry {
+        href: "/quick-filters",
+        title: "Quick Filters",
+        summary: "A server table filtered by buttons beside its search.",
+        glyph: LucideGlyph::ListFilter,
+        presentation: Presentation::Page(quick_filters_page),
     },
     Entry {
         href: "/row-selection",

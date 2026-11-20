@@ -15,6 +15,7 @@ pub mod line_items;
 pub mod overlays;
 pub mod period_filter;
 pub mod popovers;
+pub mod quick_filters;
 pub mod row_selection;
 pub mod sidebar;
 pub mod tables;

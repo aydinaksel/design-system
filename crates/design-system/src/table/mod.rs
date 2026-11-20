@@ -9,6 +9,7 @@ mod layout;
 mod line_items;
 mod row_selection;
 mod server_facet_panel;
+mod server_facet_row;
 mod server_table;
 mod toolbar;
 mod url_query;

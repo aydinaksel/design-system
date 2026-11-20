@@ -23,8 +23,9 @@ use super::cell_value::{Align, CellValue};
 use super::column::Column;
 use super::facet_row::FacetRow;
 use super::filter_option::FilterOption;
-use super::layout::{Layout, ServerRows};
+use super::layout::{Layout, ServerFiltering, ServerRows};
 use super::row_selection::RowSelection;
+use super::server_facet_row::{FacetColumn, ServerFacetRow};
 use super::toolbar::TableToolbar;
 use super::url_query::UrlTableQuery;
 use table_query::TableQuery;
@@ -75,10 +76,14 @@ pub enum Search {
 const NO_ROWS_MESSAGE: &str = "No results.";
 const NO_MATCHES_TITLE: &str = "Nothing matches these filters";
 const NO_MATCHES_DESCRIPTION: &str = "Try a broader search or reset the filters.";
+const LOAD_FAILED_TITLE: &str = "This Data Could Not Be Loaded";
+const LOAD_FAILED_DESCRIPTION: &str =
+    "Something went wrong while fetching it. Nothing has been changed.";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum BodyState {
     Loading,
+    Failed,
     Empty,
     Rows,
 }
@@ -384,8 +389,16 @@ pub fn DataTable<Row>(
     #[prop(optional)] row_replacement: Option<RowReplacement<Row>>,
     #[prop(optional)] trailing_rows: Option<ViewFn>,
     #[prop(optional)] hides_row_count: bool,
+    /// Asks for the rows again after they failed to load. With it, the
+    /// failure state offers Try Again.
+    #[prop(optional, into)]
+    on_retry: Option<Callback<()>>,
     #[prop(optional_no_strip)] toolbar: Option<AnyView>,
     #[prop(optional_no_strip)] filter_toggle: Option<AnyView>,
+    /// The page's own controls that narrow the rows, such as a date, drawn
+    /// beside the search.
+    #[prop(optional_no_strip)]
+    filters: Option<AnyView>,
     #[prop(optional_no_strip)] views: Option<&'static [PageView]>,
     #[prop(optional_no_strip)] sidebar: Option<AnyView>,
     #[prop(optional)] server: Option<ServerRows>,
@@ -413,22 +426,24 @@ where
     );
     let columns: Arc<[Column<Row>]> = columns.into();
     let column_filters: ArcRwSignal<ClientColumnFilters> = ArcRwSignal::new(HashMap::new());
-    let facet_row = facet_row && query.is_none();
+    let facet_row = facet_row && (query.is_none() || filtering.is_some());
     let facets = facet_row
-        .then(|| {
-            FacetRow {
+        .then(|| match query.zip(filtering) {
+            Some((query, filtering)) => server_facet_row(&columns, query, filtering).render(),
+            None => FacetRow {
                 rows,
                 columns: Arc::clone(&columns),
                 column_filters: column_filters.clone(),
                 search_text: search_text.clone(),
             }
-            .render()
+            .render(),
         })
         .flatten();
     let toolbar_row = TableToolbar {
         views,
         filter_toggle,
         facets,
+        filters,
         controls: toolbar,
         search,
         search_placeholder,
@@ -457,6 +472,7 @@ where
         selection,
         row_replacement,
         hides_row_count,
+        on_retry,
         sticky_first_column,
     };
     let contents = move || {
@@ -483,6 +499,25 @@ where
 }
 
 type Navigate = Arc<dyn Fn(&str, NavigateOptions) + Send + Sync>;
+
+fn server_facet_row<Row: Send + Sync + 'static>(
+    columns: &[Column<Row>],
+    query: UrlTableQuery,
+    filtering: ServerFiltering,
+) -> ServerFacetRow {
+    ServerFacetRow {
+        columns: columns
+            .iter()
+            .filter(|column| column.filterable)
+            .map(|column| FacetColumn {
+                key: column.key,
+                header: column.header,
+            })
+            .collect(),
+        query,
+        filtering,
+    }
+}
 
 fn compare_cells(left: &CellValue, right: &CellValue, ascending: bool) -> Ordering {
     match (left.is_empty(), right.is_empty()) {
@@ -529,6 +564,7 @@ struct TableState<Row: Send + Sync + 'static> {
     selection: Option<RowSelection<Row>>,
     row_replacement: Option<RowReplacement<Row>>,
     hides_row_count: bool,
+    on_retry: Option<Callback<()>>,
     sticky_first_column: bool,
 }
 
@@ -551,6 +587,7 @@ impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
             selection: self.selection.clone(),
             row_replacement: self.row_replacement.clone(),
             hides_row_count: self.hides_row_count,
+            on_retry: self.on_retry,
             sticky_first_column: self.sticky_first_column,
         }
     }
@@ -591,10 +628,13 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
     }
 
     fn is_filterable(&self, column: &Column<Row>) -> bool {
+        if self.facet_row {
+            return false;
+        }
         if self.server_driven() {
             column.filterable && self.server_filtering.is_some()
         } else {
-            column.filterable && !self.facet_row
+            column.filterable
         }
     }
 
@@ -672,16 +712,12 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
 
     fn card_body(&self, card_for_row: RowView<Row>, pending: Signal<bool>) -> AnyView {
         let state = self.clone();
-        let cards = move || match state.current_rows() {
-            Some(Err(message)) => {
-                view! { <li class="col-span-full">{error_alert(message)}</li> }.into_any()
-            }
-            _ => state
+        let cards = move || {
+            state
                 .visible_rows()
                 .iter()
                 .map(|row| card_for_row(row))
                 .collect_view()
-                .into_any(),
         };
         view! {
             <div class="relative">
@@ -901,27 +937,6 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                 children=move |row: Row| state.render_row(&row)
             />
         }
-        .into_any()
-    }
-
-    fn status_rows(&self) -> AnyView {
-        let state = self.clone();
-        let column_count = self
-            .columns
-            .len()
-            .saturating_add(usize::from(self.selection.is_some()))
-            .to_string();
-        (move || match state.current_rows() {
-            Some(Err(message)) => view! {
-                <tr>
-                    <td colspan=column_count.clone() class="px-4 py-6">
-                        {error_alert(message)}
-                    </td>
-                </tr>
-            }
-            .into_any(),
-            _ => ().into_any(),
-        })
         .into_any()
     }
 
@@ -1417,6 +1432,42 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         .into_any()
     }
 
+    fn failure_state(&self, pending: Signal<bool>) -> AnyView {
+        let reason = match self.current_rows() {
+            Some(Err(message)) => message,
+            _ => String::new(),
+        };
+        let retry_button = self.on_retry.map(|on_retry| {
+            view! {
+                <button
+                    type="button"
+                    class=button_class(ButtonTone::Secondary, ButtonSize::Standard)
+                    prop:disabled=move || is_pending(pending)
+                    on:click=move |_| on_retry.run(())
+                >
+                    {icons::icon(icons::LucideGlyph::RotateCw, "h-4 w-4 shrink-0 opacity-70")}
+                    {move || if is_pending(pending) { "Trying Again\u{2026}" } else { "Try Again" }}
+                </button>
+            }
+        });
+        let action = view! {
+            <div class="flex flex-col items-center gap-3">
+                {retry_button} <p class="max-w-prose break-words text-xs text-gray-400">{reason}</p>
+            </div>
+        };
+        view! {
+            <div role="alert">
+                <EmptyState
+                    glyph=icons::LucideGlyph::TriangleAlert
+                    title=LOAD_FAILED_TITLE
+                    description=LOAD_FAILED_DESCRIPTION
+                    action=action.into_any()
+                />
+            </div>
+        }
+        .into_any()
+    }
+
     fn footer(&self) -> Option<AnyView> {
         if self.columns.iter().all(|column| column.total.is_none()) {
             return None;
@@ -1480,7 +1531,6 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                             class="divide-y divide-divider"
                             aria-busy=move || is_pending(pending).to_string()
                         >
-                            {self.status_rows()}
                             {self.data_rows(row_key)}
                             {trailing_rows.map(|rows| move || rows.run())}
                         </tbody>
@@ -1534,6 +1584,7 @@ where
     let body_state_reader = state.clone();
     let body_state = ArcMemo::new(move |_| match body_state_reader.current_rows() {
         None => BodyState::Loading,
+        Some(Err(_)) if shows_empty_state => BodyState::Failed,
         Some(Ok(_)) if shows_empty_state && body_state_reader.visible_rows().is_empty() => {
             BodyState::Empty
         }
@@ -1543,6 +1594,7 @@ where
     let placeholder_body_state = body_state.clone();
     let placeholder = move || match placeholder_body_state.get() {
         BodyState::Loading => view! { <LoadingState class=BODY_HEIGHT_CLASS /> }.into_any(),
+        BodyState::Failed => placeholder_state.failure_state(pending),
         BodyState::Empty => placeholder_state.empty_state(empty_message),
         BodyState::Rows => ().into_any(),
     };

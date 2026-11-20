@@ -12,9 +12,47 @@ use crate::popover::{Popover, PopoverContent, PopoverTrigger};
 use super::column::Column;
 use super::data_table::{matches_search, passes_column_filters, ClientColumnFilters, TableRows};
 
-const MENU_WIDTH_CLASS: &str = "w-64";
-const CHEVRON_CLASS: &str = "h-3.5 w-3.5 shrink-0 opacity-70";
+pub(super) const MENU_WIDTH_CLASS: &str = "w-64";
+pub(super) const CHEVRON_CLASS: &str = "h-3.5 w-3.5 shrink-0 opacity-70";
 const FACET_BUTTON_SIZE: ButtonSize = ButtonSize::Standard;
+
+pub(super) fn facet_trigger_class(selected_count: usize) -> String {
+    if selected_count == 0 {
+        button_class(ButtonTone::Secondary, FACET_BUTTON_SIZE)
+    } else {
+        format!(
+            "{SHARED_CLASS} {} {SELECTED_CLASS}",
+            FACET_BUTTON_SIZE.class()
+        )
+    }
+}
+
+pub(super) fn selected_count_badge(selected_count: usize) -> AnyView {
+    match selected_count {
+        0 => ().into_any(),
+        count => view! { <span class=SELECTED_COUNT_CLASS>{count}</span> }.into_any(),
+    }
+}
+
+pub(super) fn clear_all_facets_button(
+    any_selected: Signal<bool>,
+    clear: impl Fn() + Clone + Send + Sync + 'static,
+) -> AnyView {
+    let button = move || {
+        let clear = clear.clone();
+        view! {
+            <button
+                type="button"
+                class=button_class(ButtonTone::Subtle, FACET_BUTTON_SIZE)
+                on:click=move |_| clear()
+            >
+                {icons::icon(icons::LucideGlyph::X, button_icon_class(FACET_BUTTON_SIZE))}
+                "Clear All"
+            </button>
+        }
+    };
+    (move || any_selected.get().then(button.clone())).into_any()
+}
 
 pub(super) struct FacetRow<Row: Send + Sync + 'static> {
     pub rows: TableRows<Row>,
@@ -110,33 +148,19 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
         counted.into_values().collect()
     }
 
-    fn trigger_class(&self, index: usize) -> String {
-        if self.selected_count(index) == 0 {
-            button_class(ButtonTone::Secondary, FACET_BUTTON_SIZE)
-        } else {
-            format!(
-                "{SHARED_CLASS} {} {SELECTED_CLASS}",
-                FACET_BUTTON_SIZE.class()
-            )
-        }
-    }
-
     fn facet_button(&self, index: usize) -> AnyView {
         let header = self.columns.get(index).map_or("", |column| column.header);
         let counting = self.clone();
         let values = ArcMemo::new(move |_| counting.counted_values(index));
         let badge_state = self.clone();
-        let selected_badge = move || match badge_state.selected_count(index) {
-            0 => ().into_any(),
-            count => view! { <span class=SELECTED_COUNT_CLASS>{count}</span> }.into_any(),
-        };
+        let selected_badge = move || selected_count_badge(badge_state.selected_count(index));
         let trigger_state = self.clone();
         let menu_state = self.clone();
         let menu = move || menu_state.menu(index, header, values.clone());
         view! {
             <Popover>
                 <PopoverTrigger class=Signal::derive(move || {
-                    trigger_state.trigger_class(index)
+                    facet_trigger_class(trigger_state.selected_count(index))
                 })>
                     {header} {selected_badge}
                     {icons::icon(icons::LucideGlyph::ChevronDown, CHEVRON_CLASS)}
@@ -178,21 +202,9 @@ impl<Row: Clone + Send + Sync + 'static> FacetRow<Row> {
     }
 
     fn clear_all_button(&self) -> AnyView {
-        let clearing = self.column_filters.clone();
-        let button = move || {
-            let clearing = clearing.clone();
-            view! {
-                <button
-                    type="button"
-                    class=button_class(ButtonTone::Subtle, FACET_BUTTON_SIZE)
-                    on:click=move |_| clearing.set(HashMap::new())
-                >
-                    {icons::icon(icons::LucideGlyph::X, button_icon_class(FACET_BUTTON_SIZE))}
-                    "Clear All"
-                </button>
-            }
-        };
         let column_filters = self.column_filters.clone();
-        (move || (!column_filters.with(HashMap::is_empty)).then(button.clone())).into_any()
+        let any_selected = Signal::derive(move || !column_filters.with(HashMap::is_empty));
+        let clearing = self.column_filters.clone();
+        clear_all_facets_button(any_selected, move || clearing.set(HashMap::new()))
     }
 }

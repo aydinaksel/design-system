@@ -83,6 +83,14 @@ pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     #[prop(optional)] row_href: Option<RowAttribute<Row>>,
     #[prop(optional)] row_class: Option<RowAttribute<Row>>,
     #[prop(optional)] sticky_first_column: bool,
+    /// Offers each `filterable` column as a filter button beside the search,
+    /// in place of the filter in its header. Needs `load_filter_values`.
+    #[prop(optional)]
+    facet_row: bool,
+    /// The page's own controls that narrow the rows, such as a date, drawn
+    /// beside the search.
+    #[prop(optional, into)]
+    filters: Option<ViewFn>,
     #[prop(optional, into)] toolbar: ViewFn,
     #[prop(optional)] views: Option<&'static [PageView]>,
     #[prop(optional)] load_filter_values: Option<FilterValuesLoader>,
@@ -166,6 +174,9 @@ where
             row_href=row_href
             row_class=row_class
             sticky_first_column=sticky_first_column
+            on_retry=Callback::new(move |()| current_page.refetch())
+            facet_row=facet_row
+            filters=filters.map(|filters| filters.run())
             toolbar=Some(toolbar.run())
             filter_toggle=filter_toggle
             views=views

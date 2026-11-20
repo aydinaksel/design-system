@@ -22,6 +22,7 @@ pub(super) struct TableToolbar {
     pub views: Option<&'static [PageView]>,
     pub filter_toggle: Option<AnyView>,
     pub facets: Option<AnyView>,
+    pub filters: Option<AnyView>,
     pub controls: Option<AnyView>,
     pub search: Search,
     pub search_placeholder: String,
@@ -37,16 +38,22 @@ impl TableToolbar {
             views,
             filter_toggle,
             facets,
+            filters,
             controls,
             ..
         } = self;
-        let narrows = filter_toggle.is_some() || search_box.is_some() || facets.is_some();
+        let narrows = filter_toggle.is_some()
+            || search_box.is_some()
+            || facets.is_some()
+            || filters.is_some();
         let controls_row = (narrows || controls.is_some()).then(|| {
             let display_controls = controls
                 .map(|controls| view! { <div class=DISPLAY_CONTROLS_CLASS>{controls}</div> });
             view! {
                 <div class=CONTROLS_ROW_CLASS>
-                    <div class=NARROWING_CONTROLS_CLASS>{filter_toggle} {search_box} {facets}</div>
+                    <div class=NARROWING_CONTROLS_CLASS>
+                        {filter_toggle} {search_box} {filters} {facets}
+                    </div>
                     {display_controls}
                 </div>
             }
