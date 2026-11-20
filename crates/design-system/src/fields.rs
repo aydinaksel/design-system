@@ -33,6 +33,8 @@ type PendingNavigation = StoredValue<Option<SendWrapper<HtmlAnchorElement>>>;
 type AfterDiscard = StoredValue<Option<Callback<()>>>;
 
 pub(crate) const SECTION_WIDTH_CLASS: &str = "@container w-full max-w-xl";
+const FIELD_GRID_CLASS: &str =
+    "grid items-start gap-6 grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))]";
 pub(crate) const LABEL_COLUMN_CLASS: &str = "pt-1.5 text-sm text-gray-500 @sm:w-48 @sm:shrink-0";
 pub(crate) const ALIGNED_WITH_CONTROL_TEXT_CLASS: &str = "@sm:py-2";
 pub(crate) const ROW_CLASS: &str = "relative flex flex-col px-4 py-1.5 first:rounded-t-[calc(var(--radius-xl)-1px)] after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-divider last:after:hidden @sm:flex-row @sm:items-center @sm:gap-4 motion-safe:transition-colors";
@@ -223,8 +225,7 @@ pub fn provide_editing_scope() {
 #[component]
 pub fn FieldGrid(children: Children) -> impl IntoView {
     provide_editing_scope();
-    view! { <div class="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">{children()}</div> }
-        .into_any()
+    view! { <div class=FIELD_GRID_CLASS>{children()}</div> }.into_any()
 }
 
 fn saved_announcement(title: Option<&str>) -> String {
