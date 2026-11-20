@@ -16,7 +16,7 @@ use crate::tooltip::Tooltip;
 
 use super::cell_value::Align;
 use super::column::Column;
-use super::data_table::{DataTable, RowAttribute, RowReplacement};
+use super::data_table::{DataTable, RowAttribute, RowReplacement, Search};
 
 const ACTIONS_KEY: &str = "actions";
 const ACTIONS_WIDTH_CHARACTERS: u16 = 9;
@@ -718,6 +718,8 @@ pub fn LineItems<Row, Draft>(
     existing_lines_only: bool,
     #[prop(optional, into)] empty_message: Signal<String>,
     #[prop(optional)] sticky_first_column: bool,
+    #[prop(optional)] search: Search,
+    #[prop(optional, into)] search_placeholder: String,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
@@ -804,6 +806,8 @@ where
                 empty_message=empty_message
                 hides_row_count=true
                 sticky_first_column=sticky_first_column
+                search=search
+                search_placeholder=search_placeholder
             />
             <div class="mt-3 flex items-center gap-3 empty:hidden">{add_button} {locked_note}</div>
             <ConfirmDialog
