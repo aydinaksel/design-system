@@ -221,7 +221,7 @@ fn click_asks_for_row_selection(event: &leptos::ev::MouseEvent) -> bool {
 const CELL_PADDING_WIDTH: &str = "2rem";
 const REFRESH_COVER_CLASS: &str = "absolute z-20 items-center justify-center bg-gray-50";
 
-pub(crate) const BODY_HEIGHT_CLASS: &str = "h-[calc(100vh-18rem)]";
+pub const BODY_HEIGHT_CLASS: &str = "h-[calc(100vh-18rem)]";
 pub(crate) const BODY_MAX_HEIGHT_CLASS: &str = "max-h-[calc(100vh-18rem)]";
 pub(crate) const HEADER_RULE_CLASS: &str = "shadow-[inset_0_-1px_0_0_var(--color-edge)]";
 pub(crate) const HEADER_ROW_HEIGHT_CLASS: &str = "h-9";

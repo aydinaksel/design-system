@@ -18,6 +18,7 @@ use super::cell_value::Align;
 use super::column::Column;
 use super::data_table::{DataTable, RowAttribute, RowReplacement, Search};
 
+const HINT_CLASS: &str = "mt-1.5 text-xs text-gray-500 empty:hidden";
 const ACTIONS_KEY: &str = "actions";
 const ACTIONS_WIDTH_CHARACTERS: u16 = 9;
 const EDITING_ROW_CLASS: &str = "bg-blue-50/40";
@@ -185,7 +186,18 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
         key: &'static str,
         control: impl FnOnce() -> Control,
     ) -> LineCell {
-        (key, self.labelled(key, control))
+        (key, self.labelled(key, control, None))
+    }
+
+    /// A cell whose control has a note beneath it, such as what saving it
+    /// empty will do. The note is announced with the control.
+    pub fn hinted_cell<Control: IntoView + 'static>(
+        &self,
+        key: &'static str,
+        control: impl FnOnce() -> Control,
+        hint: impl Fn() -> Option<AnyView> + Send + Sync + 'static,
+    ) -> LineCell {
+        (key, self.labelled(key, control, Some(ViewFn::from(hint))))
     }
 
     #[must_use]
@@ -209,7 +221,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
         self.calculated_keys.update(|keys| {
             keys.insert(key);
         });
-        let control = self.labelled(key, override_control);
+        let control = self.labelled(key, override_control, None);
         let override_class = icon_button_class(ButtonTone::Ghost, ButtonSize::Dense);
         let reset_class = override_class.clone();
         let view = view! {
@@ -255,10 +267,14 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
         &self,
         key: &'static str,
         control: impl FnOnce() -> Control,
+        hint: Option<ViewFn>,
     ) -> AnyView {
         let field_number = ElementKey::next();
         let control_id = format!("line-cell-{field_number}");
         let label_id = format!("line-cell-{field_number}-label");
+        let hint_id = hint
+            .as_ref()
+            .map(|_| format!("line-cell-{field_number}-hint"));
         let touched = self.touched;
         let issues = self.issues;
         let invalid = Signal::derive(move || {
@@ -269,10 +285,17 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
             provide_context(FieldElementIds {
                 control: control_id.clone(),
                 label: label_id.clone(),
-                description: None,
+                description: hint_id.clone(),
                 invalid,
             });
             control().into_any()
+        });
+        let hint_view = hint.zip(hint_id).map(|(hint, id)| {
+            view! {
+                <p id=id class=HINT_CLASS>
+                    {move || hint.run()}
+                </p>
+            }
         });
         view! {
             <label id=label_id for=control_id class="sr-only">
@@ -288,6 +311,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
                 }
             >
                 {control_view}
+                {hint_view}
             </div>
         }
         .into_any()

@@ -16,7 +16,7 @@ mod url_query;
 pub use cell_editor::CellEditor;
 pub use cell_value::{Align, CellValue};
 pub use column::{Column, ColumnTotal};
-pub use data_table::{DataTable, RowAttribute, RowReplacement, RowView, Search};
+pub use data_table::{DataTable, RowAttribute, RowReplacement, RowView, Search, BODY_HEIGHT_CLASS};
 pub use layout::{Layout, ServerLayout};
 pub use line_items::{
     CalculatedField, LineCell, LineFix, LineForm, LineIssue, LineItems, LineSave,
