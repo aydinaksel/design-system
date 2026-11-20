@@ -144,6 +144,14 @@ pub(crate) fn menus() -> AnyView {
                         Signal::derive(|| "data:text/plain,component%20gallery".to_string()),
                     ),
                     MenuItem::action("Email", LucideGlyph::Mail, choose("Email")).disabled(true),
+                    MenuItem::action(
+                        "Copy for Email",
+                        LucideGlyph::Copy,
+                        choose("Copy for Email"),
+                    )
+                    .unavailable_while(Signal::stored(Some(
+                        "Narrow the list to 50 rows or fewer to copy it.".to_owned(),
+                    ))),
                 ],
             },
             MenuEntry::Separator,

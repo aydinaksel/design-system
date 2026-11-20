@@ -221,7 +221,7 @@ pub fn TablesPage() -> impl IntoView {
     let selected_mode = design_system::selected_mode(STONE_MODES);
 
     view! {
-        <ListPage title="Tables" actions=page_actions() views=STONE_VIEWS>
+        <ListPage title="Tables" actions=|()| page_actions() views=STONE_VIEWS>
             {move || stone_list(StoneView::from_key(selected_view.get()), selected_mode.get())}
         </ListPage>
     }

@@ -15,26 +15,26 @@ const ACTIONS_LABEL: &str = "Actions";
 pub fn ListPage(
     #[prop(into)] title: Signal<String>,
     #[prop(optional, into)] description: Option<Signal<String>>,
-    #[prop(optional)] actions: Vec<MenuEntry>,
+    /// Builds the Actions menu. It is asked again whenever something it
+    /// reads changes, so the entries can follow the view the page is on.
+    #[prop(optional, into)]
+    actions: Option<Callback<(), Vec<MenuEntry>>>,
     #[prop(optional)] views: Option<&'static [PageView]>,
     children: Children,
 ) -> impl IntoView {
-    let actions = (!actions.is_empty())
-        .then(|| view! { <DropdownMenu label=ACTIONS_LABEL entries=actions /> }.into_any());
-    let header = match (description, actions) {
-        (Some(description), Some(actions)) => view! {
+    let actions_menu = move || {
+        let entries = actions.map(|actions| actions.run(())).unwrap_or_default();
+        (!entries.is_empty())
+            .then(|| view! { <DropdownMenu label=ACTIONS_LABEL entries=entries /> })
+    };
+    let header = match description {
+        Some(description) => view! {
             <PageHeader title=title description=description>
-                {actions}
+                {actions_menu}
             </PageHeader>
         }
         .into_any(),
-        (Some(description), None) => {
-            view! { <PageHeader title=title description=description /> }.into_any()
-        }
-        (None, Some(actions)) => {
-            view! { <PageHeader title=title>{actions}</PageHeader> }.into_any()
-        }
-        (None, None) => view! { <PageHeader title=title /> }.into_any(),
+        None => view! { <PageHeader title=title>{actions_menu}</PageHeader> }.into_any(),
     };
     let tabs = views.map(|views| ViewFn::from(move || view! { <ViewTabs views=views /> }));
     view! { <main>{banded_page(header, tabs, children().into_any())}</main> }.into_any()

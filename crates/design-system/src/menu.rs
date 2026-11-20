@@ -21,6 +21,8 @@ pub(crate) const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer 
 const DANGER_ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-red-700 focus:bg-red-50 focus:text-red-800 focus:outline-none";
 const DANGER_ICON_CLASS: &str = "h-4 w-4 shrink-0 text-red-500 group-focus:text-red-600";
 const DISABLED_ITEM_CLASS: &str = "flex w-full cursor-not-allowed items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-gray-700 opacity-50";
+const DISABLED_REASON_CLASS: &str =
+    "max-w-64 whitespace-normal px-3 pb-1.5 pl-9 text-xs text-gray-500";
 pub(crate) const ICON_CLASS: &str = "h-4 w-4 shrink-0 text-gray-400 group-focus:text-gray-600";
 const SHORTCUT_CLASS: &str =
     "invisible ml-auto pl-6 font-sans text-xs text-gray-500 group-focus:visible";
@@ -37,15 +39,18 @@ const ANCHORING: Anchoring = Anchoring {
 const TRIGGER_OPEN_CLASS: &str = "aria-expanded:bg-gray-100";
 pub(crate) const TYPEAHEAD_RESET_DELAY_MILLISECONDS: f64 = 350.0;
 
+#[derive(Clone)]
 pub struct MenuItem {
     label: &'static str,
     glyph: icons::LucideGlyph,
     target: MenuTarget,
     shortcut: Option<&'static str>,
-    disabled: bool,
+    disabled: Signal<bool>,
+    reason_unavailable: Signal<Option<String>>,
     danger: bool,
 }
 
+#[derive(Clone)]
 enum MenuTarget {
     Action(Arc<dyn Fn() + Send + Sync>),
     Download(Signal<String>),
@@ -95,8 +100,25 @@ impl MenuItem {
     }
 
     #[must_use]
-    pub fn disabled(self, disabled: bool) -> Self {
-        Self { disabled, ..self }
+    pub fn disabled(self, disabled: impl Into<Signal<bool>>) -> Self {
+        Self {
+            disabled: disabled.into(),
+            ..self
+        }
+    }
+
+    /// Disables the item while there is a reason, and shows the reason
+    /// beneath it so the user knows what would make it available.
+    #[must_use]
+    pub fn unavailable_while(self, reason: impl Into<Signal<Option<String>>>) -> Self {
+        Self {
+            reason_unavailable: reason.into(),
+            ..self
+        }
+    }
+
+    fn is_disabled(&self) -> bool {
+        self.disabled.get() || self.reason_unavailable.with(Option::is_some)
     }
 
     #[must_use]
@@ -121,7 +143,8 @@ impl MenuItem {
             glyph,
             target,
             shortcut: None,
-            disabled: false,
+            disabled: Signal::stored(false),
+            reason_unavailable: Signal::stored(None),
             danger: false,
         }
     }
@@ -619,16 +642,32 @@ pub(crate) fn focus_on_hover(event: &MouseEvent) {
 }
 
 fn menu_item(state: MenuState, item: MenuItem) -> AnyView {
+    (move || {
+        if item.is_disabled() {
+            disabled_menu_item(&item)
+        } else {
+            enabled_menu_item(state, item.clone())
+        }
+    })
+    .into_any()
+}
+
+fn disabled_menu_item(item: &MenuItem) -> AnyView {
+    let reason = item.reason_unavailable.get().map(|reason| {
+        view! { <p class=DISABLED_REASON_CLASS>{reason}</p> }
+    });
+    view! {
+        <div role="menuitem" aria-disabled="true">
+            <div class=DISABLED_ITEM_CLASS>{item_content(item)}</div>
+            {reason}
+        </div>
+    }
+    .into_any()
+}
+
+fn enabled_menu_item(state: MenuState, item: MenuItem) -> AnyView {
     let content = item_content(&item);
     let class = item.class();
-    if item.disabled {
-        return view! {
-            <div role="menuitem" aria-disabled="true" class=DISABLED_ITEM_CLASS>
-                {content}
-            </div>
-        }
-        .into_any();
-    }
     match item.target {
         MenuTarget::Action(on_select) => view! {
             <button
