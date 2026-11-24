@@ -17,10 +17,11 @@ check:
         --target wasm32-unknown-unknown --target-dir target/front \
         -- --deny warnings
 
-stress seed=`date +%s`:
+stress seed=`date +%s` *flags='':
     #!/usr/bin/env bash
     set -euo pipefail
     cargo leptos build -p component-gallery
+    cargo build -p stress
     mkdir -p target/stress
     server_log=target/stress/server.log
     LEPTOS_SITE_ROOT=target/site LEPTOS_SITE_PKG_DIR=pkg LEPTOS_OUTPUT_NAME=component-gallery \
@@ -30,7 +31,7 @@ stress seed=`date +%s`:
     trap 'kill "$server" 2>/dev/null' EXIT
     until curl --silent --output /dev/null http://127.0.0.1:3099/; do sleep 1; done
     stress_result=0
-    env --unset=LD_LIBRARY_PATH python3 stress/stress.py http://127.0.0.1:3099 "{{seed}}" || stress_result=$?
+    env --unset=LD_LIBRARY_PATH target/debug/stress http://127.0.0.1:3099 "{{seed}}" {{flags}} || stress_result=$?
     if grep --quiet panicked "$server_log"; then
         grep --after-context=3 panicked "$server_log"
         echo "the server panicked under stress (seed {{seed}}), see $server_log"

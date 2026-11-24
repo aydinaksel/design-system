@@ -65,7 +65,6 @@
             wasmBindgenCli
             pkgs.binaryen
             pkgs.curl
-            (pkgs.python3.withPackages (packages: [ packages.playwright ]))
           ]
           ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.chromium ];
           STRESS_CHROMIUM = pkgs.lib.optionalString pkgs.stdenv.isLinux "${pkgs.chromium}/bin/chromium";

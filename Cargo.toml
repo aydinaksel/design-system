@@ -4,6 +4,7 @@ members = [
     "crates/design-system",
     "crates/table-query",
     "crates/component-gallery",
+    "crates/stress",
 ]
 
 [workspace.lints.rust]
