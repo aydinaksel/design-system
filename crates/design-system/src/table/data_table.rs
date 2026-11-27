@@ -292,8 +292,7 @@ pub fn DataTable<Row>(
     #[prop(optional)] server: Option<ServerRows>,
     #[prop(optional)] layout: Layout<Row>,
     #[prop(optional)] sticky_first_column: bool,
-    #[prop(optional, into)]
-    column_choices: MaybeProp<String>,
+    #[prop(optional, into)] column_choices: MaybeProp<String>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
