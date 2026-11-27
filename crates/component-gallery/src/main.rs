@@ -2,11 +2,15 @@
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use axum::http::header::CONTENT_TYPE;
+    use axum::http::StatusCode;
     use axum::routing::get;
     use axum::Router;
     use component_gallery::app::{shell, App, FAVICON_PATH};
+    use component_gallery::deliberate_failure::{
+        DELIBERATE_FAILURE_HEADER, DELIBERATE_FAILURE_VALUE,
+    };
     use component_gallery::pages::articles::RECEIVE_SCREEN_PATH;
-    use component_gallery::pages::files::SAMPLE_PDF_PATH;
+    use component_gallery::pages::files::{MISSING_IMAGE_PATH, SAMPLE_PDF_PATH};
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use tracing::{event, Level};
@@ -36,6 +40,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route(
             RECEIVE_SCREEN_PATH,
             get(move || async move { ([(CONTENT_TYPE, "image/svg+xml")], receive_screen.as_slice()) }),
+        )
+        .route(
+            MISSING_IMAGE_PATH,
+            get(|| async {
+                (
+                    StatusCode::NOT_FOUND,
+                    [(DELIBERATE_FAILURE_HEADER, DELIBERATE_FAILURE_VALUE)],
+                )
+            }),
         )
         .route(
             FAVICON_PATH,

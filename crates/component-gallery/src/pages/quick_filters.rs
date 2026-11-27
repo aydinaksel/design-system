@@ -21,6 +21,7 @@ pub async fn load_filtered_stone_page(
     ))
     .await;
     if fails {
+        crate::deliberate_failure::mark_response_as_deliberate_failure();
         return Err(ServerFnError::new("the stone database did not answer"));
     }
     Ok(crate::fake_data::generated::page(

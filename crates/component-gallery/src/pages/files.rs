@@ -13,7 +13,7 @@ use super::section;
 use crate::fake_data::swatch;
 
 pub const SAMPLE_PDF_PATH: &str = "/gallery-files/sample-delivery-note.pdf";
-const MISSING_IMAGE_PATH: &str = "/gallery-files/missing-photo.jpg";
+pub const MISSING_IMAGE_PATH: &str = "/gallery-files/missing-photo.jpg";
 const SAMPLE_CSV_URL: &str = "data:text/csv,crate,sku,pieces%0A1,TRVT-024,48%0A2,GRNT-076,32";
 
 fn added(file: StoredFile, size_bytes: u64, added_by: &str, day: u32) -> StoredFile {

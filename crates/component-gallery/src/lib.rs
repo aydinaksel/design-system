@@ -1,5 +1,6 @@
 pub mod app;
 pub mod contents;
+pub mod deliberate_failure;
 pub mod fake_data;
 pub mod layout;
 pub mod pages;

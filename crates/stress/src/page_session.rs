@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams;
 use chromiumoxide::cdp::browser_protocol::network::{
     EventLoadingFailed, EventLoadingFinished, EventRequestWillBeSent, EventResponseReceived,
-    RequestId,
+    RequestId, Response,
 };
 use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
 use chromiumoxide::cdp::js_protocol::runtime::{
@@ -23,6 +23,7 @@ const SETTLE_POLL_MILLISECONDS: u64 = 20;
 const SETTLE_TIMEOUT_MILLISECONDS: u64 = 3_000;
 const FRAME_WAIT_TIMEOUT_MILLISECONDS: u64 = 1_000;
 const FIRST_FAILING_STATUS: i64 = 400;
+const DELIBERATE_FAILURE_HEADER: &str = "x-deliberate-failure";
 const DEVICE_SCALE_FACTOR: f64 = 1.0;
 const FULL_STACK_TRACES_SCRIPT: &str = "Error.stackTraceLimit = 200;";
 const HYDRATED_SCRIPT: &str = "document.documentElement.hasAttribute('data-hydrated')";
@@ -192,6 +193,14 @@ fn record(errors: &ErrorLog, error: String) {
     }
 }
 
+fn is_deliberate_failure(response: &Response) -> bool {
+    response.headers.inner().as_object().is_some_and(|headers| {
+        headers
+            .keys()
+            .any(|name| name.eq_ignore_ascii_case(DELIBERATE_FAILURE_HEADER))
+    })
+}
+
 fn update_activity(activity: &SharedActivity, update: impl FnOnce(&mut HashSet<RequestId>)) {
     if let Ok(mut activity) = activity.lock() {
         activity.change(update);
@@ -249,7 +258,7 @@ async fn log_failed_responses(page: &Page, errors: ErrorLog) -> Result<JoinHandl
     Ok(tokio::spawn(async move {
         while let Some(event) = events.next().await {
             let response = &event.response;
-            if response.status >= FIRST_FAILING_STATUS {
+            if response.status >= FIRST_FAILING_STATUS && !is_deliberate_failure(response) {
                 let status = response.status;
                 let url = &response.url;
                 record(&errors, format!("failed request: {status} for {url}"));
