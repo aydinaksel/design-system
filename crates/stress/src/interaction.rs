@@ -8,6 +8,7 @@ use crate::page_session::{PageSession, Viewport};
 const ACTION_GUARD_MILLISECONDS: u64 = 3_000;
 const SHRINK_BUDGET_SECONDS: u64 = 180;
 const STACK_TRACE_MARKER: &str = "\n\nStack:";
+const STACK_FRAME_MARKER: &str = "\n    at ";
 const APP_CRATES: [&str; 2] = ["design_system::", "component_gallery::"];
 const SYMBOL_HASH_MARKER: &str = "::h";
 const SOURCE_LOCATION_MARKER: &str = " (";
@@ -29,10 +30,12 @@ pub struct Failure {
 
 impl Failure {
     fn signature(&self) -> &str {
-        self.error
+        let message = self
+            .error
             .split(STACK_TRACE_MARKER)
             .next()
-            .unwrap_or(&self.error)
+            .unwrap_or(&self.error);
+        message.split(STACK_FRAME_MARKER).next().unwrap_or(message)
     }
 
     pub fn summary(&self) -> String {
@@ -250,6 +253,15 @@ mod tests {
             failure.summary(),
             "panicked at a.rs:1\n    in the app's own code, innermost first:\n      design_system::listbox::__component_listbox::{{closure}}"
         );
+    }
+
+    #[test]
+    fn signature_of_an_exception_stops_at_its_first_frame() {
+        let failure = failure_after(
+            1,
+            "page error: RuntimeError: unreachable\n    at component_gallery.wasm.__rust_abort (http://x/pkg/app.wasm:1:2)",
+        );
+        assert_eq!(failure.signature(), "page error: RuntimeError: unreachable");
     }
 
     #[test]
