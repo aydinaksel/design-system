@@ -288,6 +288,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
             label: label_id.clone(),
             description: hint_id.clone(),
             invalid,
+            interacted: None,
         };
         let hint_view = hint.zip(hint_id).map(|(hint, id)| {
             view! {

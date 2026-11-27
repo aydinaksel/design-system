@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use leptos::context::Provider;
-use leptos::ev::{BeforeUnloadEvent, KeyboardEvent, MouseEvent};
+use leptos::ev::{BeforeUnloadEvent, KeyboardEvent, MouseEvent, SubmitEvent};
 use leptos::html::{Button, Div, Section};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
@@ -17,9 +17,9 @@ use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::confirm_dialog::ConfirmDialog;
 use crate::controls::FieldElementIds;
 use crate::editing::{
-    focus_first, focus_is_within_or_lost, saves_on_enter, timer, FieldSave, PendingSave,
-    SaveOutcome, ATTENTION_MILLISECONDS, FIRST_CONTROL_SELECTOR, FIRST_INVALID_CONTROL_SELECTOR,
-    SAVED_HIGHLIGHT_MILLISECONDS,
+    focus_first, focus_is_within_or_lost, pressed_on_a_select, submit_without_reloading, timer,
+    FieldSave, PendingSave, SaveOutcome, ATTENTION_MILLISECONDS, FIRST_CONTROL_SELECTOR,
+    FIRST_INVALID_CONTROL_SELECTOR, SAVED_HIGHLIGHT_MILLISECONDS,
 };
 use crate::element_key::ElementKey;
 use crate::field_actions::{field_actions_view, FieldAction};
@@ -473,7 +473,7 @@ impl EditSession {
             return;
         }
         match event.key().as_str() {
-            "Enter" if saves_on_enter(event) => {
+            "Enter" if pressed_on_a_select(event) => {
                 event.prevent_default();
                 self.save();
             }
@@ -602,10 +602,9 @@ fn editing_footer(session: EditSession) -> AnyView {
                     "Cancel"
                 </button>
                 <button
-                    type="button"
+                    type="submit"
                     class=button_class(ButtonTone::Primary, ButtonSize::Compact)
                     aria-disabled=move || saving().to_string()
-                    on:click=move |_| session.save()
                 >
                     "Save"
                 </button>
@@ -750,6 +749,13 @@ pub fn FieldSection(
             if loading.get() { "hidden" } else { "" },
         )
     };
+    let on_submit = move |event: SubmitEvent| {
+        submit_without_reloading(&event, || {
+            if let Some(session) = session {
+                session.save();
+            }
+        });
+    };
     let on_keydown = move |event: KeyboardEvent| {
         if let Some(session) = session {
             session.on_keydown(&event);
@@ -767,7 +773,7 @@ pub fn FieldSection(
             {move || {
                 loading.get().then(|| view! { <LoadingState class=SECTION_LOADING_HEIGHT_CLASS /> })
             }}
-            <div class=card_class>
+            <form class=card_class novalidate on:submit=on_submit>
                 <div class="relative">
                     <dl
                         aria-busy=move || saving().to_string()
@@ -799,7 +805,7 @@ pub fn FieldSection(
                     </div>
                 </div>
                 {footer}
-            </div>
+            </form>
             {move || {
                 error
                     .get()
@@ -937,8 +943,14 @@ pub fn FieldRow(
     let error = editor
         .as_ref()
         .map_or_else(Signal::default, |editor| editor.error);
+    let interacted = RwSignal::new(false);
+    Effect::new(move |_| {
+        if showing_editor.get() {
+            interacted.set(false);
+        }
+    });
     let visible_error = Signal::derive(move || {
-        if showing_editor.get() && errors_revealed.get() {
+        if showing_editor.get() && (errors_revealed.get() || interacted.get()) {
             error.get()
         } else {
             None
@@ -960,6 +972,7 @@ pub fn FieldRow(
         label: ids.label.clone(),
         description: ids.description(),
         invalid: Signal::derive(move || visible_error.with(Option::is_some)),
+        interacted: Some(interacted),
     };
 
     let changed_when_saved = RwSignal::new(false);
@@ -1002,7 +1015,7 @@ pub fn FieldRow(
                 }>
                     <div class="order-last mt-0.5 @sm:order-none">{revert}</div>
                     <div class="min-w-0 max-w-sm flex-1 text-left">
-                        {editor.view.run()}
+                        {move || showing_editor.get().then(|| editor.view.run())}
                         <p
                             id=error_id
                             class=move || {

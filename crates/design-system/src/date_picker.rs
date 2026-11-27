@@ -3,7 +3,9 @@ use leptos::prelude::*;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::calendar::{weekday_labels, GridDay, Month};
-use crate::controls::{field_control_id, field_description_id, with_field_error};
+use crate::controls::{
+    field_control_id, field_description_id, field_interaction, mark_interacted, with_field_error,
+};
 use crate::icons;
 use crate::popover::{Popover, PopoverContent, PopoverState, PopoverTrigger};
 use crate::tooltip::Tooltip;
@@ -37,6 +39,7 @@ pub fn DatePicker(
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
+    let interacted = field_interaction();
     let popover = PopoverState::new();
     let placeholder = placeholder.unwrap_or_else(|| DEFAULT_PLACEHOLDER.to_owned());
     let clear_label = clear_label.unwrap_or_else(|| DEFAULT_CLEAR_LABEL.to_owned());
@@ -75,7 +78,10 @@ pub fn DatePicker(
                     }
                     aria-label=clear_label.clone()
                     prop:disabled=move || disabled.get()
-                    on:click=move |_| value.set(String::new())
+                    on:click=move |_| {
+                        value.set(String::new());
+                        mark_interacted(interacted);
+                    }
                 >
                     {icons::icon(icons::LucideGlyph::X, "h-4 w-4")}
                 </button>
@@ -101,6 +107,7 @@ pub fn DatePicker(
                         selected_date=selected_date.get_untracked()
                         on_select=Callback::new(move |chosen: NaiveDate| {
                             value.set(chosen.format(DATE_FORMAT).to_string());
+                            mark_interacted(interacted);
                             popover.close();
                         })
                     />

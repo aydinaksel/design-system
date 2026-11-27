@@ -65,6 +65,7 @@ pub fn Field(
         label: label_id.clone(),
         description: description_id.clone(),
         invalid: Signal::default(),
+        interacted: None,
     };
     let description_view = description.map(|description| {
         view! {

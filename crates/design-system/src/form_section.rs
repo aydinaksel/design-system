@@ -1,8 +1,10 @@
 use leptos::context::Provider;
+use leptos::ev::SubmitEvent;
 use leptos::prelude::*;
 
 use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::controls::FieldElementIds;
+use crate::editing::submit_without_reloading;
 use crate::element_key::ElementKey;
 use crate::fields::{
     ALIGNED_WITH_CONTROL_TEXT_CLASS, LABEL_COLUMN_CLASS, ROW_CLASS, SECTION_WIDTH_CLASS,
@@ -73,23 +75,28 @@ pub fn FormSection(
     view! {
         <section aria-labelledby=heading_id class=SECTION_WIDTH_CLASS>
             {heading}
-            <div class=CARD_CLASS>
+            <form
+                class=CARD_CLASS
+                novalidate
+                on:submit=move |event: SubmitEvent| {
+                    submit_without_reloading(&event, || on_submit.run(()));
+                }
+            >
                 <div>{children()}</div>
                 <div class=FOOTER_CLASS>
                     <div aria-live="polite">{error_text}</div>
                     <div class="ml-auto flex gap-2">
                         {cancel}
                         <button
-                            type="button"
+                            type="submit"
                             class=button_class(ButtonTone::Primary, FOOTER_BUTTON_SIZE)
                             disabled=move || incomplete.get() || submitting.get()
-                            on:click=move |_| on_submit.run(())
                         >
                             {submit_text}
                         </button>
                     </div>
                 </div>
-            </div>
+            </form>
         </section>
     }
     .into_any()
@@ -114,6 +121,7 @@ pub fn FormRow(
         label: label_id.clone(),
         description: help_id.clone(),
         invalid: Signal::default(),
+        interacted: None,
     };
     let label_text = match help.zip(help_id) {
         Some((help, help_id)) => view! {

@@ -2,14 +2,17 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use leptos::ev::{Event, KeyboardEvent, MouseEvent};
+use leptos::ev::{Event, FocusEvent, KeyboardEvent, MouseEvent};
 use leptos::html::Input;
 use leptos::prelude::*;
 
 use crate::focus_loss::while_mounted;
 
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
-use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
+use crate::controls::{
+    field_control_id, field_description_id, field_interaction, mark_interacted,
+    user_validity_handler, with_field_error, CONTROL_CLASS,
+};
 use crate::element_key::ElementKey;
 use crate::icons;
 use crate::listbox::{LISTBOX_PANEL_ALIGNMENT, LISTBOX_PANEL_CLASS, LISTBOX_PANEL_GAP_PIXELS};
@@ -370,6 +373,8 @@ pub fn Combobox(
     #[prop(optional, into)] label: Option<String>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
+    let interacted = field_interaction();
+    let on_user_validity = user_validity_handler(interacted);
     let combobox_number = ElementKey::next();
     let listbox_id = format!("combobox-{combobox_number}-listbox");
     let option_id = move |index: usize| format!("combobox-{combobox_number}-option-{index}");
@@ -465,6 +470,7 @@ pub fn Combobox(
     };
 
     let select = move |option: ComboboxOption| {
+        mark_interacted(interacted);
         query.set(option.display());
         selected_value.set(option.value);
         selected_label.set(option.label);
@@ -672,7 +678,10 @@ pub fn Combobox(
                             search(String::new());
                         }
                     }
-                    on:blur=while_mounted(move |_| leave())
+                    on:blur=while_mounted(move |event: FocusEvent| {
+                        on_user_validity(&event);
+                        leave();
+                    })
                 />
                 {move || {
                     (!selected_value.get().is_empty())

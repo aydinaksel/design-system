@@ -1,9 +1,13 @@
-use leptos::ev::Event;
+use leptos::ev::{Event, FocusEvent};
 use leptos::html::Textarea;
 use leptos::prelude::*;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
-use crate::controls::{field_control_id, field_description_id, with_field_error};
+use crate::controls::{
+    field_control_id, field_description_id, field_interaction, user_validity_handler,
+    with_field_error,
+};
+use crate::focus_loss::while_mounted;
 use crate::icons;
 use crate::markdown::MarkdownText;
 use crate::tooltip::Tooltip;
@@ -197,6 +201,8 @@ pub fn MarkdownEditor(
     #[prop(optional, into)] invalid: Signal<bool>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
+    let on_user_validity = user_validity_handler(field_interaction());
+    let on_leave = on_user_validity.clone();
     let previewing = RwSignal::new(false);
     let textarea: NodeRef<Textarea> = NodeRef::new();
     let writing = Signal::derive(move || !previewing.get());
@@ -228,6 +234,8 @@ pub fn MarkdownEditor(
                 placeholder=placeholder
                 prop:value=move || value.get()
                 on:input=move |event: Event| value.set(event_target_value(&event))
+                on:change=move |event: Event| on_user_validity(&event)
+                on:blur=while_mounted(move |event: FocusEvent| on_leave(&event))
             ></textarea>
             <div class=PREVIEW_CLASS class:hidden=move || !previewing.get()>
                 {preview}

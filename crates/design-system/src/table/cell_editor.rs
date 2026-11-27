@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
 use leptos::context::Provider;
-use leptos::ev::KeyboardEvent;
-use leptos::html::Div;
+use leptos::ev::{KeyboardEvent, SubmitEvent};
+use leptos::html::Form;
 use leptos::prelude::*;
 
 use crate::alert::Alert;
 use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::controls::{FieldElementIds, Input};
 use crate::editing::{
-    focus_first, saves_on_enter, timer, FieldSave, PendingSave, SaveOutcome,
-    FIRST_INVALID_CONTROL_SELECTOR, SAVED_HIGHLIGHT_MILLISECONDS,
+    focus_first, pressed_on_a_select, submit_without_reloading, timer, FieldSave, PendingSave,
+    SaveOutcome, FIRST_INVALID_CONTROL_SELECTOR, SAVED_HIGHLIGHT_MILLISECONDS,
 };
 use crate::element_key::ElementKey;
 use crate::popover::{
@@ -142,7 +142,7 @@ where
         let errors_revealed = RwSignal::new(false);
         let failure: RwSignal<Option<String>> = RwSignal::new(None);
         let flashing = RwSignal::new(false);
-        let content: NodeRef<Div> = NodeRef::new();
+        let content: NodeRef<Form> = NodeRef::new();
         let pending = PendingSave::new();
         let start_flash_timer = timer(move || flashing.set(false), SAVED_HIGHLIGHT_MILLISECONDS);
 
@@ -154,8 +154,9 @@ where
         let error = Signal::derive(move || {
             normalized.with(|value| validate.with_value(|validate| validate(value)))
         });
+        let interacted = RwSignal::new(false);
         let visible_error = Signal::derive(move || {
-            if errors_revealed.get() {
+            if errors_revealed.get() || interacted.get() {
                 error.get()
             } else {
                 None
@@ -172,6 +173,7 @@ where
         let begin = Callback::new(move |()| {
             draft.set(displayed.get_untracked());
             errors_revealed.set(false);
+            interacted.set(false);
             failure.set(None);
         });
         let save = move || {
@@ -223,7 +225,7 @@ where
         );
 
         let on_keydown = move |event: KeyboardEvent| {
-            if event.key() == "Enter" && !event.default_prevented() && saves_on_enter(&event) {
+            if event.key() == "Enter" && !event.default_prevented() && pressed_on_a_select(&event) {
                 event.prevent_default();
                 save();
             }
@@ -272,6 +274,7 @@ where
             label: ids.control.clone(),
             description: Some(ids.description.clone()),
             invalid: Signal::derive(move || visible_error.with(Option::is_some)),
+            interacted: Some(interacted),
         });
         let ids = StoredValue::new(ids);
 
@@ -281,7 +284,12 @@ where
                     {trigger_content}
                 </PopoverTrigger>
                 <PopoverContent class=CONTENT_WIDTH_CLASS>
-                    <div node_ref=content on:keydown=on_keydown>
+                    <form
+                        node_ref=content
+                        novalidate
+                        on:keydown=on_keydown
+                        on:submit=move |event: SubmitEvent| submit_without_reloading(&event, save)
+                    >
                         <PopoverHeader>
                             <PopoverTitle control=ids
                                 .with_value(|ids| {
@@ -316,15 +324,14 @@ where
                                 "Cancel"
                             </button>
                             <button
-                                type="button"
+                                type="submit"
                                 class=button_class(ButtonTone::Primary, ButtonSize::Compact)
                                 aria-disabled=move || saving.get().to_string()
-                                on:click=move |_| save()
                             >
                                 {move || if saving.get() { "Saving\u{2026}" } else { "Save" }}
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </PopoverContent>
             </Popover>
         }

@@ -1,4 +1,9 @@
+use leptos::ev::Event;
 use leptos::prelude::*;
+use leptos::wasm_bindgen::JsCast;
+use leptos::web_sys::Element;
+
+use crate::focus_loss::while_mounted;
 
 pub(crate) const CONTROL_CLASS: &str = "block w-full rounded-lg border border-control-edge bg-surface px-3 py-1.75 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 hover:border-control-edge-hover focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-500 aria-[invalid=true]:focus:ring-red-500";
 
@@ -8,7 +13,10 @@ pub(crate) struct FieldElementIds {
     pub(crate) label: String,
     pub(crate) description: Option<String>,
     pub(crate) invalid: Signal<bool>,
+    pub(crate) interacted: Option<RwSignal<bool>>,
 }
+
+const USER_VALIDITY_SELECTOR: &str = ":user-valid, :user-invalid";
 
 pub(crate) fn field_control_id() -> Option<String> {
     use_context::<FieldElementIds>().map(|ids| ids.control)
@@ -20,6 +28,32 @@ pub(crate) fn field_label_id() -> Option<String> {
 
 pub(crate) fn field_description_id() -> Option<String> {
     use_context::<FieldElementIds>().and_then(|ids| ids.description)
+}
+
+pub(crate) fn field_interaction() -> Option<RwSignal<bool>> {
+    use_context::<FieldElementIds>().and_then(|ids| ids.interacted)
+}
+
+pub(crate) fn mark_interacted(interacted: Option<RwSignal<bool>>) {
+    if let Some(interacted) = interacted {
+        interacted.try_set(true);
+    }
+}
+
+fn follow_user_validity(interacted: Option<RwSignal<bool>>, event: &Event) {
+    let has_user_validity = event
+        .target()
+        .and_then(|target| target.dyn_into::<Element>().ok())
+        .is_some_and(|element| element.matches(USER_VALIDITY_SELECTOR).unwrap_or(false));
+    if has_user_validity {
+        mark_interacted(interacted);
+    }
+}
+
+pub(crate) fn user_validity_handler(
+    interacted: Option<RwSignal<bool>>,
+) -> impl Fn(&Event) + Clone + 'static {
+    move |event: &Event| follow_user_validity(interacted, event)
 }
 
 pub(crate) fn with_field_error(invalid: Signal<bool>) -> Signal<bool> {
@@ -74,6 +108,8 @@ pub fn Input(
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
+    let on_user_validity = user_validity_handler(field_interaction());
+    let on_leave = on_user_validity.clone();
     view! {
         <input
             data-autofocus=autofocus.then_some("")
@@ -89,6 +125,8 @@ pub fn Input(
             prop:value=move || value.get()
             prop:disabled=move || disabled.get()
             on:input=move |event| value.set(event_target_value(&event))
+            on:change=move |event: Event| on_user_validity(&event)
+            on:blur=while_mounted(move |event: leptos::ev::FocusEvent| on_leave(&event))
         />
     }
     .into_any()
@@ -109,6 +147,8 @@ pub fn Textarea(
     #[prop(optional, into)] disabled: Signal<bool>,
 ) -> impl IntoView {
     let invalid = with_field_error(invalid);
+    let on_user_validity = user_validity_handler(field_interaction());
+    let on_leave = on_user_validity.clone();
     view! {
         <textarea
             id=field_control_id()
@@ -120,6 +160,8 @@ pub fn Textarea(
             prop:value=move || value.get()
             prop:disabled=move || disabled.get()
             on:input=move |event| value.set(event_target_value(&event))
+            on:change=move |event: Event| on_user_validity(&event)
+            on:blur=while_mounted(move |event: leptos::ev::FocusEvent| on_leave(&event))
         ></textarea>
     }
     .into_any()

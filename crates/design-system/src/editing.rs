@@ -1,4 +1,4 @@
-use leptos::ev::KeyboardEvent;
+use leptos::ev::{KeyboardEvent, SubmitEvent};
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::{Element, HtmlElement, Node};
@@ -127,16 +127,19 @@ pub(crate) fn timer(
     Callback::new(move |()| start(()))
 }
 
-pub(crate) fn saves_on_enter(event: &KeyboardEvent) -> bool {
-    let Some(element) = event
+pub(crate) fn pressed_on_a_select(event: &KeyboardEvent) -> bool {
+    event
         .target()
         .and_then(|target| target.dyn_into::<Element>().ok())
-    else {
-        return false;
-    };
-    let tag = element.tag_name().to_ascii_lowercase();
-    let is_select = element.get_attribute("role").as_deref() == Some("combobox");
-    tag == "input" || (tag == "button" && is_select)
+        .is_some_and(|element| {
+            element.tag_name().eq_ignore_ascii_case("button")
+                && element.get_attribute("role").as_deref() == Some("combobox")
+        })
+}
+
+pub(crate) fn submit_without_reloading(event: &SubmitEvent, save: impl FnOnce()) {
+    event.prevent_default();
+    save();
 }
 
 pub(crate) fn focus_first(container: &Element, selector: &str) {

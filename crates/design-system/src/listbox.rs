@@ -5,7 +5,10 @@ use leptos::prelude::*;
 use crate::focus_loss::while_mounted;
 use leptos_use_timeout_fn::use_timeout_fn;
 
-use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
+use crate::controls::{
+    field_control_id, field_description_id, field_interaction, mark_interacted, with_field_error,
+    CONTROL_CLASS,
+};
 use crate::element_key::ElementKey;
 use crate::icons;
 use crate::menu::{
@@ -105,12 +108,14 @@ pub fn Listbox(
         open.set(false);
         highlighted.set(None);
     };
+    let interacted = field_interaction();
     let choose = move |index: Option<usize>| {
         let chosen = index.and_then(|position| {
             options.with_untracked(|all| all.get(position).map(|option| option.value.clone()))
         });
         if let Some(value) = chosen {
             selected.set(value);
+            mark_interacted(interacted);
         }
         close();
     };
