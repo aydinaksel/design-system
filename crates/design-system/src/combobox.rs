@@ -12,15 +12,12 @@ use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
 use crate::element_key::ElementKey;
 use crate::icons;
-use crate::listbox::{LISTBOX_ANCHORING, LISTBOX_PANEL_CLASS, LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS};
+use crate::listbox::{LISTBOX_PANEL_ALIGNMENT, LISTBOX_PANEL_CLASS, LISTBOX_PANEL_GAP_PIXELS};
 use crate::menu::{moved_position, Movement};
-use crate::placement::{AnchoredPanel, Anchoring};
+use crate::native_popover::{LightDismiss, NativePopover, PANEL_MOTION_CLASS};
 use crate::tooltip::Tooltip;
 
-const ANCHORING: Anchoring = Anchoring {
-    reserved_height_pixels: LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS,
-    ..LISTBOX_ANCHORING
-};
+const LIGHT_DISMISS: LightDismiss = LightDismiss::Off;
 const DEBOUNCE_MILLISECONDS: f64 = 300.0;
 const MINIMUM_SEARCH_CHARS: usize = 2;
 const OPTION_CLASS: &str =
@@ -389,13 +386,17 @@ pub fn Combobox(
     let open = RwSignal::new(false);
     let highlighted: RwSignal<Option<usize>> = RwSignal::new(None);
     let latest_request = StoredValue::new(0_u64);
-    let panel = AnchoredPanel::new();
+    let panel_shown = RwSignal::new(false);
+    let panel = NativePopover::new(panel_shown);
     let input: NodeRef<Input> = NodeRef::new();
-    panel.follow(
-        open.into(),
-        move || input.get_untracked().map(Into::into),
-        ANCHORING,
-    );
+    Effect::new(move |_| {
+        let has_rows = match results.get() {
+            Results::Idle => false,
+            Results::Searching => true,
+            Results::Loaded(groups) => !(lacks_options(&groups) && showing_suggestions.get()),
+        };
+        panel_shown.set(open.get() && has_rows);
+    });
 
     Effect::new(move |_| {
         let selection = display.selection(&selected_value.get(), &selected_label.get());
@@ -411,7 +412,6 @@ pub fn Combobox(
     let close = move || {
         open.set(false);
         highlighted.set(None);
-        panel.unplace();
     };
 
     let opens_on_focus = source.opens_on_focus();
@@ -643,6 +643,7 @@ pub fn Combobox(
                 <input
                     type="text"
                     node_ref=input
+                    style=panel.trigger_style()
                     id=field_control_id()
                     aria-describedby=field_description_id()
                     aria-label=label
@@ -695,46 +696,44 @@ pub fn Combobox(
                         })
                 }}
             </div>
-            {move || {
-                if !open.get() {
-                    return ().into_any();
-                }
-                let rows = match results.get() {
-                    Results::Idle => return ().into_any(),
-                    Results::Searching => {
-                        view! {
-                            <div class=format!(
-                                "flex items-center gap-2 {MESSAGE_CLASS}",
-                            )>{icons::spinner("h-4 w-4")} "Searching\u{2026}"</div>
-                        }
-                            .into_any()
-                    }
-                    Results::Loaded(
-                        groups,
-                    ) if lacks_options(&groups) && showing_suggestions.get() => {
+            <div
+                id=listbox_id.get_value()
+                role="listbox"
+                node_ref=panel.panel
+                popover=LIGHT_DISMISS.popover_attribute()
+                data-popover-panel=LISTBOX_PANEL_ALIGNMENT.attribute()
+                data-matches-trigger-width=""
+                data-keeps-its-side=""
+                class=format!("{LISTBOX_PANEL_CLASS} {PANEL_MOTION_CLASS}")
+                style=panel.panel_style(LISTBOX_PANEL_GAP_PIXELS)
+                on:mousedown=|event: MouseEvent| event.prevent_default()
+                on:mouseleave=move |_| highlighted.set(None)
+            >
+                {move || {
+                    if !panel_shown.get() {
                         return ().into_any();
                     }
-                    Results::Loaded(groups) if lacks_options(&groups) => {
-                        view! { <div class=MESSAGE_CLASS>{empty_message.get_value()}</div> }
-                            .into_any()
+                    match results.get() {
+                        Results::Idle => ().into_any(),
+                        Results::Searching => {
+                            view! {
+                                <div class=format!(
+                                    "flex items-center gap-2 {MESSAGE_CLASS}",
+                                )>{icons::spinner("h-4 w-4")} "Searching\u{2026}"</div>
+                            }
+                                .into_any()
+                        }
+                        Results::Loaded(
+                            groups,
+                        ) if lacks_options(&groups) && showing_suggestions.get() => ().into_any(),
+                        Results::Loaded(groups) if lacks_options(&groups) => {
+                            view! { <div class=MESSAGE_CLASS>{empty_message.get_value()}</div> }
+                                .into_any()
+                        }
+                        Results::Loaded(groups) => group_views(groups).into_any(),
                     }
-                    Results::Loaded(groups) => group_views(groups).into_any(),
-                };
-                view! {
-                    <div
-                        id=listbox_id.get_value()
-                        role="listbox"
-                        node_ref=panel.node
-                        class=LISTBOX_PANEL_CLASS
-                        style=move || panel.style()
-                        on:mousedown=|event: MouseEvent| event.prevent_default()
-                        on:mouseleave=move |_| highlighted.set(None)
-                    >
-                        {rows}
-                    </div>
-                }
-                    .into_any()
-            }}
+                }}
+            </div>
         </div>
     }
     .into_any()

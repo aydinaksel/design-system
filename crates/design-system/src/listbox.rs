@@ -12,17 +12,12 @@ use crate::menu::{
     is_typeahead_key, moved_position, typeahead_position, Movement,
     TYPEAHEAD_RESET_DELAY_MILLISECONDS,
 };
-use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
+use crate::native_popover::{LightDismiss, NativePopover, PanelAlignment, PANEL_MOTION_CLASS};
 
-pub(crate) const LISTBOX_PANEL_MAXIMUM_HEIGHT_PIXELS: f64 = 240.0;
-pub(crate) const LISTBOX_PANEL_CLASS: &str = "fixed z-50 max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-edge bg-surface p-1 text-sm/6 shadow-lg focus:outline-none motion-safe:animate-fade-in";
-pub(crate) const LISTBOX_ANCHORING: Anchoring = Anchoring {
-    alignment: Alignment::Start,
-    side: PreferredSide::Below,
-    gap_pixels: 4.0,
-    matches_trigger_width: true,
-    reserved_height_pixels: 0.0,
-};
+pub(crate) const LISTBOX_PANEL_CLASS: &str = "w-max max-h-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-edge bg-surface p-1 text-sm/6 shadow-lg focus:outline-none";
+pub(crate) const LISTBOX_PANEL_GAP_PIXELS: u32 = 4;
+pub(crate) const LISTBOX_PANEL_ALIGNMENT: PanelAlignment = PanelAlignment::Start;
+const LIGHT_DISMISS: LightDismiss = LightDismiss::ClosesAndBlocksThePage;
 const DEFAULT_PLACEHOLDER: &str = "Select\u{2026}";
 pub(crate) const OPTION_CLASS: &str =
     "flex cursor-pointer select-none items-center gap-2 rounded-lg px-3 py-1.5 text-gray-700";
@@ -79,7 +74,7 @@ pub fn Listbox(
 
     let open = RwSignal::new(false);
     let highlighted: RwSignal<Option<usize>> = RwSignal::new(None);
-    let panel = AnchoredPanel::new();
+    let panel = NativePopover::new(open);
     let trigger: NodeRef<Button> = NodeRef::new();
     let typeahead_query = StoredValue::new(String::new());
     let reset_typeahead = use_timeout_fn(
@@ -87,11 +82,6 @@ pub fn Listbox(
         TYPEAHEAD_RESET_DELAY_MILLISECONDS,
     )
     .start;
-    panel.follow(
-        open.into(),
-        move || trigger.get_untracked().map(Into::into),
-        LISTBOX_ANCHORING,
-    );
 
     let selected_index = move || {
         let current = selected.get_untracked();
@@ -114,7 +104,6 @@ pub fn Listbox(
     let close = move || {
         open.set(false);
         highlighted.set(None);
-        panel.unplace();
     };
     let choose = move |index: Option<usize>| {
         let chosen = index.and_then(|position| {
@@ -210,6 +199,7 @@ pub fn Listbox(
             <button
                 type="button"
                 node_ref=trigger
+                style=panel.trigger_style()
                 id=field_control_id()
                 aria-label=label
                 aria-describedby=field_description_id()
@@ -246,60 +236,66 @@ pub fn Listbox(
                     {icons::icon(icons::LucideGlyph::ChevronsUpDown, "h-4 w-4 text-gray-400")}
                 </span>
             </button>
-            {move || {
-                open.get()
-                    .then(|| {
-                        let rows = options
-                            .get()
-                            .into_iter()
-                            .enumerate()
-                            .map(|(index, option)| {
-                                let is_selected = option.value == selected.get_untracked();
-                                let tick_class = if is_selected {
-                                    "h-4 w-4 shrink-0 text-blue-600"
-                                } else {
-                                    "invisible h-4 w-4 shrink-0"
-                                };
-                                view! {
-                                    <div
-                                        id=option_id(index)
-                                        role="option"
-                                        aria-selected=is_selected.to_string()
-                                        class=move || {
-                                            if highlighted.get() == Some(index) {
-                                                HIGHLIGHTED_OPTION_CLASS
-                                            } else {
-                                                OPTION_CLASS
+            <div
+                id=panel_id.get_value()
+                role="listbox"
+                node_ref=panel.panel
+                popover=LIGHT_DISMISS.popover_attribute()
+                data-blocks-page=LIGHT_DISMISS.blocks_page_attribute()
+                data-popover-panel=LISTBOX_PANEL_ALIGNMENT.attribute()
+                data-matches-trigger-width=""
+                class=format!("{LISTBOX_PANEL_CLASS} {PANEL_MOTION_CLASS}")
+                style=panel.panel_style(LISTBOX_PANEL_GAP_PIXELS)
+                on:toggle=move |_| {
+                    if panel.closed_by_the_browser() {
+                        highlighted.set(None);
+                    }
+                }
+                on:mousedown=|event: MouseEvent| event.prevent_default()
+                on:mouseleave=move |_| highlighted.set(None)
+            >
+                {move || {
+                    open.get()
+                        .then(|| {
+                            options
+                                .get()
+                                .into_iter()
+                                .enumerate()
+                                .map(|(index, option)| {
+                                    let is_selected = option.value == selected.get_untracked();
+                                    let tick_class = if is_selected {
+                                        "h-4 w-4 shrink-0 text-blue-600"
+                                    } else {
+                                        "invisible h-4 w-4 shrink-0"
+                                    };
+                                    view! {
+                                        <div
+                                            id=option_id(index)
+                                            role="option"
+                                            aria-selected=is_selected.to_string()
+                                            class=move || {
+                                                if highlighted.get() == Some(index) {
+                                                    HIGHLIGHTED_OPTION_CLASS
+                                                } else {
+                                                    OPTION_CLASS
+                                                }
                                             }
-                                        }
-                                        on:mousemove=move |_| {
-                                            if highlighted.get_untracked() != Some(index) {
-                                                highlighted.set(Some(index));
+                                            on:mousemove=move |_| {
+                                                if highlighted.get_untracked() != Some(index) {
+                                                    highlighted.set(Some(index));
+                                                }
                                             }
-                                        }
-                                        on:click=move |_| choose(Some(index))
-                                    >
-                                        {icons::icon(icons::LucideGlyph::Check, tick_class)}
-                                        <span class="truncate">{option.label}</span>
-                                    </div>
-                                }
-                            })
-                            .collect::<Vec<_>>();
-                        view! {
-                            <div
-                                id=panel_id.get_value()
-                                role="listbox"
-                                node_ref=panel.node
-                                class=LISTBOX_PANEL_CLASS
-                                style=move || panel.style()
-                                on:mousedown=|event: MouseEvent| event.prevent_default()
-                                on:mouseleave=move |_| highlighted.set(None)
-                            >
-                                {rows}
-                            </div>
-                        }
-                    })
-            }}
+                                            on:click=move |_| choose(Some(index))
+                                        >
+                                            {icons::icon(icons::LucideGlyph::Check, tick_class)}
+                                            <span class="truncate">{option.label}</span>
+                                        </div>
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                }}
+            </div>
         </div>
     }
     .into_any()

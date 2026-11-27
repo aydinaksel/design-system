@@ -48,6 +48,7 @@ pub mod menu;
 pub mod meter;
 pub mod mode_switch;
 pub mod multi_select_list;
+mod native_popover;
 pub mod not_found;
 pub(crate) mod page_band;
 pub mod page_header;
@@ -134,8 +135,8 @@ pub use not_found::NotFoundPage;
 pub use page_header::PageHeader;
 pub use page_section::PageSection;
 pub use popover::{
-    use_popover, Dismissal, Popover, PopoverAlign, PopoverContent, PopoverDescription,
-    PopoverHeader, PopoverState, PopoverTitle, PopoverTrigger,
+    use_popover, Popover, PopoverAlign, PopoverContent, PopoverDescription, PopoverHeader,
+    PopoverState, PopoverTitle, PopoverTrigger,
 };
 pub use qr_code::{qr_code_svg, QrCode, QrCodeButton};
 pub use radio_group::{RadioGroup, RadioLayout, RadioOption};

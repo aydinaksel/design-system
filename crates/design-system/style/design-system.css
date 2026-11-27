@@ -88,6 +88,41 @@
   }
 }
 
+[data-popover-panel] {
+  inset: auto;
+  margin: 0;
+  margin-block-start: var(--popover-gap, 0px);
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+}
+
+[data-popover-panel="below-start"] {
+  position-area: block-end span-inline-end;
+}
+
+[data-popover-panel="below-center"] {
+  position-area: block-end;
+}
+
+[data-popover-panel="below-end"] {
+  position-area: block-end span-inline-start;
+}
+
+[data-popover-panel][data-matches-trigger-width] {
+  min-width: anchor-size(width);
+}
+
+[data-popover-panel][data-keeps-its-side] {
+  position-try-order: most-height;
+}
+
+:root:has([data-blocks-page]:popover-open) body {
+  pointer-events: none;
+}
+
+[data-blocks-page] {
+  pointer-events: auto;
+}
+
 @layer components {
   .table-frame {
     timeline-scope: --table-inline-scroll;

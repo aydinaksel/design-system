@@ -1,26 +1,20 @@
 use leptos::context::Provider;
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Button;
-use leptos::portal::Portal;
 use leptos::prelude::*;
 use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::{Element, EventTarget, HtmlElement, Node};
-use leptos_use_event_listener::{use_event_listener_with_options, UseEventListenerOptions};
-use leptos_use_window::use_window;
+use leptos::web_sys::HtmlElement;
 
 use crate::editing::{focus_is_within_or_lost, FIRST_CONTROL_SELECTOR};
 use crate::element_key::ElementKey;
-use crate::placement::{Alignment, AnchoredPanel, Anchoring};
+use crate::native_popover::{LightDismiss, NativePopover, PanelAlignment, PANEL_MOTION_CLASS};
 
-const GAP_PIXELS: f64 = 6.0;
+const GAP_PIXELS: u32 = 6;
 const DEFAULT_WIDTH_CLASS: &str = "w-72";
-const PANEL_CLASS: &str = "fixed z-50 max-w-[calc(100vw-1rem)] whitespace-normal rounded-xl border border-edge bg-surface text-left text-sm text-gray-900 shadow-lg focus:outline-none motion-safe:animate-fade-in motion-safe:transition-shadow";
+const PANEL_CLASS: &str = "max-w-[calc(100vw-1rem)] whitespace-normal rounded-xl border border-edge bg-surface text-left text-sm text-gray-900 shadow-lg focus:outline-none";
 const PADDED_PANEL_CLASS: &str = "p-3";
 const UNPADDED_PANEL_CLASS: &str = "overflow-hidden";
 const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
-const OPENED_FROM_ATTRIBUTE: &str = "data-opened-from-popover";
-const OPENED_FROM_SELECTOR: &str = "[data-opened-from-popover]";
-const MODAL_DIALOG_SELECTOR: &str = "[aria-modal=\"true\"]";
 const TABBABLE_SELECTOR: &str = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -29,13 +23,6 @@ pub enum PopoverAlign {
     Start,
     Center,
     End,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Dismissal {
-    Escape,
-    OutsideClick,
-    TriggerClick,
 }
 
 fn focus_initial(panel: &HtmlElement) {
@@ -103,9 +90,8 @@ pub(crate) fn keep_tab_inside(panel: &HtmlElement, event: &KeyboardEvent) {
 #[derive(Clone, Copy)]
 pub struct PopoverState {
     number: ElementKey,
-    open: RwSignal<bool>,
+    popover: NativePopover,
     trigger: NodeRef<Button>,
-    panel: AnchoredPanel,
     titled: RwSignal<bool>,
     described: RwSignal<bool>,
 }
@@ -121,9 +107,8 @@ impl PopoverState {
     pub fn new() -> Self {
         Self {
             number: ElementKey::next(),
-            open: RwSignal::new(false),
+            popover: NativePopover::new(RwSignal::new(false)),
             trigger: NodeRef::new(),
-            panel: AnchoredPanel::new(),
             titled: RwSignal::new(false),
             described: RwSignal::new(false),
         }
@@ -131,24 +116,35 @@ impl PopoverState {
 
     #[must_use]
     pub fn is_open(self) -> bool {
-        self.open.get()
+        self.popover.open.get()
     }
 
     pub fn close(self) {
         let focus_was_inside = self
+            .popover
             .panel
-            .node
             .get_untracked()
             .is_none_or(|panel| focus_is_within_or_lost(&panel));
-        self.hide(focus_was_inside);
+        self.popover.open.set(false);
+        if focus_was_inside {
+            self.return_focus();
+        }
     }
 
-    fn hide(self, returns_focus: bool) {
-        self.open.set(false);
-        self.panel.unplace();
-        if !returns_focus {
+    pub(crate) fn reopen(self) {
+        if self.popover.open.get_untracked() {
             return;
         }
+        self.popover.open.set(true);
+        let panel = self.popover.panel;
+        request_animation_frame(move || {
+            if let Some(panel) = panel.try_get_untracked().flatten() {
+                focus_initial(&panel);
+            }
+        });
+    }
+
+    fn return_focus(self) {
         let trigger = self.trigger;
         request_animation_frame(move || {
             if let Some(element) = trigger.try_get_untracked().flatten() {
@@ -168,125 +164,33 @@ impl PopoverState {
     fn description_id(self) -> String {
         format!("popover-{}-description", self.number)
     }
-
-    fn contains(self, target: Option<EventTarget>) -> bool {
-        let Some(node) = target.and_then(|target| target.dyn_into::<Node>().ok()) else {
-            return false;
-        };
-        let in_panel = self
-            .panel
-            .node
-            .get_untracked()
-            .is_some_and(|panel| panel.contains(Some(&node)));
-        let on_trigger = self
-            .trigger
-            .get_untracked()
-            .is_some_and(|trigger| trigger.contains(Some(&node)));
-        in_panel
-            || on_trigger
-            || self.opened_the_popover_holding(&node)
-            || self.sits_under_the_modal_dialog_holding(&node)
-    }
-
-    fn sits_under_the_modal_dialog_holding(self, node: &Node) -> bool {
-        let Some(dialog) = node
-            .dyn_ref::<Element>()
-            .cloned()
-            .or_else(|| node.parent_element())
-            .and_then(|element| element.closest(MODAL_DIALOG_SELECTOR).ok().flatten())
-        else {
-            return false;
-        };
-        let trigger: Option<Node> = self.trigger.get_untracked().map(Into::into);
-        !dialog.contains(trigger.as_ref())
-    }
-
-    fn opened_the_popover_holding(self, node: &Node) -> bool {
-        let own_panel_id = self.panel_id();
-        let innermost = node
-            .dyn_ref::<Element>()
-            .cloned()
-            .or_else(|| node.parent_element())
-            .and_then(|element| element.closest(OPENED_FROM_SELECTOR).ok().flatten());
-        std::iter::successors(innermost, panel_that_opened)
-            .filter_map(|panel| panel.get_attribute(OPENED_FROM_ATTRIBUTE))
-            .any(|opened_from| opened_from == own_panel_id)
-    }
-}
-
-fn panel_that_opened(panel: &Element) -> Option<Element> {
-    let opened_from = panel.get_attribute(OPENED_FROM_ATTRIBUTE)?;
-    document()
-        .get_element_by_id(&opened_from)
-        .filter(|opener| opener.has_attribute(OPENED_FROM_ATTRIBUTE))
 }
 
 #[derive(Clone, Copy)]
 struct PopoverContext {
     state: PopoverState,
-    opened_from: Option<PopoverState>,
     align: PopoverAlign,
     on_open: Option<Callback<()>>,
-    before_dismiss: Option<Callback<Dismissal, bool>>,
 }
 
 impl PopoverContext {
     fn toggle(self) {
-        if self.state.open.get_untracked() {
-            self.dismiss(Dismissal::TriggerClick);
+        if self.state.popover.open.get_untracked() {
+            self.state.close();
             return;
         }
         if let Some(on_open) = self.on_open {
             on_open.run(());
         }
-        self.state.open.set(true);
+        self.state.reopen();
     }
 
-    fn dismiss(self, reason: Dismissal) -> bool {
-        let allowed = self
-            .before_dismiss
-            .is_none_or(|before_dismiss| before_dismiss.run(reason));
-        if allowed {
-            self.state.hide(matches!(
-                reason,
-                Dismissal::Escape | Dismissal::TriggerClick
-            ));
+    const fn alignment(self) -> PanelAlignment {
+        match self.align {
+            PopoverAlign::Start => PanelAlignment::Start,
+            PopoverAlign::Center => PanelAlignment::Center,
+            PopoverAlign::End => PanelAlignment::End,
         }
-        allowed
-    }
-
-    fn anchoring(self) -> Anchoring {
-        let alignment = match self.align {
-            PopoverAlign::Start => Alignment::Start,
-            PopoverAlign::Center => Alignment::Center,
-            PopoverAlign::End => Alignment::End,
-        };
-        Anchoring {
-            alignment,
-            gap_pixels: GAP_PIXELS,
-            ..Anchoring::default()
-        }
-    }
-
-    fn watch_while_open(self) {
-        let state = self.state;
-        drop(use_event_listener_with_options(
-            use_window(),
-            leptos::ev::click,
-            move |event: MouseEvent| {
-                if state.contains(event.target()) || self.dismiss(Dismissal::OutsideClick) {
-                    return;
-                }
-                event.prevent_default();
-                event.stop_propagation();
-            },
-            UseEventListenerOptions::default().capture(true),
-        ));
-        request_animation_frame(move || {
-            if let Some(panel) = state.panel.node.try_get_untracked().flatten() {
-                focus_initial(&panel);
-            }
-        });
     }
 }
 
@@ -304,15 +208,12 @@ pub fn Popover(
     #[prop(optional)] state: Option<PopoverState>,
     #[prop(optional)] align: PopoverAlign,
     #[prop(optional, into)] on_open: Option<Callback<()>>,
-    #[prop(optional, into)] before_dismiss: Option<Callback<Dismissal, bool>>,
     children: Children,
 ) -> impl IntoView {
     let context = PopoverContext {
         state: state.unwrap_or_default(),
-        opened_from: use_popover(),
         align,
         on_open,
-        before_dismiss,
     };
     view! { <Provider value=context>{children()}</Provider> }.into_any()
 }
@@ -331,6 +232,7 @@ pub fn PopoverTrigger(
             node_ref=state.map_or_else(NodeRef::new, |state| state.trigger)
             type="button"
             class=class
+            style=state.map(|state| state.popover.trigger_style())
             aria-haspopup="dialog"
             aria-expanded=move || open().to_string()
             aria-controls=move || state.filter(|_| open()).map(PopoverState::panel_id)
@@ -363,11 +265,7 @@ pub fn PopoverContent(
         PADDED_PANEL_CLASS
     };
     let state = context.state;
-    state.panel.follow(
-        state.open.into(),
-        move || state.trigger.get_untracked().map(Into::into),
-        context.anchoring(),
-    );
+    let popover = state.popover;
     let on_keydown = move |event: KeyboardEvent| {
         if event.default_prevented() {
             return;
@@ -376,39 +274,44 @@ pub fn PopoverContent(
             "Escape" => {
                 event.prevent_default();
                 event.stop_propagation();
-                context.dismiss(Dismissal::Escape);
+                state.close();
             }
             "Tab" => {
-                if let Some(panel) = state.panel.node.get_untracked() {
+                if let Some(panel) = popover.panel.get_untracked() {
                     keep_tab_inside(&panel, &event);
                 }
             }
             _ => {}
         }
     };
-    let panel = move || {
-        context.watch_while_open();
-        let children = children.clone();
-        view! {
-            <Portal>
-                <div
-                    node_ref=state.panel.node
-                    id=state.panel_id()
-                    role="dialog"
-                    tabindex="-1"
-                    data-opened-from-popover=context.opened_from.map(PopoverState::panel_id)
-                    aria-labelledby=move || state.titled.get().then(|| state.title_id())
-                    aria-describedby=move || state.described.get().then(|| state.description_id())
-                    class=move || format!("{PANEL_CLASS} {padding_class} {}", class.get())
-                    style=move || state.panel.style()
-                    on:keydown=on_keydown
-                >
-                    {children()}
-                </div>
-            </Portal>
+    let on_toggle = move |_| {
+        if popover.closed_by_the_browser() {
+            state.return_focus();
         }
     };
-    view! { {move || state.is_open().then(panel.clone())} }.into_any()
+    let light_dismiss = LightDismiss::ClosesAndBlocksThePage;
+    view! {
+        <div
+            node_ref=popover.panel
+            id=state.panel_id()
+            role="dialog"
+            tabindex="-1"
+            popover=light_dismiss.popover_attribute()
+            data-blocks-page=light_dismiss.blocks_page_attribute()
+            data-popover-panel=context.alignment().attribute()
+            aria-labelledby=move || state.titled.get().then(|| state.title_id())
+            aria-describedby=move || state.described.get().then(|| state.description_id())
+            class=move || {
+                format!("{PANEL_CLASS} {PANEL_MOTION_CLASS} {padding_class} {}", class.get())
+            }
+            style=popover.panel_style(GAP_PIXELS)
+            on:keydown=on_keydown
+            on:toggle=on_toggle
+        >
+            {move || popover.open.get().then(|| children())}
+        </div>
+    }
+    .into_any()
 }
 
 #[expect(

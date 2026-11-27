@@ -1,18 +1,19 @@
 use std::sync::Arc;
 
 use leptos::ev::{FocusEvent, KeyboardEvent, MouseEvent};
-use leptos::html::{Button, Div};
+use leptos::html::Button;
 use leptos::prelude::*;
 
 use crate::focus_loss::while_mounted;
 use leptos::wasm_bindgen::JsCast;
-use leptos::web_sys::{HtmlElement, Node};
+use leptos::web_sys::HtmlElement;
 use leptos_use_timeout_fn::use_timeout_fn;
 
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::confirm_dialog::ConfirmDialog;
+use crate::editing::focus_is_within_or_lost;
 use crate::icons;
-use crate::placement::{Alignment, AnchoredPanel, Anchoring, PreferredSide};
+use crate::native_popover::{LightDismiss, NativePopover, PanelAlignment, PANEL_MOTION_CLASS};
 use crate::tooltip::{focus_is_visible, Tooltip, TooltipControl, TooltipPosition};
 
 const ITEM_MARKER_CLASS: &str = "menu-item";
@@ -28,16 +29,9 @@ const DISABLED_REASON_CLASS: &str =
 pub(crate) const ICON_CLASS: &str = "h-4 w-4 shrink-0 text-gray-400 group-focus:text-gray-600";
 const SHORTCUT_CLASS: &str =
     "invisible ml-auto pl-6 font-sans text-xs text-gray-500 group-focus:visible";
-const PANEL_CLASS: &str = "fixed z-50 w-max min-w-48 max-w-[calc(100vw-1rem)] rounded-xl border border-edge bg-surface p-1 text-sm/6 shadow-lg duration-100 ease-out will-change-[opacity] focus:outline-none motion-reduce:transition-none";
-const PANEL_OPEN_CLASS: &str = "visible opacity-100 transition-opacity";
-const PANEL_CLOSED_CLASS: &str = "invisible opacity-0 transition-[opacity,visibility]";
-const ANCHORING: Anchoring = Anchoring {
-    alignment: Alignment::End,
-    side: PreferredSide::Below,
-    gap_pixels: 4.0,
-    matches_trigger_width: false,
-    reserved_height_pixels: 0.0,
-};
+const PANEL_CLASS: &str = "w-max min-w-48 max-w-[calc(100vw-1rem)] rounded-xl border border-edge bg-surface p-1 text-sm/6 shadow-lg focus:outline-none";
+const PANEL_GAP_PIXELS: u32 = 4;
+const LIGHT_DISMISS: LightDismiss = LightDismiss::ClosesAndBlocksThePage;
 const TRIGGER_OPEN_CLASS: &str = "aria-expanded:bg-gray-100";
 pub(crate) const TYPEAHEAD_RESET_DELAY_MILLISECONDS: f64 = 350.0;
 
@@ -265,19 +259,15 @@ pub(crate) fn is_typeahead_key(event: &KeyboardEvent, query_in_progress: bool) -
 
 #[derive(Clone, Copy)]
 struct MenuState {
-    open: RwSignal<bool>,
+    popover: NativePopover,
     trigger: NodeRef<Button>,
-    panel: AnchoredPanel,
 }
 
 impl MenuState {
     fn open_and_focus(self, movement: Option<Movement>) {
-        if let Some(trigger) = self.trigger.get_untracked() {
-            self.panel.place_against(&trigger, ANCHORING);
-        }
-        self.open.set(true);
+        self.popover.open.set(true);
         request_animation_frame(move || {
-            let Some(panel) = self.panel.node.try_get_untracked().flatten() else {
+            let Some(panel) = self.popover.panel.try_get_untracked().flatten() else {
                 return;
             };
             match movement {
@@ -288,7 +278,11 @@ impl MenuState {
     }
 
     fn close(self) {
-        self.open.set(false);
+        self.popover.open.set(false);
+    }
+
+    fn is_open(self) -> bool {
+        self.popover.open.get_untracked()
     }
 
     fn close_and_refocus(self) {
@@ -421,16 +415,9 @@ pub(crate) fn menu(
     entries: Vec<MenuEntry>,
 ) -> AnyView {
     let state = MenuState {
-        open: RwSignal::new(false),
+        popover: NativePopover::new(RwSignal::new(false)),
         trigger: NodeRef::new(),
-        panel: AnchoredPanel::new(),
     };
-    let wrapper: NodeRef<Div> = NodeRef::new();
-    state.panel.follow(
-        state.open.into(),
-        move || state.trigger.get_untracked().map(Into::into),
-        ANCHORING,
-    );
     let typeahead_query = StoredValue::new(String::new());
     let reset_typeahead = use_timeout_fn(
         move |()| typeahead_query.set_value(String::new()),
@@ -449,7 +436,7 @@ pub(crate) fn menu(
     };
 
     let on_trigger_click = move |_: MouseEvent| {
-        if state.open.get_untracked() {
+        if state.is_open() {
             state.close_and_refocus();
         } else {
             state.open_and_focus(None);
@@ -463,7 +450,7 @@ pub(crate) fn menu(
     };
 
     let on_panel_keydown = move |event: KeyboardEvent| {
-        let Some(panel) = state.panel.node.get_untracked() else {
+        let Some(panel) = state.popover.panel.get_untracked() else {
             return;
         };
         let query_in_progress = typeahead_query.with_value(|query| !query.is_empty());
@@ -499,22 +486,22 @@ pub(crate) fn menu(
         }
     };
 
-    let on_wrapper_focusout = while_mounted(move |event: FocusEvent| {
-        let Some(wrapper) = wrapper.get_untracked() else {
-            return;
-        };
-        let focus_stayed_inside = event
-            .related_target()
-            .and_then(|target| target.dyn_into::<Node>().ok())
-            .is_some_and(|node| wrapper.contains(Some(&node)));
-        if !focus_stayed_inside {
-            state.close();
+    let on_panel_toggle = move |_| {
+        let focus_was_inside = state
+            .popover
+            .panel
+            .get_untracked()
+            .is_none_or(|panel| focus_is_within_or_lost(&panel));
+        if state.popover.closed_by_the_browser() && focus_was_inside {
+            if let Some(trigger) = state.trigger.get_untracked() {
+                focus_element(&trigger);
+            }
         }
-    });
+    };
 
     let on_panel_mouseleave = move |_: MouseEvent| {
-        if let Some(panel) = state.panel.node.get_untracked() {
-            if state.open.get_untracked() {
+        if let Some(panel) = state.popover.panel.get_untracked() {
+            if state.is_open() {
                 focus_element(&panel);
             }
         }
@@ -526,14 +513,15 @@ pub(crate) fn menu(
         .collect_view();
 
     let trigger_tooltip = TooltipControl::enabled_when(Signal::derive(move || {
-        accessible_label.is_some() && !state.open.get()
+        accessible_label.is_some() && !state.popover.open.get()
     }));
     let trigger = state.trigger;
     view! {
-        <div class="relative" node_ref=wrapper on:focusout=on_wrapper_focusout>
+        <div class="relative">
             <button
                 type="button"
                 node_ref=state.trigger
+                style=state.popover.trigger_style()
                 aria-haspopup="menu"
                 aria-label=accessible_label
                 on:mouseenter=move |_| trigger_tooltip.show_after_delay()
@@ -545,16 +533,11 @@ pub(crate) fn menu(
                     }
                 }
                 on:focusout=while_mounted(move |_| trigger_tooltip.hide())
-                aria-expanded=move || state.open.get().to_string()
+                aria-expanded=move || state.popover.open.get().to_string()
                 class=format!("{trigger_class} {TRIGGER_OPEN_CLASS}")
                 on:keydown=on_trigger_keydown
                 on:keyup=|event: KeyboardEvent| {
                     if event.key() == " " {
-                        event.prevent_default();
-                    }
-                }
-                on:mousedown=move |event: MouseEvent| {
-                    if state.open.get_untracked() {
                         event.prevent_default();
                     }
                 }
@@ -571,16 +554,13 @@ pub(crate) fn menu(
             <div
                 role="menu"
                 tabindex="-1"
-                node_ref=state.panel.node
-                class=move || {
-                    let visibility = if state.open.get() {
-                        PANEL_OPEN_CLASS
-                    } else {
-                        PANEL_CLOSED_CLASS
-                    };
-                    format!("{PANEL_CLASS} {visibility}")
-                }
-                style=move || state.panel.style()
+                node_ref=state.popover.panel
+                popover=LIGHT_DISMISS.popover_attribute()
+                data-blocks-page=LIGHT_DISMISS.blocks_page_attribute()
+                data-popover-panel=PanelAlignment::End.attribute()
+                class=format!("{PANEL_CLASS} {PANEL_MOTION_CLASS}")
+                style=state.popover.panel_style(PANEL_GAP_PIXELS)
+                on:toggle=on_panel_toggle
                 on:keydown=on_panel_keydown
                 on:mousedown=|event: MouseEvent| event.prevent_default()
                 on:mouseleave=on_panel_mouseleave

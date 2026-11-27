@@ -194,10 +194,6 @@ impl AnchoredPanel {
             .map_or_else(|| UNPLACED_STYLE.to_owned(), Placement::style)
     }
 
-    pub(crate) fn unplace(self) {
-        self.placement.set(None);
-    }
-
     pub(crate) fn place_against(self, trigger: &Element, anchoring: Anchoring) {
         let Some(panel) = self.node.get_untracked() else {
             return;

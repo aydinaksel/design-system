@@ -10,12 +10,11 @@ use crate::button::{button_class, ButtonSize, ButtonTone};
 use crate::controls::{FieldElementIds, Input};
 use crate::editing::{
     focus_first, saves_on_enter, timer, FieldSave, PendingSave, SaveOutcome,
-    ATTENTION_MILLISECONDS, FIRST_CONTROL_SELECTOR, FIRST_INVALID_CONTROL_SELECTOR,
-    SAVED_HIGHLIGHT_MILLISECONDS,
+    FIRST_INVALID_CONTROL_SELECTOR, SAVED_HIGHLIGHT_MILLISECONDS,
 };
 use crate::element_key::ElementKey;
 use crate::popover::{
-    Dismissal, Popover, PopoverContent, PopoverHeader, PopoverState, PopoverTitle, PopoverTrigger,
+    Popover, PopoverContent, PopoverHeader, PopoverState, PopoverTitle, PopoverTrigger,
 };
 use crate::tone::Tone;
 
@@ -24,7 +23,6 @@ const VALUE_CLASS: &str = "truncate border-b border-dotted border-gray-400 group
 const EMPTY_VALUE_CLASS: &str = "text-gray-400 group-hover:text-blue-700";
 const EMPTY_VALUE_LABEL: &str = "+ Add";
 const CONTENT_WIDTH_CLASS: &str = "w-72";
-const ATTENTION_CLASS: &str = "ring-2 ring-focus ring-offset-2";
 
 type Display<Value> = Arc<dyn Fn(&Value) -> String + Send + Sync>;
 type EditorView<Value> = Arc<dyn Fn(RwSignal<Value>) -> AnyView + Send + Sync>;
@@ -144,11 +142,9 @@ where
         let errors_revealed = RwSignal::new(false);
         let failure: RwSignal<Option<String>> = RwSignal::new(None);
         let flashing = RwSignal::new(false);
-        let attention = RwSignal::new(false);
         let content: NodeRef<Div> = NodeRef::new();
         let pending = PendingSave::new();
         let start_flash_timer = timer(move || flashing.set(false), SAVED_HIGHLIGHT_MILLISECONDS);
-        let start_attention_timer = timer(move || attention.set(false), ATTENTION_MILLISECONDS);
 
         let normalized = Signal::derive(move || {
             draft.with(|value| normalize.with_value(|normalize| normalize(value)))
@@ -177,18 +173,6 @@ where
             draft.set(displayed.get_untracked());
             errors_revealed.set(false);
             failure.set(None);
-        });
-        let before_dismiss = Callback::new(move |reason: Dismissal| {
-            if saving.get_untracked() {
-                return false;
-            }
-            if reason == Dismissal::Escape || !changed.get_untracked() {
-                return true;
-            }
-            attention.set(true);
-            start_attention_timer.run(());
-            focus_content(FIRST_CONTROL_SELECTOR);
-            false
         });
         let save = move || {
             if saving.get_untracked() {
@@ -226,8 +210,14 @@ where
                         start_flash_timer.run(());
                     }
                     SaveOutcome::Unchanged => popover.close(),
-                    SaveOutcome::Invalid => focus_content(FIRST_INVALID_CONTROL_SELECTOR),
-                    SaveOutcome::Failed(message) => failure.set(Some(message)),
+                    SaveOutcome::Invalid => {
+                        popover.reopen();
+                        focus_content(FIRST_INVALID_CONTROL_SELECTOR);
+                    }
+                    SaveOutcome::Failed(message) => {
+                        failure.set(Some(message));
+                        popover.reopen();
+                    }
                 }
             },
         );
@@ -262,12 +252,6 @@ where
                 view! { <span class=VALUE_CLASS>{text}</span> }.into_any()
             }
         };
-        let content_class = Signal::derive(move || {
-            format!(
-                "{CONTENT_WIDTH_CLASS} {}",
-                if attention.get() { ATTENTION_CLASS } else { "" },
-            )
-        });
         let description = move || match visible_error.get() {
             Some(message) => message.into_any(),
             None => hint
@@ -292,11 +276,11 @@ where
         let ids = StoredValue::new(ids);
 
         view! {
-            <Popover state=popover on_open=begin before_dismiss=before_dismiss>
+            <Popover state=popover on_open=begin>
                 <PopoverTrigger class=trigger_class attr:aria-label=trigger_label>
                     {trigger_content}
                 </PopoverTrigger>
-                <PopoverContent class=content_class>
+                <PopoverContent class=CONTENT_WIDTH_CLASS>
                     <div node_ref=content on:keydown=on_keydown>
                         <PopoverHeader>
                             <PopoverTitle control=ids
