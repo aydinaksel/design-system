@@ -953,6 +953,7 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         let popover = use_popover();
         view! {
             <button
+                type="button"
                 class=ITEM_CLASS
                 on:mousemove=|event: leptos::ev::MouseEvent| focus_on_hover(&event)
                 on:click=move |_| {

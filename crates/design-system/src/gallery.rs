@@ -125,6 +125,7 @@ fn GalleryStage(
             <Show when=move || { count > 1 }>
                 <div>
                     <button
+                        type="button"
                         class="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-surface/80 p-2 shadow hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled=!can_go_previous
                         on:click=move |_| selected_image.set(position.saturating_sub(1))
@@ -132,6 +133,7 @@ fn GalleryStage(
                         {icons::icon(icons::LucideGlyph::ChevronLeft, "h-5 w-5")}
                     </button>
                     <button
+                        type="button"
                         class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-surface/80 p-2 shadow hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled=!can_go_next
                         on:click=move |_| selected_image.set(position.saturating_add(1))
@@ -168,6 +170,7 @@ fn GalleryThumbnails(
             };
             view! {
                 <button
+                    type="button"
                     class=format!(
                         "shrink-0 w-16 h-16 rounded overflow-hidden bg-surface cursor-pointer focus-ring {border_class}",
                     )
