@@ -12,6 +12,7 @@ use leptos_use_timeout_fn::use_timeout_fn;
 use crate::button::{button_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::confirm_dialog::ConfirmDialog;
 use crate::editing::focus_is_within_or_lost;
+use crate::element_key::ElementKey;
 use crate::icons;
 use crate::native_popover::{LightDismiss, NativePopover, PanelAlignment, PANEL_MOTION_CLASS};
 use crate::tooltip::{focus_is_visible, Tooltip, TooltipControl, TooltipPosition};
@@ -23,7 +24,7 @@ pub(crate) const DESTRUCTIVE_ICON_CLASS: &str = "h-4 w-4 text-red-400 group-hove
 pub(crate) const ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-gray-700 focus:bg-gray-100 focus:text-gray-900 focus:outline-none";
 const DANGER_ITEM_CLASS: &str = "menu-item group flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-red-700 focus:bg-red-50 focus:text-red-800 focus:outline-none";
 const DANGER_ICON_CLASS: &str = "h-4 w-4 shrink-0 text-red-500 group-focus:text-red-600";
-const DISABLED_ITEM_CLASS: &str = "flex w-full cursor-not-allowed items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-gray-700 opacity-50";
+const DISABLED_ITEM_CLASS: &str = "menu-item flex w-full cursor-not-allowed items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-gray-700 opacity-50 focus:bg-gray-100 focus:outline-none";
 const DISABLED_REASON_CLASS: &str =
     "max-w-64 whitespace-normal px-3 pb-1.5 pl-9 text-xs text-gray-500";
 pub(crate) const ICON_CLASS: &str = "h-4 w-4 shrink-0 text-gray-400 group-focus:text-gray-600";
@@ -204,7 +205,7 @@ pub(crate) fn typeahead_position(
         })
 }
 
-fn enabled_items(panel: &HtmlElement) -> Vec<HtmlElement> {
+fn menu_items(panel: &HtmlElement) -> Vec<HtmlElement> {
     let collection = panel.get_elements_by_class_name(ITEM_MARKER_CLASS);
     (0..collection.length())
         .filter_map(|index| collection.item(index))
@@ -224,7 +225,7 @@ fn focus_element(element: &HtmlElement) {
 }
 
 fn focus_item(panel: &HtmlElement, movement: Movement) {
-    let items = enabled_items(panel);
+    let items = menu_items(panel);
     let target = moved_position(focused_position(&items), items.len(), movement);
     if let Some(item) = target.and_then(|position| items.get(position)) {
         focus_element(item);
@@ -232,7 +233,7 @@ fn focus_item(panel: &HtmlElement, movement: Movement) {
 }
 
 fn focus_typeahead_match(panel: &HtmlElement, query: &str) {
-    let items = enabled_items(panel);
+    let items = menu_items(panel);
     let labels: Vec<String> = items
         .iter()
         .map(|item| item.text_content().unwrap_or_default().trim().to_owned())
@@ -244,7 +245,7 @@ fn focus_typeahead_match(panel: &HtmlElement, query: &str) {
 }
 
 fn activate_focused_item(panel: &HtmlElement) {
-    let items = enabled_items(panel);
+    let items = menu_items(panel);
     if let Some(item) = focused_position(&items).and_then(|position| items.get(position)) {
         item.click();
     }
@@ -635,12 +636,28 @@ fn menu_item(state: MenuState, item: MenuItem) -> AnyView {
 }
 
 fn disabled_menu_item(item: &MenuItem) -> AnyView {
-    let reason = item.reason_unavailable.get().map(|reason| {
-        view! { <p class=DISABLED_REASON_CLASS>{reason}</p> }
+    let reason_id = format!("menu-item-{}-reason", ElementKey::next());
+    let reason = item.reason_unavailable.get();
+    let described_by = reason.as_ref().map(|_| reason_id.clone());
+    let reason = reason.map(|reason| {
+        view! {
+            <p id=reason_id class=DISABLED_REASON_CLASS>
+                {reason}
+            </p>
+        }
     });
     view! {
-        <div role="menuitem" aria-disabled="true">
-            <div class=DISABLED_ITEM_CLASS>{item_content(item)}</div>
+        <div role="none">
+            <div
+                role="menuitem"
+                aria-disabled="true"
+                aria-describedby=described_by
+                tabindex="-1"
+                class=DISABLED_ITEM_CLASS
+                on:mousemove=|event: MouseEvent| focus_on_hover(&event)
+            >
+                {item_content(item)}
+            </div>
             {reason}
         </div>
     }
