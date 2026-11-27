@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use leptos::context::Provider;
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Tr;
 use leptos::prelude::*;
@@ -184,7 +185,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
     pub fn cell<Control: IntoView + 'static>(
         &self,
         key: &'static str,
-        control: impl FnOnce() -> Control,
+        control: impl FnOnce() -> Control + Send + 'static,
     ) -> LineCell {
         (key, self.labelled(key, control, None))
     }
@@ -194,7 +195,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
     pub fn hinted_cell<Control: IntoView + 'static>(
         &self,
         key: &'static str,
-        control: impl FnOnce() -> Control,
+        control: impl FnOnce() -> Control + Send + 'static,
         hint: impl Fn() -> Option<AnyView> + Send + Sync + 'static,
     ) -> LineCell {
         (key, self.labelled(key, control, Some(ViewFn::from(hint))))
@@ -210,7 +211,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
         &self,
         key: &'static str,
         field: CalculatedField,
-        override_control: impl FnOnce() -> Control,
+        override_control: impl FnOnce() -> Control + Send + 'static,
     ) -> LineCell {
         let CalculatedField {
             calculated,
@@ -266,7 +267,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
     fn labelled<Control: IntoView + 'static>(
         &self,
         key: &'static str,
-        control: impl FnOnce() -> Control,
+        control: impl FnOnce() -> Control + Send + 'static,
         hint: Option<ViewFn>,
     ) -> AnyView {
         let field_number = ElementKey::next();
@@ -280,16 +281,12 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
         let invalid = Signal::derive(move || {
             issues.with(|issues| issues.iter().any(|issue| issue.field == key))
         });
-        let owner = Owner::new();
-        let control_view = owner.with(|| {
-            provide_context(FieldElementIds {
-                control: control_id.clone(),
-                label: label_id.clone(),
-                description: hint_id.clone(),
-                invalid,
-            });
-            control().into_any()
-        });
+        let element_ids = FieldElementIds {
+            control: control_id.clone(),
+            label: label_id.clone(),
+            description: hint_id.clone(),
+            invalid,
+        };
         let hint_view = hint.zip(hint_id).map(|(hint, id)| {
             view! {
                 <p id=id class=HINT_CLASS>
@@ -310,7 +307,7 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
                         });
                 }
             >
-                {control_view}
+                <Provider value=element_ids>{control()}</Provider>
                 {hint_view}
             </div>
         }

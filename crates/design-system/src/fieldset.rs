@@ -1,3 +1,4 @@
+use leptos::context::Provider;
 use leptos::prelude::*;
 
 use crate::controls::FieldElementIds;
@@ -59,12 +60,12 @@ pub fn Field(
     let description_id = description
         .as_ref()
         .map(|_| format!("fieldset-field-{field_number}-description"));
-    provide_context(FieldElementIds {
+    let element_ids = FieldElementIds {
         control: control_id.clone(),
         label: label_id.clone(),
         description: description_id.clone(),
         invalid: Signal::default(),
-    });
+    };
     let description_view = description.map(|description| {
         view! {
             <div id=description_id class="mt-1.5 text-xs text-gray-500">
@@ -77,7 +78,9 @@ pub fn Field(
             <label id=label_id for=control_id class="block text-sm font-medium text-gray-900">
                 {label}
             </label>
-            <div class="mt-1.5">{children()}</div>
+            <div class="mt-1.5">
+                <Provider value=element_ids>{children()}</Provider>
+            </div>
             {description_view}
         </div>
     }

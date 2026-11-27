@@ -212,20 +212,17 @@ struct ActiveEditor {
 #[derive(Clone, Copy)]
 struct EditingScope(RwSignal<Option<ActiveEditor>>);
 
-pub fn provide_editing_scope() {
-    if use_context::<EditingScope>().is_none() {
-        provide_context(EditingScope(RwSignal::new(None)));
-    }
-}
-
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
 )]
 #[component]
 pub fn FieldGrid(children: Children) -> impl IntoView {
-    provide_editing_scope();
-    view! { <div class=FIELD_GRID_CLASS>{children()}</div> }.into_any()
+    let grid = move || view! { <div class=FIELD_GRID_CLASS>{children()}</div> };
+    if use_context::<EditingScope>().is_some() {
+        return grid().into_any();
+    }
+    view! { <Provider value=EditingScope(RwSignal::new(None))>{grid()}</Provider> }.into_any()
 }
 
 fn saved_announcement(title: Option<&str>) -> String {
@@ -958,12 +955,12 @@ pub fn FieldRow(
             },
         );
     }
-    provide_context(FieldElementIds {
+    let element_ids = FieldElementIds {
         control: ids.control.clone(),
         label: ids.label.clone(),
         description: ids.description(),
         invalid: Signal::derive(move || visible_error.with(Option::is_some)),
-    });
+    };
 
     let changed_when_saved = RwSignal::new(false);
     Effect::new(move |_| {
@@ -990,35 +987,39 @@ pub fn FieldRow(
     };
     let read_only_while_editing = move || !has_editor && section_open();
 
-    let editor_view = editor.map(|editor| {
-        let revert = revert_button(format!("Revert {label}"), editor.revert, unsaved, row);
-        view! {
-            <div class=move || {
-                if showing_editor.get() {
-                    "flex items-start gap-2 pb-1.5 pt-1 @sm:justify-end @sm:py-0"
-                } else {
-                    "hidden"
-                }
-            }>
-                <div class="order-last mt-0.5 @sm:order-none">{revert}</div>
-                <div class="min-w-0 max-w-sm flex-1 text-left">
-                    {editor.view.run()}
-                    <p
-                        id=ids.error.clone()
-                        class=move || {
-                            if visible_error.with(Option::is_some) {
-                                "mt-1.5 text-xs text-red-600"
-                            } else {
-                                "hidden"
+    let revert_label = format!("Revert {label}");
+    let error_id = ids.error.clone();
+    let editor_view = move || {
+        editor.map(|editor| {
+            let revert = revert_button(revert_label, editor.revert, unsaved, row);
+            view! {
+                <div class=move || {
+                    if showing_editor.get() {
+                        "flex items-start gap-2 pb-1.5 pt-1 @sm:justify-end @sm:py-0"
+                    } else {
+                        "hidden"
+                    }
+                }>
+                    <div class="order-last mt-0.5 @sm:order-none">{revert}</div>
+                    <div class="min-w-0 max-w-sm flex-1 text-left">
+                        {editor.view.run()}
+                        <p
+                            id=error_id
+                            class=move || {
+                                if visible_error.with(Option::is_some) {
+                                    "mt-1.5 text-xs text-red-600"
+                                } else {
+                                    "hidden"
+                                }
                             }
-                        }
-                    >
-                        {move || visible_error.get()}
-                    </p>
+                        >
+                            {move || visible_error.get()}
+                        </p>
+                    </div>
                 </div>
-            </div>
-        }
-    });
+            }
+        })
+    };
     let label_view = field_label(label, &ids, help);
 
     view! {
@@ -1027,22 +1028,24 @@ pub fn FieldRow(
                 "{LABEL_COLUMN_CLASS} {ALIGNED_WITH_CONTROL_TEXT_CLASS}",
             )>{label_view}</dt>
             <dd class="min-w-0 flex-1 text-sm text-gray-900">
-                <div class=move || {
-                    if showing_editor.get() {
-                        "hidden"
-                    } else {
-                        "flex items-center gap-3 @sm:justify-end"
-                    }
-                }>
+                <Provider value=element_ids>
                     <div class=move || {
-                        format!(
-                            "min-w-0 pb-1.5 pt-0.5 motion-safe:transition-opacity @sm:text-right {ALIGNED_WITH_CONTROL_TEXT_CLASS} {}",
-                            if read_only_while_editing() { "opacity-60" } else { "" },
-                        )
-                    }>{children()}</div>
-                    {field_actions_view(actions)}
-                </div>
-                {editor_view}
+                        if showing_editor.get() {
+                            "hidden"
+                        } else {
+                            "flex items-center gap-3 @sm:justify-end"
+                        }
+                    }>
+                        <div class=move || {
+                            format!(
+                                "min-w-0 pb-1.5 pt-0.5 motion-safe:transition-opacity @sm:text-right {ALIGNED_WITH_CONTROL_TEXT_CLASS} {}",
+                                if read_only_while_editing() { "opacity-60" } else { "" },
+                            )
+                        }>{children()}</div>
+                        {field_actions_view(actions)}
+                    </div>
+                    {editor_view()}
+                </Provider>
             </dd>
         </div>
     }

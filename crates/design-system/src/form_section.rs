@@ -1,3 +1,4 @@
+use leptos::context::Provider;
 use leptos::prelude::*;
 
 use crate::button::{button_class, ButtonSize, ButtonTone};
@@ -108,12 +109,12 @@ pub fn FormRow(
     let control_id = format!("form-row-{row_number}");
     let label_id = format!("form-row-{row_number}-label");
     let help_id = help.as_ref().map(|_| format!("form-row-{row_number}-help"));
-    provide_context(FieldElementIds {
+    let element_ids = FieldElementIds {
         control: control_id.clone(),
         label: label_id.clone(),
         description: help_id.clone(),
         invalid: Signal::default(),
-    });
+    };
     let label_text = match help.zip(help_id) {
         Some((help, help_id)) => view! {
             <HelpTerm help help_id>
@@ -133,7 +134,9 @@ pub fn FormRow(
                 {label_text}
             </label>
             <div class=CONTROL_COLUMN_CLASS>
-                <div class=CONTROL_CLASS>{children()}</div>
+                <div class=CONTROL_CLASS>
+                    <Provider value=element_ids>{children()}</Provider>
+                </div>
             </div>
         </div>
     }

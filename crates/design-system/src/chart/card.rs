@@ -1,3 +1,4 @@
+use leptos::context::Provider;
 use leptos::prelude::*;
 
 use super::frame::ChartFrame;
@@ -85,11 +86,11 @@ pub fn ChartCard(
     } else {
         heading_id.clone()
     };
-    provide_context(ChartFrame {
+    let frame = ChartFrame {
         heading_level,
         labelled_by,
         name: spoken_name(&title, subtitle.as_ref()),
-    });
+    };
     let metric_row = selected_metric
         .filter(|_| !metrics.is_empty())
         .map(|selected| {
@@ -131,7 +132,9 @@ pub fn ChartCard(
                 </div>
                 {metric_row}
             </header>
-            <div class="px-2 py-4 sm:p-6">{children()}</div>
+            <div class="px-2 py-4 sm:p-6">
+                <Provider value=frame>{children()}</Provider>
+            </div>
             {footer}
         </section>
     }

@@ -105,8 +105,7 @@ pub use field_values::{
     address_actions, address_value, missing_value, multiline_value, partner_value, text_value,
 };
 pub use fields::{
-    provide_editing_scope, FieldEditor, FieldGrid, FieldRow, FieldSection, HeadingLevel,
-    SaveRejection, SectionEditing,
+    FieldEditor, FieldGrid, FieldRow, FieldSection, HeadingLevel, SaveRejection, SectionEditing,
 };
 pub use fieldset::{Field, Fieldset};
 pub use files::{

@@ -1,3 +1,4 @@
+use leptos::context::Provider;
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, Title};
 use leptos_router::{
@@ -33,25 +34,25 @@ const fn brand() -> Brand {
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
-    provide_context(brand());
-
     view! {
         <Title text="Component Gallery" />
-        <ToastProvider>
-            <Router>
-                <Routes fallback=NotFoundPage>
-                    <Route path=StaticSegment("sidebar") view=SidebarPage />
-                    <Route
-                        path=(StaticSegment("sidebar"), WildcardSegment("page"))
-                        view=SidebarPage
-                    />
-                    <ParentRoute path=StaticSegment("") view=GalleryLayout>
-                        <Route path=StaticSegment("") view=IndexPage />
-                        <Route path=ParamSegment("slug") view=ComponentPage />
-                    </ParentRoute>
-                </Routes>
-            </Router>
-        </ToastProvider>
+        <Provider value=brand()>
+            <ToastProvider>
+                <Router>
+                    <Routes fallback=NotFoundPage>
+                        <Route path=StaticSegment("sidebar") view=SidebarPage />
+                        <Route
+                            path=(StaticSegment("sidebar"), WildcardSegment("page"))
+                            view=SidebarPage
+                        />
+                        <ParentRoute path=StaticSegment("") view=GalleryLayout>
+                            <Route path=StaticSegment("") view=IndexPage />
+                            <Route path=ParamSegment("slug") view=ComponentPage />
+                        </ParentRoute>
+                    </Routes>
+                </Router>
+            </ToastProvider>
+        </Provider>
     }
     .into_any()
 }

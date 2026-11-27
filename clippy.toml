@@ -3,3 +3,6 @@ allow-panic-in-tests = true
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-dbg-in-tests = true
+disallowed-methods = [
+    { path = "reactive_graph::owner::provide_context", reason = "components share their caller's owner, so a bare context leaks to siblings and outlives a rebuilt route; scope it with leptos::context::Provider" },
+]

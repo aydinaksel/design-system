@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 
+use leptos::context::Provider;
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Div;
 use leptos::portal::Portal;
@@ -175,7 +176,6 @@ pub fn Dialog(
         .then(|| format!("dialog-{dialog_number}-description"));
     let panel: NodeRef<Div> = NodeRef::new();
     let container: NodeRef<Div> = NodeRef::new();
-    provide_context(DialogClose(on_close));
 
     #[cfg(feature = "hydrate")]
     {
@@ -257,7 +257,7 @@ pub fn Dialog(
             </div>
             {description_view}
         </div>
-        {children()}
+        <Provider value=DialogClose(on_close)>{children()}</Provider>
     }
     .into_any();
     let content = StoredValue::new(Mutex::new(Some(content)));
