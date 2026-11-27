@@ -7,10 +7,11 @@ use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::icons::{self, LucideGlyph};
 
 const VIEWPORT_CLASS: &str = "pointer-events-none fixed inset-x-4 bottom-4 z-[60] mx-auto flex max-w-sm flex-col gap-3 sm:left-auto sm:right-4 sm:mx-0 sm:w-full";
-const TOAST_CLASS: &str = "pointer-events-auto flex w-full items-center gap-3 rounded-xl border border-edge bg-surface p-4 text-gray-900 shadow-lg transition-[translate,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] starting:translate-y-[150%] starting:opacity-0 motion-reduce:transition-none";
+const TOAST_CLASS: &str = "pointer-events-auto flex w-full items-center gap-3 rounded-xl border border-edge bg-surface p-4 text-gray-900 shadow-lg transition-[translate,opacity] ease-[cubic-bezier(0.22,1,0.36,1)] starting:translate-y-[150%] starting:opacity-0 motion-reduce:transition-none";
 const LEAVING_CLASS: &str = "translate-y-[150%] opacity-0";
 const SUCCESS_VISIBLE_DURATION: Duration = Duration::from_secs(5);
-const LEAVING_DURATION: Duration = Duration::from_millis(300);
+const TRANSITION_MILLISECONDS: u64 = 500;
+const LEAVING_DURATION: Duration = Duration::from_millis(TRANSITION_MILLISECONDS);
 const MOST_TOASTS_SHOWN: usize = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -114,7 +115,11 @@ fn toast_view(toast: ToastMessage, toasts: ShownToasts) -> AnyView {
         }
     };
     view! {
-        <div role=toast.kind.role() class=class>
+        <div
+            role=toast.kind.role()
+            class=class
+            style=format!("transition-duration: {TRANSITION_MILLISECONDS}ms")
+        >
             {icons::icon(toast.kind.glyph(), toast.kind.icon_class())}
             <div class="flex min-w-0 flex-1 flex-col gap-1 break-words">
                 <p class="text-sm font-medium">{toast.title}</p>
