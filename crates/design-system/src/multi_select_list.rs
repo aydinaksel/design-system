@@ -15,6 +15,7 @@ use crate::menu::{
 use crate::search_input::{SearchInput, SearchSize};
 
 const SEARCH_VISIBILITY_THRESHOLD: usize = 10;
+const DEFAULT_SEARCH_PLACEHOLDER: &str = "Search Values";
 pub(crate) const SCROLLBAR_GUTTER_CLASS: &str = "[scrollbar-gutter:stable] [scrollbar-width:thin]";
 pub(crate) const OPTION_END_INSET_CLASS: &str = "pr-4.5";
 const LIST_CLASS: &str = "max-h-56 overflow-auto p-1.5 text-sm focus:outline-none";
@@ -125,6 +126,7 @@ pub fn MultiSelectList(
     #[prop(into)] on_toggle: Callback<String>,
     #[prop(into)] label: String,
     #[prop(optional, into)] on_clear: Option<Callback<()>>,
+    #[prop(default = DEFAULT_SEARCH_PLACEHOLDER)] search_placeholder: &'static str,
 ) -> impl IntoView {
     let list_number = ElementKey::next();
     let list_id = format!("multi-select-{list_number}-options");
@@ -217,7 +219,7 @@ pub fn MultiSelectList(
             <div class="border-b border-divider p-2.5">
                 <SearchInput
                     value=value_search
-                    placeholder="Search Values"
+                    placeholder=search_placeholder
                     size=SearchSize::Compact
                     controls=list_id.clone()
                     active_descendant=active_descendant

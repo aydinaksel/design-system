@@ -20,6 +20,7 @@ use crate::tooltip::Tooltip;
 use super::calendar_view::CalendarView;
 use super::cell_value::{Align, CellValue};
 use super::column::Column;
+use super::column_choices::ColumnChoices;
 use super::facet_row::FacetRow;
 use super::layout::{Layout, ServerFiltering, ServerRows};
 use super::row_selection::RowSelection;
@@ -291,6 +292,8 @@ pub fn DataTable<Row>(
     #[prop(optional)] server: Option<ServerRows>,
     #[prop(optional)] layout: Layout<Row>,
     #[prop(optional)] sticky_first_column: bool,
+    #[prop(optional, into)]
+    column_choices: MaybeProp<String>,
 ) -> impl IntoView
 where
     Row: Clone + Send + Sync + 'static,
@@ -323,12 +326,25 @@ where
         }
         .render(),
     };
+    let column_choices = column_choices
+        .get_untracked()
+        .map(|table_key| ColumnChoices::new(&table_key, Arc::clone(&columns)));
+    let controls = match (toolbar, column_choices.as_ref().map(ColumnChoices::menu)) {
+        (Some(toolbar), Some(menu)) => Some(
+            view! {
+                {toolbar}
+                {menu}
+            }
+            .into_any(),
+        ),
+        (toolbar, menu) => toolbar.or(menu),
+    };
     let toolbar_row = TableToolbar {
         views,
         filter_toggle,
         facets,
         filters,
-        controls: toolbar,
+        controls,
         search,
         search_placeholder,
         query,
@@ -354,6 +370,7 @@ where
         hides_row_count,
         on_retry,
         sticky_first_column,
+        column_choices,
     };
     let contents = move || {
         view! {
@@ -442,6 +459,7 @@ struct TableState<Row: Send + Sync + 'static> {
     hides_row_count: bool,
     on_retry: Option<Callback<()>>,
     sticky_first_column: bool,
+    column_choices: Option<ColumnChoices<Row>>,
 }
 
 impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
@@ -461,6 +479,7 @@ impl<Row: Send + Sync + 'static> Clone for TableState<Row> {
             hides_row_count: self.hides_row_count,
             on_retry: self.on_retry,
             sticky_first_column: self.sticky_first_column,
+            column_choices: self.column_choices.clone(),
         }
     }
 }
@@ -597,18 +616,39 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         .into_any()
     }
 
+    fn shown_columns(&self) -> Vec<(usize, &Column<Row>)> {
+        let shown = match &self.column_choices {
+            Some(choices) => choices.shown_indices(),
+            None => (0..self.columns.len()).collect(),
+        };
+        shown
+            .into_iter()
+            .filter_map(|index| self.columns.get(index).map(|column| (index, column)))
+            .collect()
+    }
+
     fn row_cells(&self, row: &Row) -> AnyView {
-        self.columns
-            .iter()
-            .map(|column| {
-                let class = format!(
-                    "{ROW_HEIGHT_CLASS} px-4 py-2.5 text-gray-700 {} truncate",
-                    column.align.text_class()
-                );
-                view! { <td class=class>{(column.render)(row)}</td> }
-            })
-            .collect_view()
-            .into_any()
+        let state = self.clone();
+        let row = row.clone();
+        (move || {
+            state
+                .shown_columns()
+                .into_iter()
+                .map(|(_, column)| {
+                    let class = format!(
+                        "{ROW_HEIGHT_CLASS} px-4 py-2.5 text-gray-700 {} truncate",
+                        column.align.text_class()
+                    );
+                    let title = column.plain_text_of(&row);
+                    view! {
+                        <td class=class title=title>
+                            {(column.render)(&row)}
+                        </td>
+                    }
+                })
+                .collect_view()
+        })
+        .into_any()
     }
 
     fn row_target(&self, row: &Row) -> Option<String> {
@@ -786,17 +826,20 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
             .selection
             .is_some()
             .then(|| view! { <col style=format!("width: {SELECTION_COLUMN_WIDTH}") /> });
-        let columns = self
-            .columns
-            .iter()
-            .map(|column| {
-                let style = format!(
-                    "width: calc({}ch + {CELL_PADDING_WIDTH})",
-                    column.rendered_width_characters()
-                );
-                view! { <col style=style /> }
-            })
-            .collect_view();
+        let state = self.clone();
+        let columns = move || {
+            state
+                .shown_columns()
+                .into_iter()
+                .map(|(_, column)| {
+                    let style = format!(
+                        "width: calc({}ch + {CELL_PADDING_WIDTH})",
+                        column.rendered_width_characters()
+                    );
+                    view! { <col style=style /> }
+                })
+                .collect_view()
+        };
         view! {
             {selection_column}
             {columns}
@@ -972,15 +1015,23 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                 column.align.text_class(),
                 crate::typography::LABEL_CLASS,
             );
-            return view! { <th class=class>{label}</th> }.into_any();
+            return view! {
+                <th class=class title=column.header>
+                    {label}
+                </th>
+            }
+            .into_any();
         }
         let menu_state = self.clone();
         let menu = move || menu_state.sort_menu(index);
         view! {
-            <th class=format!(
-                "{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {}",
-                column.align.text_class(),
-            )>
+            <th
+                class=format!(
+                    "{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {}",
+                    column.align.text_class(),
+                )
+                title=column.header
+            >
                 <Popover align=menu_alignment(column.align)>
                     <PopoverTrigger class=format!(
                         "{HEADER_TRIGGER_CLASS} {}",
@@ -1000,12 +1051,14 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
             .selection
             .as_ref()
             .map(|selection| self.selection_header_cell(selection));
-        let cells = self
-            .columns
-            .iter()
-            .enumerate()
-            .map(|(index, column)| self.header_cell(index, column))
-            .collect_view();
+        let state = self.clone();
+        let cells = move || {
+            state
+                .shown_columns()
+                .into_iter()
+                .map(|(index, column)| state.header_cell(index, column))
+                .collect_view()
+        };
         view! {
             {selection_cell}
             {cells}
@@ -1087,9 +1140,8 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
         let cells = move || {
             let rows = state.visible_rows();
             state
-                .columns
-                .iter()
-                .enumerate()
+                .shown_columns()
+                .into_iter()
                 .map(|(index, column)| {
                     let (text, tone) = match &column.total {
                         Some(total) => (total(&rows), FOOTER_CELL_CLASS),
@@ -1102,7 +1154,12 @@ impl<Row: Clone + Send + Sync + 'static> TableState<Row> {
                         "{HEADER_ROW_HEIGHT_CLASS} truncate px-4 {tone} {}",
                         column.align.text_class()
                     );
-                    view! { <td class=class>{text}</td> }
+                    let title = text.clone();
+                    view! {
+                        <td class=class title=title>
+                            {text}
+                        </td>
+                    }
                 })
                 .collect_view()
         };

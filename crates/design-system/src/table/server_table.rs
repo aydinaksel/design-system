@@ -83,6 +83,7 @@ pub fn ServerTable<Row, LoadFn, LoadFuture, LoadError>(
     #[prop(optional)] row_href: Option<RowAttribute<Row>>,
     #[prop(optional)] row_class: Option<RowAttribute<Row>>,
     #[prop(optional)] sticky_first_column: bool,
+    #[prop(optional, into)] column_choices: MaybeProp<String>,
     /// The page's own controls that narrow the rows, such as a date, drawn
     /// beside the search.
     #[prop(optional, into)]
@@ -170,6 +171,7 @@ where
             row_href=row_href
             row_class=row_class
             sticky_first_column=sticky_first_column
+            column_choices=column_choices
             on_retry=Callback::new(move |()| current_page.refetch())
             filters=filters.map(|filters| filters.run())
             toolbar=Some(toolbar.run())

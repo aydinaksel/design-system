@@ -52,6 +52,16 @@ impl CellValue {
     }
 
     #[must_use]
+    pub fn display_text(&self) -> Option<String> {
+        match self {
+            CellValue::Text(text) => Some(text.clone()),
+            CellValue::Number(number) => Some(crate::formatting::format_quantity(*number)),
+            CellValue::Int(integer) => Some(integer.to_string()),
+            CellValue::Empty => None,
+        }
+    }
+
+    #[must_use]
     pub fn filter_key(&self) -> String {
         match self {
             CellValue::Text(text) => text.clone(),

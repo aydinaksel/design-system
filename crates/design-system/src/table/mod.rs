@@ -2,7 +2,9 @@ mod calendar_view;
 mod cell_editor;
 mod cell_value;
 mod column;
+mod column_choices;
 mod data_table;
+mod email_table;
 mod facet_row;
 mod layout;
 mod line_items;
@@ -15,8 +17,12 @@ mod url_query;
 
 pub use cell_editor::CellEditor;
 pub use cell_value::{Align, CellValue};
-pub use column::{Column, ColumnTotal};
+pub use column::{Column, ColumnTotal, DefaultVisibility, PlainText};
+pub use column_choices::{
+    ColumnChoiceStore, ColumnOverrides, SaveColumnChoices, SavedColumnChoices,
+};
 pub use data_table::{DataTable, RowAttribute, RowReplacement, RowView, Search, BODY_HEIGHT_CLASS};
+pub use email_table::{copy_rows_for_email, email_table_html};
 pub use layout::{Layout, ServerLayout};
 pub use line_items::{
     CalculatedField, LineCell, LineFix, LineForm, LineIssue, LineItems, LineSave,
