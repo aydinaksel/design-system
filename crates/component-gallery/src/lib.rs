@@ -9,5 +9,5 @@ pub mod pages;
 pub fn hydrate() {
     use crate::app::App;
     console_error_panic_hook::set_once();
-    leptos::mount::hydrate_body(App);
+    design_system::hydrate(App);
 }

@@ -25,3 +25,20 @@ where
         </html>
     }
 }
+
+pub const HYDRATED_ATTRIBUTE: &str = "data-hydrated";
+
+#[cfg(feature = "hydrate")]
+pub fn hydrate<AppView, AppComponent>(app: AppComponent)
+where
+    AppView: IntoView,
+    AppComponent: FnOnce() -> AppView + 'static,
+{
+    hydrate_body(app);
+    let marked = document()
+        .document_element()
+        .map(|root| root.set_attribute(HYDRATED_ATTRIBUTE, ""));
+    if !matches!(marked, Some(Ok(()))) {
+        leptos::logging::warn!("could not mark the document as hydrated");
+    }
+}
