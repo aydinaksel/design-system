@@ -1,9 +1,15 @@
 use leptos::prelude::*;
 use leptos_meta::MetaTags;
 
+#[derive(Clone, Copy, Debug)]
+pub struct DocumentLinks {
+    pub stylesheet_href: &'static str,
+    pub icon_href: &'static str,
+}
+
 pub fn shell<AppView, AppComponent>(
     options: LeptosOptions,
-    stylesheet_href: &'static str,
+    links: DocumentLinks,
     app: AppComponent,
 ) -> impl IntoView
 where
@@ -19,7 +25,8 @@ where
                 <AutoReload options=options.clone() />
                 <HydrationScripts options />
                 <MetaTags />
-                <link rel="stylesheet" id="leptos" href=stylesheet_href />
+                <link rel="stylesheet" id="leptos" href=links.stylesheet_href />
+                <link rel="icon" href=links.icon_href />
             </head>
             <body>{app()}</body>
         </html>

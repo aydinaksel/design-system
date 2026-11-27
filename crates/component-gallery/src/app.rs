@@ -6,15 +6,20 @@ use leptos_router::{
     ParamSegment, StaticSegment, WildcardSegment,
 };
 
-use design_system::{Brand, NotFoundPage, ToastProvider};
+use design_system::{Brand, DocumentLinks, NotFoundPage, ToastProvider};
 
 use crate::layout::GalleryLayout;
 use crate::pages::{component::ComponentPage, index::IndexPage, sidebar::SidebarPage};
 
-const STYLESHEET_HREF: &str = "/pkg/component-gallery.css";
+pub const FAVICON_PATH: &str = "/favicon.svg";
+
+const DOCUMENT_LINKS: DocumentLinks = DocumentLinks {
+    stylesheet_href: "/pkg/component-gallery.css",
+    icon_href: FAVICON_PATH,
+};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
-    design_system::shell(options, STYLESHEET_HREF, App)
+    design_system::shell(options, DOCUMENT_LINKS, App)
 }
 
 const fn brand() -> Brand {

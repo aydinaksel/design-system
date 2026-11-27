@@ -4,7 +4,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use axum::http::header::CONTENT_TYPE;
     use axum::routing::get;
     use axum::Router;
-    use component_gallery::app::{shell, App};
+    use component_gallery::app::{shell, App, FAVICON_PATH};
     use component_gallery::pages::articles::RECEIVE_SCREEN_PATH;
     use component_gallery::pages::files::SAMPLE_PDF_PATH;
     use leptos::prelude::*;
@@ -25,6 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let sample_pdf = include_bytes!("../assets/sample-delivery-note.pdf");
     let receive_screen = include_bytes!("../assets/receive-screen.svg");
+    let favicon = include_bytes!("../assets/favicon.svg");
     let router = Router::new()
         .route(
             SAMPLE_PDF_PATH,
@@ -35,6 +36,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route(
             RECEIVE_SCREEN_PATH,
             get(move || async move { ([(CONTENT_TYPE, "image/svg+xml")], receive_screen.as_slice()) }),
+        )
+        .route(
+            FAVICON_PATH,
+            get(move || async move { ([(CONTENT_TYPE, "image/svg+xml")], favicon.as_slice()) }),
         )
         .leptos_routes(&leptos_options, route_list, {
             let leptos_options = leptos_options.clone();
