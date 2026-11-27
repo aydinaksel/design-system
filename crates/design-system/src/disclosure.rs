@@ -1,14 +1,9 @@
 use leptos::prelude::*;
 
-use crate::element_key::ElementKey;
 use crate::icons;
 
-const BUTTON_CLASS: &str =
-    "group flex w-full cursor-pointer items-start justify-between gap-2 rounded-md text-left focus-ring";
-const CHEVRON_CLASS: &str =
-    "mt-0.5 h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:text-gray-600";
-const OPEN_CHEVRON_CLASS: &str =
-    "mt-0.5 h-4 w-4 shrink-0 rotate-180 text-gray-400 transition-transform group-hover:text-gray-600";
+const SUMMARY_CLASS: &str = "flex w-full cursor-pointer list-none items-start justify-between gap-2 rounded-md text-left focus-ring [&::-webkit-details-marker]:hidden";
+const CHEVRON_CLASS: &str = "mt-0.5 h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover/disclosure:text-gray-600 group-open/disclosure:rotate-180";
 
 #[component]
 pub fn Disclosure(
@@ -16,32 +11,14 @@ pub fn Disclosure(
     #[prop(optional)] open_at_start: bool,
     children: ChildrenFn,
 ) -> impl IntoView {
-    let open = RwSignal::new(open_at_start);
-    let panel_id = format!("disclosure-{}-panel", ElementKey::next());
-    let chevron = move || {
-        let class = if open.get() {
-            OPEN_CHEVRON_CLASS
-        } else {
-            CHEVRON_CLASS
-        };
-        icons::icon(icons::LucideGlyph::ChevronDown, class)
-    };
     view! {
-        <div>
-            <button
-                type="button"
-                class=BUTTON_CLASS
-                aria-expanded=move || open.get().to_string()
-                aria-controls=panel_id.clone()
-                on:click=move |_| open.update(|is_open| *is_open = !*is_open)
-            >
+        <details class="group/disclosure" open=open_at_start>
+            <summary class=SUMMARY_CLASS>
                 <span class="min-w-0 flex-1">{move || summary.run()}</span>
-                {chevron}
-            </button>
-            <div id=panel_id class="mt-2" class:hidden=move || !open.get()>
-                {move || children()}
-            </div>
-        </div>
+                {icons::icon(icons::LucideGlyph::ChevronDown, CHEVRON_CLASS)}
+            </summary>
+            <div class="mt-2">{move || children()}</div>
+        </details>
     }
     .into_any()
 }

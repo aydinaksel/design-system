@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use leptos::prelude::*;
+use leptos::wasm_bindgen::JsCast;
 
 use crate::button::{button_class, button_icon_class, ButtonSize, ButtonTone};
 use crate::dialog::show_modal_while_mounted;
@@ -362,28 +363,29 @@ fn ServerFacetGroup(
         .into_any()
     };
 
+    let on_toggle_details = move |event: leptos::ev::Event| {
+        let opened = event
+            .target()
+            .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+            .is_some_and(|details| details.has_attribute("open"));
+        if open.get_untracked() != opened {
+            open.set(opened);
+        }
+    };
+
     view! {
-        <div>
-            <button
-                type="button"
-                class=format!(
-                    "flex {ROW_HEIGHT_CLASS} w-full cursor-pointer items-center gap-1.5 overflow-hidden pl-2 {OPTION_END_INSET_CLASS} {SCROLLBAR_GUTTER_CLASS} text-left text-sm font-medium text-gray-800 hover:bg-gray-50",
-                )
-                aria-expanded=move || open.get().to_string()
-                on:click=move |_| open.update(|is_open| *is_open = !*is_open)
-            >
-                {move || {
-                    let rotation = if open.get() { "rotate-90" } else { "" };
-                    icons::icon(
-                        icons::LucideGlyph::ChevronRight,
-                        format!("h-4 w-4 shrink-0 text-gray-400 transition-transform {rotation}"),
-                    )
-                }}
-                <span class="min-w-0 flex-1 truncate">{facet.label}</span>
+        <details class="group/facet" prop:open=move || open.get() on:toggle=on_toggle_details>
+            <summary class=format!(
+                "flex {ROW_HEIGHT_CLASS} w-full cursor-pointer list-none items-center gap-1.5 overflow-hidden pl-2 {OPTION_END_INSET_CLASS} {SCROLLBAR_GUTTER_CLASS} text-left text-sm font-medium text-gray-800 hover:bg-gray-50 [&::-webkit-details-marker]:hidden",
+            )>
+                {icons::icon(
+                    icons::LucideGlyph::ChevronRight,
+                    "h-4 w-4 shrink-0 text-gray-400 transition-transform group-open/facet:rotate-90",
+                )} <span class="min-w-0 flex-1 truncate">{facet.label}</span>
                 {move || count_badge(selected_count(query, column_key))}
-            </button>
+            </summary>
             {body}
-        </div>
+        </details>
     }
     .into_any()
 }
