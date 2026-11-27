@@ -99,6 +99,30 @@ pub(crate) fn show_modal_while_mounted(
     }
 }
 
+#[cfg_attr(
+    not(feature = "hydrate"),
+    expect(
+        unused_variables,
+        reason = "only the browser receives clicks, so the server never closes a dialog"
+    )
+)]
+pub(crate) fn closes_on_backdrop_click(
+    dialog: NodeRef<leptos::html::Dialog>,
+    close: impl Fn() + 'static,
+) -> impl Fn(MouseEvent) + 'static {
+    move |event: MouseEvent| {
+        #[cfg(feature = "hydrate")]
+        if dialog
+            .get_untracked()
+            .is_some_and(|element| browser::clicked_the_backdrop(&element, &event))
+        {
+            close();
+        }
+        #[cfg(not(feature = "hydrate"))]
+        drop(event);
+    }
+}
+
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
@@ -124,17 +148,7 @@ pub fn Dialog(
         event.prevent_default();
         on_close.run(());
     };
-    let on_click = move |event: MouseEvent| {
-        #[cfg(feature = "hydrate")]
-        if dialog
-            .get_untracked()
-            .is_some_and(|element| browser::clicked_the_backdrop(&element, &event))
-        {
-            on_close.run(());
-        }
-        #[cfg(not(feature = "hydrate"))]
-        drop(event);
-    };
+    let on_click = closes_on_backdrop_click(dialog, move || on_close.run(()));
 
     let close_button = (!alert).then(|| {
         view! {

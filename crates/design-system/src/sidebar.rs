@@ -1,7 +1,6 @@
 use codee::string::FromToStringCodec;
 use leptos::context::Provider;
-use leptos::ev::KeyboardEvent;
-use leptos::html::{Aside, Button};
+use leptos::ev::Event;
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_location;
@@ -9,11 +8,10 @@ use leptos_use_cookie::{use_cookie_with_options, SameSite, UseCookieOptions};
 
 use crate::brand::brand;
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
-use crate::editing::focus_is_within_or_lost;
+use crate::dialog::{closes_on_backdrop_click, show_modal_while_mounted};
 use crate::element_key::ElementKey;
 use crate::icons::{self, LucideGlyph};
 use crate::menu::{menu, MenuEntry};
-use crate::popover::keep_tab_inside;
 use crate::tooltip::{Tooltip, TooltipSide};
 
 const COOKIE_PATH: &str = "/";
@@ -33,15 +31,9 @@ const SECTION_TOGGLE_CLASS: &str = "flex h-7 w-full cursor-pointer items-center 
 const SECTION_DIVIDER_CLASS: &str = "pointer-events-none absolute inset-x-1 top-1/2 h-px bg-edge opacity-0 transition-opacity duration-200 sm:group-data-[rail=true]/sidebar:opacity-100";
 const USER_TRIGGER_CLASS: &str = "flex w-full cursor-pointer items-center gap-3 overflow-hidden whitespace-nowrap rounded-lg p-2 text-left text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-ring-inset";
 const PANEL_CLASS: &str = "flex h-full w-full flex-col border-r border-edge bg-surface";
-const ASIDE_CLASS: &str = "group/sidebar z-50 w-52 shrink-0 overflow-hidden bg-surface duration-200 motion-reduce:duration-0 max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:shadow-lg sm:h-full sm:transition-[width]";
+const ASIDE_CLASS: &str = "group/sidebar w-52 shrink-0 overflow-hidden bg-surface duration-200 motion-reduce:duration-0 max-sm:hidden sm:h-full sm:transition-[width]";
 const RAIL_WIDTH_CLASS: &str = "sm:w-12";
-const DRAWER_OPEN_CLASS: &str = "max-sm:visible max-sm:translate-x-0 max-sm:transition-[translate]";
-const DRAWER_CLOSED_CLASS: &str =
-    "max-sm:invisible max-sm:-translate-x-full max-sm:transition-[translate,visibility]";
-const BACKDROP_CLASS: &str =
-    "fixed inset-0 z-40 bg-black/40 duration-200 motion-reduce:duration-0 sm:hidden";
-const BACKDROP_OPEN_CLASS: &str = "visible opacity-100 transition-opacity";
-const BACKDROP_CLOSED_CLASS: &str = "invisible opacity-0 transition-[opacity,visibility]";
+const DRAWER_CLASS: &str = "group/sidebar m-0 h-dvh max-h-none w-52 max-w-none border-0 bg-surface p-0 shadow-lg transition-[translate] duration-200 ease-out backdrop:bg-black/40 starting:-translate-x-full motion-reduce:transition-none";
 
 #[derive(Clone, Copy)]
 struct SidebarState {
@@ -95,70 +87,9 @@ pub fn is_active(pathname: &str, href: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('/'))
 }
 
-fn focus_button(button: NodeRef<Button>) {
-    if let Some(element) = button.try_get_untracked().flatten() {
-        element.focus().unwrap_or_default();
-    }
-}
-
-fn move_focus_with_drawer(
-    drawer_open: RwSignal<bool>,
-    aside: NodeRef<Aside>,
-    close_button: NodeRef<Button>,
-    open_button: NodeRef<Button>,
-) {
-    Effect::new(move |was_open: Option<bool>| {
-        let open = drawer_open.get();
-        if was_open.is_none_or(|was_open| was_open == open) {
-            return open;
-        }
-        let focus_was_inside = aside
-            .get_untracked()
-            .is_none_or(|panel| focus_is_within_or_lost(&panel));
-        if open {
-            request_animation_frame(move || focus_button(close_button));
-        } else if focus_was_inside {
-            focus_button(open_button);
-        }
-        open
-    });
-}
-
-fn keep_focus_in_drawer(event: &KeyboardEvent, drawer_open: RwSignal<bool>, aside: NodeRef<Aside>) {
-    if !drawer_open.get_untracked() {
-        return;
-    }
-    match event.key().as_str() {
-        "Escape" => {
-            event.prevent_default();
-            drawer_open.set(false);
-        }
-        "Tab" => {
-            if let Some(panel) = aside.get_untracked() {
-                keep_tab_inside(&panel, event);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn aside_class(drawer_open: bool, rail: bool) -> String {
-    let drawer = if drawer_open {
-        DRAWER_OPEN_CLASS
-    } else {
-        DRAWER_CLOSED_CLASS
-    };
+fn aside_class(rail: bool) -> String {
     let width = if rail { RAIL_WIDTH_CLASS } else { "" };
-    format!("{ASIDE_CLASS} {drawer} {width}")
-}
-
-fn backdrop_class(drawer_open: bool) -> String {
-    let motion = if drawer_open {
-        BACKDROP_OPEN_CLASS
-    } else {
-        BACKDROP_CLOSED_CLASS
-    };
-    format!("{BACKDROP_CLASS} {motion}")
+    format!("{ASIDE_CLASS} {width}")
 }
 
 fn sidebar_id(key: ElementKey) -> String {
@@ -166,20 +97,16 @@ fn sidebar_id(key: ElementKey) -> String {
 }
 
 #[component]
-fn PhoneTopBar(
-    drawer_open: RwSignal<bool>,
-    open_button: NodeRef<Button>,
-    aside_key: ElementKey,
-) -> impl IntoView {
+fn PhoneTopBar(drawer_open: RwSignal<bool>, drawer_key: ElementKey) -> impl IntoView {
     let brand = brand();
     view! {
         <div class="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 border-b border-edge bg-surface px-3 sm:hidden">
             <button
-                node_ref=open_button
                 type="button"
                 aria-label="Open Navigation"
+                aria-haspopup="dialog"
                 aria-expanded=move || drawer_open.get().to_string()
-                aria-controls=sidebar_id(aside_key)
+                aria-controls=move || drawer_open.get().then(|| sidebar_id(drawer_key))
                 class=icon_button_class(ButtonTone::Ghost, ButtonSize::Dense)
                 on:click=move |_| drawer_open.set(true)
             >
@@ -197,7 +124,6 @@ fn PanelHeader(
     state: SidebarState,
     collapsed: Signal<bool>,
     set_collapsed_cookie: WriteSignal<Option<bool>>,
-    close_button: NodeRef<Button>,
     aside_key: ElementKey,
 ) -> impl IntoView {
     let brand = brand();
@@ -230,8 +156,8 @@ fn PanelHeader(
                 }}
             </button>
             <button
-                node_ref=close_button
                 type="button"
+                data-autofocus=""
                 aria-label="Close Navigation"
                 class=format!("ml-auto sm:hidden {ghost_button_class}")
                 on:click=move |_| state.close_drawer()
@@ -264,43 +190,26 @@ pub fn Sidebar(
     );
     let collapsed = Signal::derive(move || collapsed_cookie.get().unwrap_or(false));
     let drawer_open = RwSignal::new(false);
-    let rail = Signal::derive(move || collapsed.get() && !drawer_open.get());
     let state = SidebarState {
-        rail,
+        rail: collapsed,
         closed_sections,
         set_closed_sections,
         drawer_open,
     };
+    let drawer_state = SidebarState {
+        rail: Signal::stored(false),
+        ..state
+    };
     let aside_key = ElementKey::next();
-    let aside: NodeRef<Aside> = NodeRef::new();
-    let open_button: NodeRef<Button> = NodeRef::new();
-    let close_button: NodeRef<Button> = NodeRef::new();
+    let drawer_key = ElementKey::next();
 
-    move_focus_with_drawer(drawer_open, aside, close_button, open_button);
-    let on_aside_keydown =
-        move |event: KeyboardEvent| keep_focus_in_drawer(&event, drawer_open, aside);
-
-    view! {
-        <PhoneTopBar drawer_open open_button aside_key />
-        <div
-            class=move || backdrop_class(drawer_open.get())
-            aria-hidden="true"
-            on:click=move |_| drawer_open.set(false)
-        ></div>
-
-        <aside
-            node_ref=aside
-            id=sidebar_id(aside_key)
-            aria-label="Navigation"
-            role=move || drawer_open.get().then_some("dialog")
-            aria-modal=move || drawer_open.get().then_some("true")
-            data-rail=move || rail.get().to_string()
-            class=move || aside_class(drawer_open.get(), rail.get())
-            on:keydown=on_aside_keydown
-        >
+    let panel = move |state: SidebarState| {
+        let children = children.clone();
+        let footer = footer.clone();
+        view! {
             <Provider value=state>
                 <div class=PANEL_CLASS>
-                    <PanelHeader state collapsed set_collapsed_cookie close_button aside_key />
+                    <PanelHeader state collapsed set_collapsed_cookie aside_key />
                     <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden p-2">
                         {children()}
                     </nav>
@@ -312,6 +221,42 @@ pub fn Sidebar(
                         })}
                 </div>
             </Provider>
+        }
+    };
+    let desktop_panel = panel.clone();
+    let drawer = move || {
+        drawer_open.get().then(|| {
+            let dialog: NodeRef<leptos::html::Dialog> = NodeRef::new();
+            show_modal_while_mounted(dialog);
+            view! {
+                <dialog
+                    node_ref=dialog
+                    id=sidebar_id(drawer_key)
+                    aria-label="Navigation"
+                    data-rail="false"
+                    class=DRAWER_CLASS
+                    on:cancel=move |event: Event| {
+                        event.prevent_default();
+                        drawer_open.set(false);
+                    }
+                    on:click=closes_on_backdrop_click(dialog, move || drawer_open.set(false))
+                >
+                    {panel(drawer_state)}
+                </dialog>
+            }
+        })
+    };
+
+    view! {
+        <PhoneTopBar drawer_open drawer_key />
+        {drawer}
+        <aside
+            id=sidebar_id(aside_key)
+            aria-label="Navigation"
+            data-rail=move || collapsed.get().to_string()
+            class=move || aside_class(collapsed.get())
+        >
+            {desktop_panel(state)}
         </aside>
     }
     .into_any()
