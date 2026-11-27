@@ -4,6 +4,7 @@ use leptos::wasm_bindgen::JsCast;
 use leptos_use_event_listener::use_event_listener;
 use leptos_use_window::use_window;
 
+use crate::dialog::show_modal_while_mounted;
 use crate::icons;
 
 const EDITABLE_SELECTOR: &str =
@@ -203,20 +204,6 @@ fn step_forward(position: Option<usize>, count: usize) -> Option<usize> {
 pub fn ImageGrid(#[prop(into)] images: Signal<Vec<GalleryImage>>) -> impl IntoView {
     let enlarged: RwSignal<Option<usize>> = RwSignal::new(None);
 
-    let keyboard = window_event_listener(leptos::ev::keydown, move |event| {
-        if enlarged.get_untracked().is_none() {
-            return;
-        }
-        let count = images.with_untracked(Vec::len);
-        match event.key().as_str() {
-            "Escape" => enlarged.set(None),
-            "ArrowLeft" => enlarged.update(|position| *position = step_backward(*position)),
-            "ArrowRight" => enlarged.update(|position| *position = step_forward(*position, count)),
-            _ => {}
-        }
-    });
-    on_cleanup(move || keyboard.remove());
-
     view! {
         {move || {
             let views = images.get();
@@ -294,15 +281,26 @@ fn EnlargedImage(
         count
     );
     let dialog_label = image.label.clone();
+    let dialog: NodeRef<leptos::html::Dialog> = NodeRef::new();
+    show_modal_while_mounted(dialog);
+    let on_keydown = move |event: KeyboardEvent| match event.key().as_str() {
+        "ArrowLeft" => enlarged.update(|position| *position = step_backward(*position)),
+        "ArrowRight" => enlarged.update(|position| *position = step_forward(*position, count)),
+        _ => {}
+    };
     let navigation_class = "absolute top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-surface/80 p-2 shadow hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30";
 
     view! {
-        <div
-            role="dialog"
-            aria-modal="true"
+        <dialog
+            node_ref=dialog
             aria-label=dialog_label
-            class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/90 p-4 sm:p-12"
+            class="m-0 h-dvh max-h-none w-screen max-w-none items-center justify-center border-0 bg-gray-900/90 p-4 backdrop:bg-transparent open:flex sm:p-12"
             on:click=move |_| enlarged.set(None)
+            on:cancel=move |event: leptos::ev::Event| {
+                event.prevent_default();
+                enlarged.set(None);
+            }
+            on:keydown=on_keydown
         >
             <img
                 src=image.display_url
@@ -348,7 +346,7 @@ fn EnlargedImage(
             <div class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
                 {caption}
             </div>
-        </div>
+        </dialog>
     }
     .into_any()
 }

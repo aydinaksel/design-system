@@ -123,6 +123,10 @@
   pointer-events: auto;
 }
 
+:root:has(dialog:modal) {
+  overflow: hidden;
+}
+
 @layer components {
   .table-frame {
     timeline-scope: --table-inline-scroll;

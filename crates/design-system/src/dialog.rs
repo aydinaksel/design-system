@@ -1,16 +1,13 @@
 use std::sync::Mutex;
 
 use leptos::context::Provider;
-use leptos::ev::{KeyboardEvent, MouseEvent};
-use leptos::html::Div;
-use leptos::portal::Portal;
+use leptos::ev::{Event, MouseEvent};
 use leptos::prelude::*;
 
 use crate::element_key::ElementKey;
 use crate::icons;
 
-const BACKDROP_CLASS: &str = "fixed inset-0 bg-gray-900/40 transition-opacity duration-200 ease-out starting:opacity-0 motion-reduce:transition-none";
-const PANEL_CLASS: &str = "relative w-full rounded-xl border border-edge bg-surface p-5 shadow-xl transition duration-200 ease-out focus:outline-none starting:scale-95 starting:opacity-0 motion-reduce:transition-none";
+const PANEL_CLASS: &str = "w-full rounded-xl border border-edge bg-surface p-5 text-gray-900 shadow-xl transition-[opacity,scale] duration-200 ease-out backdrop:bg-gray-900/40 focus:outline-none starting:scale-95 starting:opacity-0 motion-reduce:transition-none";
 const CLOSE_BUTTON_CLASS: &str =
     "cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600";
 
@@ -44,118 +41,64 @@ pub fn use_dialog_close() -> Option<Callback<()>> {
 
 #[cfg(feature = "hydrate")]
 mod browser {
-    use std::cell::RefCell;
-
-    use crate::element_key::ElementKey;
-    use leptos::prelude::document;
     use leptos::wasm_bindgen::JsCast;
-    use leptos::web_sys::{Element, HtmlElement};
+    use leptos::web_sys::{EventTarget, HtmlDialogElement, HtmlElement, MouseEvent};
 
-    const FOCUSABLE_SELECTOR: &str = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
     const AUTOFOCUS_SELECTOR: &str = "[data-autofocus]";
 
-    thread_local! {
-        static OPEN_DIALOGS: RefCell<Vec<ElementKey>> = const { RefCell::new(Vec::new()) };
-    }
-
-    pub(super) fn opened(number: ElementKey) {
-        let first = OPEN_DIALOGS.with(|open| {
-            let mut open = open.borrow_mut();
-            open.push(number);
-            open.len() == 1
-        });
-        if first {
-            lock_page_scroll(true);
+    pub(super) fn open_modal(dialog: &HtmlDialogElement) {
+        if !dialog.open() {
+            dialog.show_modal().unwrap_or_default();
         }
-    }
-
-    pub(super) fn closed(number: ElementKey) {
-        let none_left = OPEN_DIALOGS.with(|open| {
-            let mut open = open.borrow_mut();
-            open.retain(|other| *other != number);
-            open.is_empty()
-        });
-        if none_left {
-            lock_page_scroll(false);
-        }
-    }
-
-    pub(super) fn is_topmost(number: ElementKey) -> bool {
-        OPEN_DIALOGS.with(|open| open.borrow().last() == Some(&number))
-    }
-
-    fn lock_page_scroll(locked: bool) {
-        let Some(body) = document().body() else {
-            return;
-        };
-        let style = body.style();
-        if locked {
-            style.set_property("overflow", "hidden").unwrap_or_default();
-        } else {
-            style.remove_property("overflow").unwrap_or_default();
-        }
-    }
-
-    pub(super) fn focused_element() -> Option<Element> {
-        document().active_element()
-    }
-
-    pub(super) fn focus_initial(panel: &HtmlElement) {
-        let marked = panel
+        let marked = dialog
             .query_selector(AUTOFOCUS_SELECTOR)
             .ok()
             .flatten()
             .and_then(|element| element.dyn_into::<HtmlElement>().ok());
-        marked
-            .unwrap_or_else(|| panel.clone())
-            .focus()
-            .unwrap_or_default();
-    }
-
-    pub(super) fn restore_focus(element: Option<Element>) {
-        if let Some(element) = element.and_then(|element| element.dyn_into::<HtmlElement>().ok()) {
+        if let Some(element) = marked {
             element.focus().unwrap_or_default();
         }
     }
 
-    fn focusable_elements(panel: &HtmlElement) -> Vec<HtmlElement> {
-        let Ok(found) = panel.query_selector_all(FOCUSABLE_SELECTOR) else {
-            return Vec::new();
-        };
-        (0..found.length())
-            .filter_map(|index| found.get(index))
-            .filter_map(|node| node.dyn_into::<HtmlElement>().ok())
-            .filter(|element| element.offset_width() > 0 || element.offset_height() > 0)
-            .collect()
-    }
-
-    pub(super) fn wrap_focus(panel: &HtmlElement, backwards: bool) -> bool {
-        let focusables = focusable_elements(panel);
-        let (Some(first), Some(last)) = (focusables.first(), focusables.last()) else {
-            return true;
-        };
-        let active = document().active_element();
-        let is_active = |element: &HtmlElement| {
-            active
-                .as_ref()
-                .is_some_and(|active| active.is_same_node(Some(element)))
-        };
-        let wrap_to = if backwards && (is_active(first) || is_active(panel)) {
-            last
-        } else if !backwards && is_active(last) {
-            first
-        } else {
-            return false;
-        };
-        wrap_to.focus().unwrap_or_default();
-        true
+    pub(super) fn clicked_the_backdrop(dialog: &HtmlDialogElement, event: &MouseEvent) -> bool {
+        let dialog_target: &EventTarget = dialog.as_ref();
+        let on_the_dialog_itself = event
+            .target()
+            .is_some_and(|target| &target == dialog_target);
+        let bounds = dialog.get_bounding_client_rect();
+        let x = f64::from(event.client_x());
+        let y = f64::from(event.client_y());
+        let outside =
+            x < bounds.left() || x > bounds.right() || y < bounds.top() || y > bounds.bottom();
+        on_the_dialog_itself && outside
     }
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "one widget: the focus handling, dismissal and markup share the dialog's state"
-)]
+pub(crate) fn show_modal_while_mounted(
+    #[cfg_attr(
+        not(feature = "hydrate"),
+        expect(
+            unused_variables,
+            reason = "the server renders a dialog closed and only the browser opens it"
+        )
+    )]
+    dialog: NodeRef<leptos::html::Dialog>,
+) {
+    #[cfg(feature = "hydrate")]
+    {
+        Effect::new(move |_| {
+            if let Some(element) = dialog.get() {
+                browser::open_modal(&element);
+            }
+        });
+        on_cleanup(move || {
+            if let Some(element) = dialog.try_get_untracked().flatten() {
+                element.close();
+            }
+        });
+    }
+}
+
 #[expect(
     clippy::must_use_candidate,
     reason = "the component macro drops attributes on the function it emits"
@@ -174,58 +117,23 @@ pub fn Dialog(
     let description_id = description
         .is_some()
         .then(|| format!("dialog-{dialog_number}-description"));
-    let panel: NodeRef<Div> = NodeRef::new();
-    let container: NodeRef<Div> = NodeRef::new();
+    let dialog: NodeRef<leptos::html::Dialog> = NodeRef::new();
+    show_modal_while_mounted(dialog);
 
-    #[cfg(feature = "hydrate")]
-    {
-        let previous_focus = StoredValue::new_local(browser::focused_element());
-        browser::opened(dialog_number);
-        request_animation_frame(move || {
-            if let Some(element) = panel.try_get_untracked().flatten() {
-                browser::focus_initial(&element);
-            }
-        });
-        let escape = window_event_listener(leptos::ev::keydown, move |event| {
-            if event.key() != "Escape" || event.default_prevented() {
-                return;
-            }
-            if browser::is_topmost(dialog_number) {
-                event.prevent_default();
-                on_close.run(());
-            }
-        });
-        on_cleanup(move || {
-            escape.remove();
-            browser::closed(dialog_number);
-            browser::restore_focus(previous_focus.get_value());
-        });
-    }
-
-    let on_keydown = move |event: KeyboardEvent| {
+    let on_cancel = move |event: Event| {
+        event.prevent_default();
+        on_close.run(());
+    };
+    let on_click = move |event: MouseEvent| {
         #[cfg(feature = "hydrate")]
-        if event.key() == "Tab"
-            && panel
-                .get_untracked()
-                .is_some_and(|element| browser::wrap_focus(&element, event.shift_key()))
+        if dialog
+            .get_untracked()
+            .is_some_and(|element| browser::clicked_the_backdrop(&element, &event))
         {
-            event.prevent_default();
+            on_close.run(());
         }
         #[cfg(not(feature = "hydrate"))]
         drop(event);
-    };
-    let on_click = move |event: MouseEvent| {
-        let outside_panel =
-            event
-                .target()
-                .zip(container.get_untracked())
-                .is_some_and(|(target, element)| {
-                    let element: &web_sys::EventTarget = element.as_ref();
-                    &target == element
-                });
-        if outside_panel {
-            on_close.run(());
-        }
     };
 
     let close_button = (!alert).then(|| {
@@ -265,34 +173,20 @@ pub fn Dialog(
     let description_id = StoredValue::new(description_id);
 
     view! {
-        <Portal>
-            <div class="relative z-50">
-                <div class=BACKDROP_CLASS aria-hidden="true"></div>
-                <div class="fixed inset-0 w-screen overflow-y-auto">
-                    <div
-                        node_ref=container
-                        class="flex min-h-full items-center justify-center p-4"
-                        on:click=on_click
-                    >
-                        <div
-                            node_ref=panel
-                            role=if alert { "alertdialog" } else { "dialog" }
-                            aria-modal="true"
-                            aria-labelledby=title_id.get_value()
-                            aria-describedby=description_id.get_value()
-                            tabindex="-1"
-                            class=format!("{PANEL_CLASS} {}", size.panel_class())
-                            on:keydown=on_keydown
-                        >
-                            {content
-                                .with_value(|content| {
-                                    content.lock().ok().and_then(|mut content| content.take())
-                                })}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Portal>
+        <dialog
+            node_ref=dialog
+            role=alert.then_some("alertdialog")
+            aria-labelledby=title_id.get_value()
+            aria-describedby=description_id.get_value()
+            class=format!("{PANEL_CLASS} {}", size.panel_class())
+            on:cancel=on_cancel
+            on:click=on_click
+        >
+            {content
+                .with_value(|content| {
+                    content.lock().ok().and_then(|mut content| content.take())
+                })}
+        </dialog>
     }
     .into_any()
 }

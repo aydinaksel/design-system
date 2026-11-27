@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use leptos::prelude::*;
 
 use crate::button::{button_class, button_icon_class, ButtonSize, ButtonTone};
+use crate::dialog::show_modal_while_mounted;
 use crate::filter_chip::SELECTED_COUNT_CLASS;
 use crate::icons;
 use crate::multi_select_list::{
@@ -87,24 +88,6 @@ fn facet_groups(
     }
     .into_any()
 }
-
-#[cfg(feature = "hydrate")]
-fn lock_page_scroll(locked: bool) {
-    const PHONE_SCROLL_LOCK_CLASS: &str = "max-sm:overflow-hidden";
-    let Some(root) = document().document_element() else {
-        return;
-    };
-    let class_list = root.class_list();
-    let outcome = if locked {
-        class_list.add_1(PHONE_SCROLL_LOCK_CLASS)
-    } else {
-        class_list.remove_1(PHONE_SCROLL_LOCK_CLASS)
-    };
-    outcome.unwrap_or_default();
-}
-
-#[cfg(not(feature = "hydrate"))]
-fn lock_page_scroll(_locked: bool) {}
 
 #[cfg(feature = "hydrate")]
 fn narrow_viewport() -> bool {
@@ -231,8 +214,6 @@ impl FacetControls {
 
     fn phone_sheet(self) -> AnyView {
         let sheet_open = self.sheet_open;
-        Effect::new(move |_| lock_page_scroll(sheet_open.get()));
-        on_cleanup(move || lock_page_scroll(false));
 
         let close_button: NodeRef<leptos::html::Button> = NodeRef::new();
         Effect::new(move |_| {
@@ -250,16 +231,16 @@ impl FacetControls {
             if !sheet_open.get() {
                 return ().into_any();
             }
+            let sheet: NodeRef<leptos::html::Dialog> = NodeRef::new();
+            show_modal_while_mounted(sheet);
             view! {
-                <div
-                    role="dialog"
-                    aria-modal="true"
+                <dialog
+                    node_ref=sheet
                     aria-label="Filters"
-                    class="fixed inset-0 z-50 flex flex-col bg-surface sm:hidden"
-                    on:keydown=move |event| {
-                        if event.key() == "Escape" {
-                            sheet_open.set(false);
-                        }
+                    class="m-0 h-dvh max-h-none w-screen max-w-none flex-col border-0 bg-surface p-0 text-gray-900 open:flex"
+                    on:cancel=move |event: leptos::ev::Event| {
+                        event.prevent_default();
+                        sheet_open.set(false);
                     }
                 >
                     <div class="flex shrink-0 items-center justify-between gap-2 border-b border-edge px-4 py-3">
@@ -290,7 +271,7 @@ impl FacetControls {
                             {show_results_label}
                         </button>
                     </div>
-                </div>
+                </dialog>
             }
             .into_any()
         })
