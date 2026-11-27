@@ -1,4 +1,6 @@
 use leptos::prelude::*;
+
+use crate::focus_loss::while_mounted;
 use leptos_router::components::A;
 
 use super::frame::chart_name;
@@ -76,7 +78,7 @@ fn bar_row(
                 on:pointerenter=move |_| hover.show()
                 on:pointerleave=move |_| hover.hide()
                 on:focus=move |_| hover.show()
-                on:blur=move |_| hover.hide()
+                on:blur=while_mounted(move |_| hover.hide())
             >
                 {content}
             </A>
@@ -89,7 +91,7 @@ fn bar_row(
                 on:pointerenter=move |_| hover.show()
                 on:pointerleave=move |_| hover.hide()
                 on:focus=move |_| hover.show()
-                on:blur=move |_| hover.hide()
+                on:blur=while_mounted(move |_| hover.hide())
             >
                 {content}
             </div>

@@ -6,6 +6,8 @@ use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Tr;
 use leptos::prelude::*;
 
+use crate::focus_loss::while_mounted;
+
 use crate::button::{button_class, button_icon_class, icon_button_class, ButtonSize, ButtonTone};
 use crate::confirm_dialog::ConfirmDialog;
 use crate::controls::FieldElementIds;
@@ -300,12 +302,12 @@ impl<Draft: Clone + Send + Sync + 'static> LineForm<Draft> {
             </label>
             <div
                 class="contents"
-                on:focusout=move |_| {
+                on:focusout=while_mounted(move |_| {
                     touched
                         .update(|keys| {
                             keys.insert(key);
                         });
-                }
+                })
             >
                 <Provider value=element_ids>{control()}</Provider>
                 {hint_view}

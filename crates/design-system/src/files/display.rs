@@ -2,6 +2,8 @@ use leptos::ev::{FocusEvent, MouseEvent};
 use leptos::html::{Img, Span};
 use leptos::prelude::*;
 
+use crate::focus_loss::while_mounted;
+
 use super::viewer::FileViewer;
 use super::DETAIL_SEPARATOR;
 use super::{name_parts, stem_head_and_ending, FileKind, StoredFile};
@@ -396,7 +398,7 @@ fn file_row(
             on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
             on:mouseleave=move |_| name_tooltip.hide()
             on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
-            on:focusout=move |_| name_tooltip.hide()
+            on:focusout=while_mounted(move |_| name_tooltip.hide())
         >
             {open_overlay(item, open_key)}
             {media_view(item, MediaSize::Row)}
@@ -432,7 +434,7 @@ fn file_tile(
             on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
             on:mouseleave=move |_| name_tooltip.hide()
             on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
-            on:focusout=move |_| name_tooltip.hide()
+            on:focusout=while_mounted(move |_| name_tooltip.hide())
         >
             {open_overlay(item, open_key)}
             {media_view(item, MediaSize::Tile)}
@@ -569,7 +571,7 @@ pub fn file_cell(file: &StoredFile) -> AnyView {
             on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
             on:mouseleave=move |_| name_tooltip.hide()
             on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
-            on:focusout=move |_| name_tooltip.hide()
+            on:focusout=while_mounted(move |_| name_tooltip.hide())
         >
             {icon}
             {link}

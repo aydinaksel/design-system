@@ -1,6 +1,8 @@
 use leptos::ev::{KeyboardEvent, MouseEvent};
 use leptos::html::Button;
 use leptos::prelude::*;
+
+use crate::focus_loss::while_mounted;
 use leptos_use_timeout_fn::use_timeout_fn;
 
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
@@ -229,7 +231,7 @@ pub fn Listbox(
                     }
                 }
                 on:keydown=on_keydown
-                on:blur=move |_| close()
+                on:blur=while_mounted(move |_| close())
             >
                 {move || match selected_label() {
                     Some(label) => view! { <span class="block truncate">{label}</span> }.into_any(),

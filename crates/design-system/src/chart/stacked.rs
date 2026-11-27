@@ -1,5 +1,7 @@
 use leptos::prelude::*;
 
+use crate::focus_loss::while_mounted;
+
 use super::data_table::series_table;
 use super::frame::chart_name;
 use super::hover_card::{HoverCard, HoverSide};
@@ -122,7 +124,7 @@ fn stacked_row(
             on:pointerenter=move |_| hover.show()
             on:pointerleave=move |_| hover.hide()
             on:focus=move |_| hover.show()
-            on:blur=move |_| hover.hide()
+            on:blur=while_mounted(move |_| hover.hide())
         >
             <span class="truncate text-sm text-gray-700" title=label.long.clone()>
                 {label.short.clone()}

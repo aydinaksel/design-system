@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use leptos::ev::{FocusEvent, MouseEvent, PointerEvent};
 use leptos::prelude::*;
+
+use crate::focus_loss::while_mounted;
 use leptos_use_event_listener::use_event_listener;
 use leptos_use_window::use_window;
 
@@ -521,7 +523,7 @@ fn arrange_item(
                 on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
                 on:mouseleave=move |_| name_tooltip.hide()
                 on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
-                on:focusout=move |_| name_tooltip.hide()
+                on:focusout=while_mounted(move |_| name_tooltip.hide())
             >
                 {name_bubble}
                 {handle}
@@ -541,7 +543,7 @@ fn arrange_item(
                 on:mouseover=move |event: MouseEvent| name_tooltip.pointer_over(&event)
                 on:mouseleave=move |_| name_tooltip.hide()
                 on:focusin=move |event: FocusEvent| name_tooltip.focused(&event)
-                on:focusout=move |_| name_tooltip.hide()
+                on:focusout=while_mounted(move |_| name_tooltip.hide())
             >
                 {name_bubble}
                 <span class="relative">

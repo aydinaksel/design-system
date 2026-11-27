@@ -1,5 +1,7 @@
 use leptos::prelude::*;
 
+use crate::focus_loss::while_mounted;
+
 use super::data_table::series_table;
 use super::frame::chart_name;
 use super::hover_card::{HoverCard, HoverSide};
@@ -124,7 +126,7 @@ fn column_group(
             on:pointerenter=move |_| hover.show()
             on:pointerleave=move |_| hover.hide()
             on:focus=move |_| hover.show()
-            on:blur=move |_| hover.hide()
+            on:blur=while_mounted(move |_| hover.hide())
         >
             <div class="flex h-full items-end gap-0.5" style=bar_row_style>
                 {bars}

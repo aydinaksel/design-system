@@ -2,6 +2,8 @@ use leptos::ev::{KeyboardEvent, PointerEvent};
 use leptos::html::Div;
 use leptos::prelude::*;
 
+use crate::focus_loss::while_mounted;
+
 use super::curve::{monotone_path, PlotPoint};
 use super::data_table::series_table;
 use super::frame::chart_name;
@@ -482,7 +484,7 @@ pub fn LineChart(
                         on:pointerleave=move |_| active_index.set(None)
                         on:keydown=on_key_down
                         on:focus=on_focus
-                        on:blur=move |_| active_index.set(None)
+                        on:blur=while_mounted(move |_| active_index.set(None))
                     ></div>
                 </div>
                 {move || series.with(|lines| end_labels(lines, &scale.get()))}

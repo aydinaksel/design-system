@@ -6,6 +6,8 @@ use leptos::ev::{Event, KeyboardEvent, MouseEvent};
 use leptos::html::Input;
 use leptos::prelude::*;
 
+use crate::focus_loss::while_mounted;
+
 use crate::button::{icon_button_class, ButtonSize, ButtonTone};
 use crate::controls::{field_control_id, field_description_id, with_field_error, CONTROL_CLASS};
 use crate::element_key::ElementKey;
@@ -669,7 +671,7 @@ pub fn Combobox(
                             search(String::new());
                         }
                     }
-                    on:blur=move |_| leave()
+                    on:blur=while_mounted(move |_| leave())
                 />
                 {move || {
                     (!selected_value.get().is_empty())

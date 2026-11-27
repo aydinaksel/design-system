@@ -5,6 +5,8 @@ use leptos::ev::{FocusEvent, KeyboardEvent, MouseEvent};
 use leptos::html::Span;
 use leptos::portal::Portal;
 use leptos::prelude::*;
+
+use crate::focus_loss::while_mounted;
 use leptos::wasm_bindgen::JsCast;
 
 use crate::element_key::ElementKey;
@@ -284,7 +286,7 @@ pub fn Tooltip(
                     control.show_now();
                 }
             }
-            on:focusout=move |_| control.hide()
+            on:focusout=while_mounted(move |_| control.hide())
             on:keydown=move |event: KeyboardEvent| {
                 if event.key() == "Escape" {
                     control.hide();

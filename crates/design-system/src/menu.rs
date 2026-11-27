@@ -3,6 +3,8 @@ use std::sync::Arc;
 use leptos::ev::{FocusEvent, KeyboardEvent, MouseEvent};
 use leptos::html::{Button, Div};
 use leptos::prelude::*;
+
+use crate::focus_loss::while_mounted;
 use leptos::wasm_bindgen::JsCast;
 use leptos::web_sys::{HtmlElement, Node};
 use leptos_use_timeout_fn::use_timeout_fn;
@@ -497,7 +499,7 @@ pub(crate) fn menu(
         }
     };
 
-    let on_wrapper_focusout = move |event: FocusEvent| {
+    let on_wrapper_focusout = while_mounted(move |event: FocusEvent| {
         let Some(wrapper) = wrapper.get_untracked() else {
             return;
         };
@@ -508,7 +510,7 @@ pub(crate) fn menu(
         if !focus_stayed_inside {
             state.close();
         }
-    };
+    });
 
     let on_panel_mouseleave = move |_: MouseEvent| {
         if let Some(panel) = state.panel.node.get_untracked() {
@@ -542,7 +544,7 @@ pub(crate) fn menu(
                         trigger_tooltip.show_now();
                     }
                 }
-                on:focusout=move |_| trigger_tooltip.hide()
+                on:focusout=while_mounted(move |_| trigger_tooltip.hide())
                 aria-expanded=move || state.open.get().to_string()
                 class=format!("{trigger_class} {TRIGGER_OPEN_CLASS}")
                 on:keydown=on_trigger_keydown
