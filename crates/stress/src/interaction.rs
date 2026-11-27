@@ -5,10 +5,13 @@ use chromiumoxide::Browser;
 use crate::action::{Action, perform};
 use crate::page_session::{PageSession, Viewport};
 
-const SETTLE_MILLISECONDS: u64 = 30;
 const ACTION_GUARD_MILLISECONDS: u64 = 3_000;
 const SHRINK_BUDGET_SECONDS: u64 = 180;
 const STACK_TRACE_MARKER: &str = "\n\nStack:";
+const APP_CRATES: [&str; 2] = ["design_system::", "component_gallery::"];
+const SYMBOL_HASH_MARKER: &str = "::h";
+const SOURCE_LOCATION_MARKER: &str = " (";
+const WASM_MODULE_PREFIX: &str = "component_gallery.wasm.";
 const SMALLEST_CHUNK_COUNT: usize = 2;
 
 pub struct Scene<'browser> {
@@ -31,6 +34,31 @@ impl Failure {
             .next()
             .unwrap_or(&self.error)
     }
+
+    pub fn summary(&self) -> String {
+        let frames: Vec<&str> = self.error.lines().filter_map(app_frame).collect();
+        if frames.is_empty() {
+            return self.signature().to_owned();
+        }
+        format!(
+            "{}\n    in the app's own code, innermost first:\n      {}",
+            self.signature(),
+            frames.join("\n      ")
+        )
+    }
+}
+
+fn app_frame(line: &str) -> Option<&str> {
+    let frame = line.trim().strip_prefix("at ")?;
+    let frame = frame.split(SOURCE_LOCATION_MARKER).next().unwrap_or(frame);
+    let frame = frame.strip_prefix(WASM_MODULE_PREFIX).unwrap_or(frame);
+    let frame = frame
+        .rsplit_once(SYMBOL_HASH_MARKER)
+        .map_or(frame, |(symbol, _)| symbol);
+    APP_CRATES
+        .iter()
+        .any(|app_crate| frame.starts_with(app_crate))
+        .then_some(frame)
 }
 
 pub struct Shrunk {
@@ -55,7 +83,7 @@ pub async fn replay(scene: &Scene<'_>, actions: &[Action]) -> Result<Option<Fail
             .await
             .unwrap_or_else(|_| "action could not be performed".to_owned());
         steps.push(step);
-        tokio::time::sleep(Duration::from_millis(SETTLE_MILLISECONDS)).await;
+        session.settle().await;
         failure = session.first_error().map(|error| Failure {
             steps: steps.clone(),
             error,
@@ -210,6 +238,18 @@ mod tests {
         let first = failure_after(1, "panicked at a.rs:1\nmessage\n\nStack:\n\nError at 0x1");
         let second = failure_after(9, "panicked at a.rs:1\nmessage\n\nStack:\n\nError at 0x2");
         assert_eq!(first.signature(), second.signature());
+    }
+
+    #[test]
+    fn summary_keeps_only_the_app_frames() {
+        let failure = failure_after(
+            1,
+            "panicked at a.rs:1\n\nStack:\n\nError\n    at __wbg_new_1 (http://x/pkg/app.js:9:25)\n    at component_gallery.wasm.reactive_graph::traits::Get::get::h0123456789abcdef (http://x/pkg/app.wasm:1:2)\n    at component_gallery.wasm.design_system::listbox::__component_listbox::{{closure}}::h6cc0c57a578727d2 (http://x/pkg/app.wasm:3:4)",
+        );
+        assert_eq!(
+            failure.summary(),
+            "panicked at a.rs:1\n    in the app's own code, innermost first:\n      design_system::listbox::__component_listbox::{{closure}}"
+        );
     }
 
     #[test]

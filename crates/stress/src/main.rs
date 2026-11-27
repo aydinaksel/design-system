@@ -36,6 +36,7 @@ const VIEWPORTS: [Viewport; 2] = [
     },
 ];
 const RANDOM_ACTIONS_PER_PAGE: usize = 150;
+const UNREPRODUCED_STEPS_SHOWN: usize = 10;
 const CHROMIUM_VARIABLE: &str = "STRESS_CHROMIUM";
 const WATCH_FLAG: &str = "--watch";
 const FNV_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
@@ -113,19 +114,28 @@ async fn hydration_sweep(browser: &Browser, base_url: &str) -> Result<Vec<String
 }
 
 fn shrunk_report(route: &str, viewport: Viewport, shrunk: &Shrunk) -> String {
-    let steps = shrunk.failure.steps.join("\n      ");
-    let how = if shrunk.reproduced {
-        format!(
+    let steps = &shrunk.failure.steps;
+    let (how, shown) = if shrunk.reproduced {
+        let how = format!(
             "shortest sequence found in {} replays, {} steps",
             shrunk.replays,
-            shrunk.failure.steps.len()
-        )
+            steps.len()
+        );
+        (how, steps.as_slice())
     } else {
-        "did not reproduce on replay, showing the original steps".to_owned()
+        let skipped = steps.len().saturating_sub(UNREPRODUCED_STEPS_SHOWN);
+        let how = format!(
+            "did not reproduce on replay, showing the last {} of {} steps",
+            steps.len().saturating_sub(skipped),
+            steps.len()
+        );
+        (how, steps.get(skipped..).unwrap_or_default())
     };
     format!(
-        "{route} at {}px: {}\n    {how}:\n      {steps}",
-        viewport.width_pixels, shrunk.failure.error
+        "{route} at {}px: {}\n    {how}:\n      {}",
+        viewport.width_pixels,
+        shrunk.failure.summary(),
+        shown.join("\n      ")
     )
 }
 

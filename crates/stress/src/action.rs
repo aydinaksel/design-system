@@ -45,7 +45,7 @@ const ACTIONABLE_TARGET_SCRIPT: &str =
                 x,
                 y,
                 description: element.outerHTML.slice(0, 80),
-                acceptsText: ['INPUT', 'TEXTAREA'].includes(element.tagName),
+                acceptsText: element.isContentEditable || element.tagName === 'TEXTAREA' || (element.tagName === 'INPUT' && ['text', 'search', 'email', 'tel', 'url', 'password', 'number'].includes(element.type)),
             });
         }
         if (performance.now() - started > timeoutMilliseconds) return resolve(null);
