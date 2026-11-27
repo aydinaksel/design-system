@@ -1,6 +1,7 @@
 use design_system::{
-    badge, Alert, ButtonSize, ButtonTone, Card, CardGrid, CopyButton, CopyLinkButton, GalleryImage,
-    HelpTerm, ImageGallery, ImageGrid, Meter, QrCode, QrCodeButton, ResponsiveImage, Tone,
+    badge, Alert, ButtonSize, ButtonTone, Card, CardGrid, CopyButton, CopyLinkButton, Disclosure,
+    GalleryImage, HelpTerm, ImageGallery, ImageGrid, Meter, QrCode, QrCodeButton, ResponsiveImage,
+    Tone,
 };
 use leptos::prelude::*;
 
@@ -103,6 +104,39 @@ pub(crate) fn meters() -> AnyView {
         })
         .collect_view();
     view! { <div class="max-w-md space-y-4">{meters}</div> }.into_any()
+}
+
+pub(crate) fn disclosures() -> AnyView {
+    view! {
+        <div class="max-w-xl space-y-4 text-sm">
+            <Disclosure
+                summary=|| {
+                    view! {
+                        <span class="font-medium text-gray-900">
+                            "Why Is the Arrival Date an Estimate?"
+                        </span>
+                    }
+                }
+                open_at_start=true
+            >
+                <p class="text-gray-600">
+                    "The carrier confirms a berth only once the vessel is two days out, so the date moves with the sailing until then."
+                </p>
+            </Disclosure>
+            <Disclosure summary=|| {
+                view! {
+                    <span class="font-medium text-gray-900">
+                        "How Are Landed Costs Split Across Lines?"
+                    </span>
+                }
+            }>
+                <p class="text-gray-600">
+                    "Freight and duty are shared by each line's value, and handling is shared by its weight."
+                </p>
+            </Disclosure>
+        </div>
+    }
+    .into_any()
 }
 
 const DELIVERY_ADDRESS: &str = "https://hermes.chichek.co.uk/deliveries/DN-10482";

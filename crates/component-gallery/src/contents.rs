@@ -230,7 +230,7 @@ const DATA: [Entry; 8] = [
     },
 ];
 
-const CONTENT: [Entry; 6] = [
+const CONTENT: [Entry; 7] = [
     Entry {
         href: "/activity-feed",
         title: "Activity Feed",
@@ -258,6 +258,13 @@ const CONTENT: [Entry; 6] = [
         summary: "Messages that sit in the page in each tone.",
         glyph: LucideGlyph::TriangleAlert,
         presentation: Presentation::Showcase(content::alerts),
+    },
+    Entry {
+        href: "/disclosures",
+        title: "Disclosures",
+        summary: "Details that open in place when asked for.",
+        glyph: LucideGlyph::ChevronDown,
+        presentation: Presentation::Showcase(content::disclosures),
     },
     Entry {
         href: "/meters",
