@@ -133,6 +133,9 @@ pub fn Input(
 }
 
 const DEFAULT_TEXTAREA_ROWS: u32 = 3;
+const GROWING_TEXTAREA_CLASS: &str =
+    "field-sizing-content max-h-80 resize-y supports-[field-sizing:content]:resize-none";
+const TEXTAREA_PADDING_AND_BORDER: &str = "0.875rem + 2px";
 
 #[expect(
     clippy::must_use_candidate,
@@ -156,7 +159,8 @@ pub fn Textarea(
             aria-invalid=move || invalid.get().to_string()
             placeholder=placeholder
             rows=rows
-            class=format!("{CONTROL_CLASS} resize-y")
+            class=format!("{CONTROL_CLASS} {GROWING_TEXTAREA_CLASS}")
+            style=format!("min-height: calc({rows}lh + {TEXTAREA_PADDING_AND_BORDER})")
             prop:value=move || value.get()
             prop:disabled=move || disabled.get()
             on:input=move |event| value.set(event_target_value(&event))

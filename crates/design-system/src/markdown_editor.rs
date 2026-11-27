@@ -15,7 +15,7 @@ use crate::tooltip::Tooltip;
 const EDITOR_CLASS: &str = "rounded-lg border border-control-edge bg-surface shadow-sm focus-within:border-focus focus-within:ring-1 focus-within:ring-focus";
 const TOOLBAR_CLASS: &str =
     "flex items-center justify-between gap-2 border-b border-divider px-1.5 py-1";
-const TEXTAREA_CLASS: &str = "block min-h-40 w-full resize-y rounded-b-lg border-0 bg-transparent px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0";
+const TEXTAREA_CLASS: &str = "block field-sizing-content min-h-40 max-h-96 w-full resize-y supports-[field-sizing:content]:resize-none rounded-b-lg border-0 bg-transparent px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0";
 const PREVIEW_CLASS: &str = "min-h-40 px-3 py-2";
 const EMPTY_PREVIEW_CLASS: &str = "text-sm text-gray-400";
 const EMPTY_PREVIEW: &str = "Nothing to preview yet.";
