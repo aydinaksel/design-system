@@ -68,11 +68,20 @@ pub async fn load_stone_facets(
     Ok(crate::fake_data::generated::facets(view, &table_query))
 }
 
+fn stone_href(stone: &Stone) -> String {
+    format!("#{}", stone.code)
+}
+
 fn stone_columns() -> Vec<Column<Stone>> {
     vec![
-        Column::text("code", "Code", |stone: &Stone| stone.code.clone())
-            .sortable()
-            .searchable(),
+        Column::link(
+            "code",
+            "Code",
+            |stone: &Stone| stone.code.clone(),
+            |stone: &Stone| stone_href(stone),
+        )
+        .sortable()
+        .searchable(),
         Column::text("name", "Name", |stone: &Stone| stone.name.clone())
             .minimum_width_characters(28)
             .sortable()
@@ -197,7 +206,7 @@ fn stone_list(view: StoneView, mode: &'static str) -> AnyView {
             columns=columns
             layout=layout
             sticky_first_column=true
-            row_href=Arc::new(|stone: &Stone| format!("#{}", stone.code))
+            row_href=Arc::new(stone_href)
             load=load
             query=table_query
             rows_per_page=ROWS_PER_PAGE
