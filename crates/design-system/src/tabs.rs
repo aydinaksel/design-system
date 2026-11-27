@@ -3,7 +3,7 @@ use std::cell::Cell;
 use leptos::html::Span;
 use leptos::prelude::*;
 use leptos::web_sys::HtmlSpanElement as HtmlSpan;
-use leptos_router::hooks::{use_location, use_navigate, use_query_map};
+use leptos_router::hooks::{use_location, use_query_map};
 use leptos_router::params::ParamsMap;
 
 use crate::layout_motion::{horizontal_extent, slide_between, slide_from, HorizontalExtent};
@@ -26,6 +26,8 @@ fn tab_list_class() -> &'static str {
 }
 
 pub const VIEW_PARAMETER: &str = "view";
+const VIEWS_LABEL: &str = "Views";
+const SECTIONS_LABEL: &str = "Sections";
 
 #[derive(Clone, Copy)]
 pub struct PageView {
@@ -54,16 +56,15 @@ pub(crate) fn selected_key(parameter: &'static str, keys: Vec<&'static str>) -> 
     })
 }
 
-pub(crate) fn choice_navigator(
+pub(crate) fn choice_href(
     parameter: &'static str,
     default_key: &'static str,
     transition: Option<ChoiceTransition>,
-) -> impl Fn(&'static str) + Clone {
+) -> impl Fn(&'static str) -> String + Clone + Send + Sync + 'static {
     let query = use_query_map();
     let location = use_location();
-    let navigate = use_navigate();
     move |key: &'static str| {
-        let mut parameters = query.get_untracked();
+        let mut parameters = query.get();
         parameters.remove(parameter);
         if key != default_key {
             parameters.insert(parameter, key.to_string());
@@ -71,18 +72,11 @@ pub(crate) fn choice_navigator(
         if let Some(transition) = transition.as_ref() {
             transition(key, &mut parameters);
         }
-        let target = format!(
+        format!(
             "{}{}",
-            location.pathname.get_untracked(),
-            parameters.to_query_string(),
-        );
-        navigate(
-            &target,
-            leptos_router::NavigateOptions {
-                scroll: false,
-                ..Default::default()
-            },
-        );
+            location.pathname.get(),
+            parameters.to_query_string()
+        )
     }
 }
 
@@ -191,7 +185,7 @@ pub fn ViewTabs(views: &'static [PageView]) -> impl IntoView {
     let default_key = views.first().map_or("", |view| view.key);
     let start_the_tab_over: ChoiceTransition =
         std::sync::Arc::new(|_, parameters| clear_table_query_parameters(parameters));
-    let choose = choice_navigator(VIEW_PARAMETER, default_key, Some(start_the_tab_over));
+    let href = choice_href(VIEW_PARAMETER, default_key, Some(start_the_tab_over));
     let underlines: Vec<(&'static str, NodeRef<Span>)> = views
         .iter()
         .map(|view| (view.key, NodeRef::new()))
@@ -211,44 +205,34 @@ pub fn ViewTabs(views: &'static [PageView]) -> impl IntoView {
     };
 
     view! {
-        <div class=tab_list_class() role="tablist">
+        <nav class=tab_list_class() aria-label=VIEWS_LABEL>
             {views
                 .iter()
                 .zip(underlines)
                 .map(|(view, (_, underline_ref))| {
                     let PageView { key, label } = *view;
-                    let choose = choose.clone();
+                    let href = href.clone();
                     let departing_underline = departing_underline.clone();
                     let is_selected = move || selected.get() == key;
                     view! {
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected=move || is_selected().to_string()
+                        <a
+                            href=move || href(key)
+                            data-noscroll=""
+                            aria-current=move || is_selected().then_some("page")
                             class=move || tab_class(is_selected())
                             on:click=move |_| {
                                 remember_departed_underline(key, departing_underline());
-                                choose(key);
                             }
                         >
                             {label}
                             {underline(underline_ref, is_selected)}
-                        </button>
+                        </a>
                     }
                 })
                 .collect_view()}
-        </div>
+        </nav>
     }
     .into_any()
-}
-
-#[must_use]
-pub fn tab_navigation() -> leptos_router::NavigateOptions {
-    leptos_router::NavigateOptions {
-        replace: true,
-        scroll: false,
-        ..Default::default()
-    }
 }
 
 #[must_use]
@@ -278,7 +262,6 @@ pub fn selected_tab(labels: &[&str], requested: Option<&str>) -> usize {
 )]
 #[component]
 pub fn TabStrip(#[prop(into)] tabs: Vec<&'static str>, active: Signal<usize>) -> impl IntoView {
-    let navigate = use_navigate();
     let location = use_location();
     let underlines: Vec<(usize, NodeRef<Span>)> = (0..tabs.len())
         .map(|index| (index, NodeRef::new()))
@@ -286,30 +269,29 @@ pub fn TabStrip(#[prop(into)] tabs: Vec<&'static str>, active: Signal<usize>) ->
     slide_underline_on_change(move || active.get(), underlines.clone(), |_| None);
 
     view! {
-        <div class=tab_list_class() role="tablist">
+        <nav class=tab_list_class() aria-label=SECTIONS_LABEL>
             {tabs
                 .into_iter()
                 .zip(underlines)
                 .map(|(label, (index, underline_ref))| {
-                    let navigate = navigate.clone();
                     let pathname = location.pathname;
-                    let target = move || format!("{}?tab={}", pathname.get(), tab_slug(label));
+                    let href = move || format!("{}?tab={}", pathname.get(), tab_slug(label));
                     view! {
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected=move || (active.get() == index).to_string()
+                        <a
+                            href=href
+                            data-noscroll=""
+                            prop:replace=true
+                            aria-current=move || (active.get() == index).then_some("page")
                             class=move || tab_class(active.get() == index)
-                            on:click=move |_| navigate(&target(), tab_navigation())
                         >
                             {label}
                             {underline(underline_ref, move || active.get() == index)}
-                        </button>
+                        </a>
                     }
                         .into_any()
                 })
                 .collect::<Vec<AnyView>>()}
-        </div>
+        </nav>
     }
     .into_any()
 }

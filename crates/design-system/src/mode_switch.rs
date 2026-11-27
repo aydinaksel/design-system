@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 
 use crate::icons::{self, LucideGlyph};
-use crate::tabs::{choice_navigator, selected_key, ChoiceTransition};
+use crate::tabs::{choice_href, selected_key, ChoiceTransition};
 use crate::tooltip::Tooltip;
 
 pub const MODE_PARAMETER: &str = "mode";
@@ -52,7 +52,7 @@ pub fn ModeSwitch(
 ) -> impl IntoView {
     let selected = selected_mode(modes);
     let default_key = modes.first().map_or("", |mode| mode.key);
-    let choose = choice_navigator(MODE_PARAMETER, default_key, transition);
+    let href = choice_href(MODE_PARAMETER, default_key, transition);
     let count = modes.len();
 
     let segments = modes
@@ -60,15 +60,16 @@ pub fn ModeSwitch(
         .enumerate()
         .map(|(index, mode)| {
             let PageMode { key, label, glyph } = *mode;
-            let choose = choose.clone();
+            let href = href.clone();
             let corners = corner_class(index, count);
             let is_selected = move || selected.get() == key;
             view! {
                 <Tooltip label=label>
-                    <button
-                        type="button"
+                    <a
+                        href=move || href(key)
+                        data-noscroll=""
                         aria-label=label
-                        aria-pressed=move || is_selected().to_string()
+                        aria-current=move || is_selected().then_some("true")
                         class=move || {
                             let tone = if is_selected() {
                                 SELECTED_SEGMENT_CLASS
@@ -77,10 +78,9 @@ pub fn ModeSwitch(
                             };
                             format!("{SEGMENT_CLASS} {corners} {tone}")
                         }
-                        on:click=move |_| choose(key)
                     >
                         {icons::icon(glyph, "h-4 w-4 shrink-0")}
-                    </button>
+                    </a>
                 </Tooltip>
             }
         })

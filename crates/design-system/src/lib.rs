@@ -146,8 +146,7 @@ pub use shell::hydrate;
 pub use shell::{shell, DocumentLinks, HYDRATED_ATTRIBUTE};
 pub use sidebar::{is_active, NavigationItem, NavigationSection, Sidebar, SidebarUser};
 pub use tabs::{
-    selected_tab, selected_view, tab_navigation, tab_slug, ChoiceTransition, PageView, TabStrip,
-    ViewTabs,
+    selected_tab, selected_view, tab_slug, ChoiceTransition, PageView, TabStrip, ViewTabs,
 };
 pub use toast::{notify_failure, notify_success, ToastProvider};
 pub use tone::{toned_text, Tone};
