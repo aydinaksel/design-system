@@ -39,3 +39,19 @@ stress seed=`date +%s` *flags='':
         exit 1
     fi
     exit "$stress_result"
+
+behaviour:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CARGO_TARGET_DIR=target/behaviour/cargo
+    export LEPTOS_SITE_ROOT=target/behaviour/site
+    cargo leptos build -p component-gallery
+    cargo build -p stress --bin behaviour
+    server_log=target/behaviour/server.log
+    LEPTOS_SITE_PKG_DIR=pkg LEPTOS_OUTPUT_NAME=component-gallery \
+        LEPTOS_SITE_ADDR=127.0.0.1:3098 LEPTOS_RELOAD_PORT=5098 \
+        "$CARGO_TARGET_DIR/debug/component-gallery-server" >"$server_log" 2>&1 &
+    server=$!
+    trap 'kill "$server" 2>/dev/null' EXIT
+    until curl --silent --output /dev/null http://127.0.0.1:3098/; do sleep 1; done
+    env --unset=LD_LIBRARY_PATH "$CARGO_TARGET_DIR/debug/behaviour" http://127.0.0.1:3098
