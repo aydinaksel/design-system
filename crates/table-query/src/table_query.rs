@@ -196,6 +196,93 @@ impl TableQuery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::strategies::{column_key, filter_value, table_query};
+    use proptest::collection::{btree_set, vec};
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn keeping_columns_leaves_no_trace_of_the_others(
+            mut query in table_query(),
+            kept in vec(column_key(), 0..4),
+        ) {
+            let kept: Vec<&str> = kept.iter().map(String::as_str).collect();
+            query.keep_only_columns(&kept);
+            prop_assert!(query.sort_column_key.as_deref().is_none_or(|key| kept.contains(&key)));
+            prop_assert!(query.column_filters.keys().all(|key| kept.contains(&key.as_str())));
+            prop_assert!(query.date_range.as_ref().is_none_or(|range| kept.contains(&range.column_key.as_str())));
+        }
+
+        #[test]
+        fn keeping_columns_keeps_their_filters_untouched(
+            query in table_query(),
+            kept in vec(column_key(), 0..4),
+        ) {
+            let kept: Vec<&str> = kept.iter().map(String::as_str).collect();
+            let mut narrowed = query.clone();
+            narrowed.keep_only_columns(&kept);
+            for (key, values) in &narrowed.column_filters {
+                prop_assert_eq!(Some(values), query.column_filters.get(key));
+            }
+        }
+
+        #[test]
+        fn keeping_columns_twice_changes_nothing_more(
+            mut query in table_query(),
+            kept in vec(column_key(), 0..4),
+        ) {
+            let kept: Vec<&str> = kept.iter().map(String::as_str).collect();
+            query.keep_only_columns(&kept);
+            let once = query.clone();
+            query.keep_only_columns(&kept);
+            prop_assert_eq!(once, query);
+        }
+
+        #[test]
+        fn keeping_columns_moves_page_only_when_something_was_dropped(
+            query in table_query(),
+            kept in vec(column_key(), 0..4),
+        ) {
+            let kept: Vec<&str> = kept.iter().map(String::as_str).collect();
+            let mut narrowed = query.clone();
+            narrowed.keep_only_columns(&kept);
+            let dropped_something = narrowed.sort_column_key != query.sort_column_key
+                || narrowed.column_filters != query.column_filters
+                || narrowed.date_range != query.date_range;
+            if dropped_something {
+                prop_assert_eq!(narrowed.skipped_rows, 0);
+            } else {
+                prop_assert_eq!(narrowed, query);
+            }
+        }
+
+        #[test]
+        fn a_selection_reads_back_as_the_values_chosen(
+            column in column_key(),
+            values in btree_set(filter_value(), 0..5),
+        ) {
+            let mut query = TableQuery::with_rows_per_page(25);
+            query.set_column_filter(&column, values.clone());
+            match query.column_selection(&column) {
+                ColumnSelection::MatchesNothing => prop_assert!(values.is_empty()),
+                ColumnSelection::AnyOf(joined) => {
+                    let read_back: BTreeSet<String> = joined
+                        .split(FILTER_VALUE_SEPARATOR)
+                        .map(str::to_owned)
+                        .collect();
+                    prop_assert_eq!(read_back, values);
+                }
+                ColumnSelection::Unfiltered => prop_assert!(false, "a filtered column read as unfiltered"),
+            }
+        }
+
+        #[test]
+        fn a_query_survives_the_trip_to_the_server(query in table_query()) {
+            let sent = serde_json::to_string(&query).map_err(|error| TestCaseError::fail(error.to_string()))?;
+            let received: TableQuery = serde_json::from_str(&sent).map_err(|error| TestCaseError::fail(error.to_string()))?;
+            prop_assert_eq!(received, query);
+        }
+    }
 
     fn query_filtered_by(column_key: &str, values: &[&str]) -> TableQuery {
         let mut query = TableQuery::with_rows_per_page(50);

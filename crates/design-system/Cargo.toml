@@ -67,6 +67,8 @@ features = ["Element", "DomTokenList", "HtmlElement", "DomRect", "Window", "Medi
 [dev-dependencies]
 leptos_router = { version = "0.8", features = ["ssr"] }
 serde_json = "1"
+proptest = "1.12.0"
+table-query = { path = "../table-query", features = ["test-strategies"] }
 
 [features]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:js-sys"]
