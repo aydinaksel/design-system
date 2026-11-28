@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 5232fc8bf2a839bd8effddd5ef8af7891df5696cf24d91ac1e873659d52ff7de # shrinks to first = TableQuery { search: "", sort_column_key: None, sort_ascending: true, column_filters: {}, date_range: None, skipped_rows: 0, rows_per_page: 1 }, mut second = TableQuery { search: "", sort_column_key: None, sort_ascending: true, column_filters: {"a": {"%0A"}}, date_range: None, skipped_rows: 0, rows_per_page: 1 }

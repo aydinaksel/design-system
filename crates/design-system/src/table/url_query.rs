@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate, use_query_map};
+use leptos_router::location::Url;
 use leptos_router::params::ParamsMap;
 use leptos_router::NavigateOptions;
 
@@ -126,6 +127,10 @@ fn parse_query(parameters: &ParamsMap, names: ParameterNames, rows_per_page: u32
     query
 }
 
+fn insert_exactly(parameters: &mut ParamsMap, name: String, value: &str) {
+    parameters.insert(name, Url::escape(value));
+}
+
 fn write_query(parameters: &mut ParamsMap, query: &TableQuery, names: ParameterNames) {
     let owned: Vec<String> = parameters
         .latest_values()
@@ -136,31 +141,39 @@ fn write_query(parameters: &mut ParamsMap, query: &TableQuery, names: ParameterN
         parameters.remove(&parameter);
     }
     if !query.search.is_empty() {
-        parameters.insert(names.name(SEARCH_PARAMETER), query.search.clone());
+        insert_exactly(parameters, names.name(SEARCH_PARAMETER), &query.search);
     }
     if let Some(sort_column_key) = &query.sort_column_key {
-        parameters.insert(names.name(SORT_PARAMETER), sort_column_key.clone());
+        insert_exactly(parameters, names.name(SORT_PARAMETER), sort_column_key);
         if !query.sort_ascending {
-            parameters.insert(names.name(ORDER_PARAMETER), DESCENDING.to_string());
+            insert_exactly(parameters, names.name(ORDER_PARAMETER), DESCENDING);
         }
     }
     if page_number(query) > 1 {
-        parameters.insert(names.name(PAGE_PARAMETER), page_number(query).to_string());
+        insert_exactly(
+            parameters,
+            names.name(PAGE_PARAMETER),
+            &page_number(query).to_string(),
+        );
     }
     for (column_key, values) in &query.column_filters {
         let parameter = names.filter_name(column_key);
         if values.is_empty() {
-            parameters.insert(parameter, empty_selection_sentinel());
+            insert_exactly(parameters, parameter, &empty_selection_sentinel());
         } else {
             for value in values {
-                parameters.insert(parameter.clone(), value.clone());
+                insert_exactly(parameters, parameter.clone(), value);
             }
         }
     }
     if let Some(range) = &query.date_range {
-        parameters.insert(names.name(DATE_COLUMN_PARAMETER), range.column_key.clone());
-        parameters.insert(names.name(DATE_FROM_PARAMETER), range.from.clone());
-        parameters.insert(names.name(DATE_TO_PARAMETER), range.to.clone());
+        insert_exactly(
+            parameters,
+            names.name(DATE_COLUMN_PARAMETER),
+            &range.column_key,
+        );
+        insert_exactly(parameters, names.name(DATE_FROM_PARAMETER), &range.from);
+        insert_exactly(parameters, names.name(DATE_TO_PARAMETER), &range.to);
     }
 }
 
@@ -298,6 +311,50 @@ pub fn url_synced_table_query_in_namespace(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+    use table_query::strategies::table_query;
+
+    const NAMESPACES: [&str; 2] = ["", "lines"];
+    const UNRELATED_PARAMETER: &str = "tab";
+
+    fn write_then_read(
+        query: &TableQuery,
+        namespace: &'static str,
+        parameters: &mut ParamsMap,
+    ) -> TableQuery {
+        let names = ParameterNames { namespace };
+        write_query(parameters, query, names);
+        parse_query(parameters, names, query.rows_per_page)
+    }
+
+    proptest! {
+        #[test]
+        fn a_query_reads_back_from_the_address_unchanged(query in table_query()) {
+            for namespace in NAMESPACES {
+                prop_assert_eq!(&write_then_read(&query, namespace, &mut ParamsMap::new()), &query);
+            }
+        }
+
+        #[test]
+        fn writing_a_query_replaces_the_last_and_keeps_other_parameters(
+            first in table_query(),
+            mut second in table_query(),
+        ) {
+            second.rows_per_page = first.rows_per_page;
+            second.skipped_rows = second
+                .skipped_rows
+                .checked_div(second.rows_per_page)
+                .unwrap_or(0)
+                .saturating_mul(first.rows_per_page);
+            for namespace in NAMESPACES {
+                let mut parameters = ParamsMap::new();
+                parameters.insert(UNRELATED_PARAMETER, "lines".to_owned());
+                write_then_read(&first, namespace, &mut parameters);
+                prop_assert_eq!(&write_then_read(&second, namespace, &mut parameters), &second);
+                prop_assert_eq!(parameters.get(UNRELATED_PARAMETER), Some("lines".to_owned()));
+            }
+        }
+    }
 
     const ROWS_PER_PAGE: u32 = 50;
 
