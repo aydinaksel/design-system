@@ -1,18 +1,19 @@
 mod action;
 mod interaction;
-mod page_session;
 mod server_load;
 
 use std::process::ExitCode;
 
-use chromiumoxide::{Browser, BrowserConfig};
-use futures::StreamExt;
+use std::sync::Arc;
+
+use chromiumoxide::Browser;
 use rand::SeedableRng;
 use rand::rngs::ChaCha8Rng;
 
 use crate::action::random_actions;
 use crate::interaction::{Scene, Shrunk, replay, shrink};
-use crate::page_session::{PageSession, Viewport};
+use stress::browser_pool::{BrowserWindow, Job, LaunchOptions, run_jobs};
+use stress::page_session::{PageSession, Viewport};
 
 const ROUTES: [&str; 9] = [
     "/",
@@ -36,17 +37,12 @@ const VIEWPORTS: [Viewport; 2] = [
     },
 ];
 const RANDOM_ACTIONS_PER_PAGE: usize = 150;
+const PARALLEL_BROWSERS: usize = 4;
 const UNREPRODUCED_STEPS_SHOWN: usize = 10;
 const CHROMIUM_VARIABLE: &str = "STRESS_CHROMIUM";
 const WATCH_FLAG: &str = "--watch";
 const FNV_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
 const FNV_PRIME: u64 = 0x0100_0000_01b3;
-
-#[derive(Clone, Copy)]
-enum BrowserWindow {
-    Hidden,
-    Shown,
-}
 
 struct Arguments {
     base_url: String,
@@ -93,23 +89,34 @@ fn page_seed(seed: u64, route: &str, viewport: Viewport) -> u64 {
     })
 }
 
-async fn hydration_sweep(browser: &Browser, base_url: &str) -> Result<Vec<String>, String> {
-    let mut failures = Vec::new();
-    for viewport in VIEWPORTS {
-        for route in ROUTES {
-            println!("  loading {route} at {}px", viewport.width_pixels);
-            let url = format!("{base_url}{route}");
-            let session = PageSession::open(browser, &url, viewport).await?;
-            let width = viewport.width_pixels;
-            failures.extend(
-                session
-                    .errors()
-                    .into_iter()
-                    .map(|error| format!("{route} at {width}px: {error}")),
-            );
-            session.close().await;
-        }
-    }
+fn jobs() -> Vec<Job> {
+    VIEWPORTS
+        .into_iter()
+        .flat_map(|viewport| ROUTES.into_iter().map(move |route| (route, viewport)))
+        .enumerate()
+        .map(|(index, (route, viewport))| Job {
+            index,
+            route,
+            viewport,
+        })
+        .collect()
+}
+
+async fn load_freshly(
+    browser: Arc<Browser>,
+    job: Job,
+    base_url: String,
+) -> Result<Vec<String>, String> {
+    let width = job.viewport.width_pixels;
+    println!("  loading {} at {width}px", job.route);
+    let url = format!("{base_url}{}", job.route);
+    let session = PageSession::open(&browser, &url, job.viewport).await?;
+    let failures = session
+        .errors()
+        .into_iter()
+        .map(|error| format!("{} at {width}px: {error}", job.route))
+        .collect();
+    session.close().await;
     Ok(failures)
 }
 
@@ -139,34 +146,31 @@ fn shrunk_report(route: &str, viewport: Viewport, shrunk: &Shrunk) -> String {
     )
 }
 
-async fn random_interaction(
-    browser: &Browser,
-    arguments: &Arguments,
-) -> Result<Vec<String>, String> {
-    let base_url = arguments.base_url.as_str();
-    let mut failures = Vec::new();
-    for viewport in VIEWPORTS {
-        for route in ROUTES {
-            let width = viewport.width_pixels;
-            println!("  {RANDOM_ACTIONS_PER_PAGE} random actions on {route} at {width}px");
-            let mut generator =
-                ChaCha8Rng::seed_from_u64(page_seed(arguments.seed, route, viewport));
-            let actions = random_actions(&mut generator, RANDOM_ACTIONS_PER_PAGE);
-            let scene = Scene {
-                browser,
-                url: format!("{base_url}{route}"),
-                origin: base_url.to_owned(),
-                viewport,
-            };
-            let Some(failure) = replay(&scene, &actions).await? else {
-                continue;
-            };
-            println!("    failed, shrinking");
-            let shrunk = shrink(&scene, &actions, failure).await?;
-            failures.push(shrunk_report(route, viewport, &shrunk));
-        }
-    }
-    Ok(failures)
+async fn interact_randomly(
+    browser: Arc<Browser>,
+    job: Job,
+    base_url: String,
+    seed: u64,
+) -> Result<Option<String>, String> {
+    let Job {
+        route, viewport, ..
+    } = job;
+    let width = viewport.width_pixels;
+    println!("  {RANDOM_ACTIONS_PER_PAGE} random actions on {route} at {width}px");
+    let mut generator = ChaCha8Rng::seed_from_u64(page_seed(seed, route, viewport));
+    let actions = random_actions(&mut generator, RANDOM_ACTIONS_PER_PAGE);
+    let scene = Scene {
+        browser: &browser,
+        url: format!("{base_url}{route}"),
+        origin: base_url.clone(),
+        viewport,
+    };
+    let Some(failure) = replay(&scene, &actions).await? else {
+        return Ok(None);
+    };
+    println!("    {route} at {width}px failed, shrinking");
+    let shrunk = shrink(&scene, &actions, failure).await?;
+    Ok(Some(shrunk_report(route, viewport, &shrunk)))
 }
 
 async fn stress(arguments: &Arguments) -> Result<Vec<String>, String> {
@@ -177,35 +181,33 @@ async fn stress(arguments: &Arguments) -> Result<Vec<String>, String> {
         .into_iter()
         .map(|failure| format!("server: {failure}"))
         .collect();
-    let builder = BrowserConfig::builder()
-        .chrome_executable(&arguments.chromium_path)
-        .no_sandbox()
-        .viewport(None);
-    let config = match arguments.window {
-        BrowserWindow::Hidden => builder.new_headless_mode(),
-        BrowserWindow::Shown => builder.with_head(),
-    }
-    .build()?;
-    let (mut browser, mut handler) = Browser::launch(config)
-        .await
-        .map_err(|error| error.to_string())?;
-    let handler_task = tokio::spawn(async move { while handler.next().await.is_some() {} });
-    println!("fresh page loads");
-    let hydration = hydration_sweep(&browser, &arguments.base_url).await;
-    println!("random interaction");
-    let interaction = random_interaction(&browser, arguments).await;
-    if let Err(error) = browser.close().await {
-        eprintln!("could not close the browser: {error}");
-    }
-    handler_task.abort();
+    let options = LaunchOptions {
+        chromium_path: arguments.chromium_path.clone(),
+        window: arguments.window,
+    };
+    println!("fresh page loads, {PARALLEL_BROWSERS} browsers at once");
+    let base_url = arguments.base_url.clone();
+    let hydration = run_jobs(&options, jobs(), PARALLEL_BROWSERS, move |browser, job| {
+        load_freshly(browser, job, base_url.clone())
+    })
+    .await?;
     failures.extend(
-        hydration?
+        hydration
             .into_iter()
+            .flatten()
             .map(|failure| format!("hydration: {failure}")),
     );
+    println!("random interaction, {PARALLEL_BROWSERS} browsers at once");
+    let base_url = arguments.base_url.clone();
+    let seed = arguments.seed;
+    let interaction = run_jobs(&options, jobs(), PARALLEL_BROWSERS, move |browser, job| {
+        interact_randomly(browser, job, base_url.clone(), seed)
+    })
+    .await?;
     failures.extend(
-        interaction?
+        interaction
             .into_iter()
+            .flatten()
             .map(|failure| format!("interaction: {failure}")),
     );
     Ok(failures)

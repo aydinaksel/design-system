@@ -145,10 +145,12 @@ impl PageSession {
             .is_ok_and(|activity| activity.is_quiet())
     }
 
+    #[must_use]
     pub fn page(&self) -> &Page {
         &self.page
     }
 
+    #[must_use]
     pub fn errors(&self) -> Vec<String> {
         self.errors
             .lock()
@@ -156,6 +158,7 @@ impl PageSession {
             .unwrap_or_default()
     }
 
+    #[must_use]
     pub fn first_error(&self) -> Option<String> {
         self.errors().into_iter().next()
     }

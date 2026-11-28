@@ -1,18 +1,15 @@
-use chromiumoxide::cdp::browser_protocol::input::{
-    DispatchKeyEventParams, DispatchKeyEventType, InsertTextParams,
-};
+use chromiumoxide::cdp::browser_protocol::input::InsertTextParams;
 use chromiumoxide::layout::Point;
 use rand::RngExt;
 use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::page_session::PageSession;
+use stress::browser_input::{BACKSPACE, KEYS, KeyPress, press};
+use stress::page_session::PageSession;
 
 const ACTION_TIMEOUT_MILLISECONDS: u64 = 300;
 const DROP_TARGET_COUNT: u32 = 2000;
 const LONG_TEXT_CHARACTERS: usize = 300;
-const SHIFT_MODIFIER: i64 = 8;
-const NO_MODIFIERS: i64 = 0;
 const TYPED_TEXT_SHOWN_CHARACTERS: usize = 20;
 
 const INTERACTIVE_SELECTOR: &str = "button:not([disabled]), a[href], input:not([type=file]):not([disabled]), textarea, [role=combobox], [tabindex='0']";
@@ -71,59 +68,6 @@ const DROP_SCRIPT: &str = "(index) => {
     }
     return true;
 }";
-
-#[derive(Clone, Copy, Debug)]
-pub struct KeyPress {
-    label: &'static str,
-    key: &'static str,
-    code: &'static str,
-    key_code: i64,
-    text: Option<&'static str>,
-    shift: bool,
-}
-
-impl KeyPress {
-    const fn plain(key: &'static str, key_code: i64) -> Self {
-        Self {
-            label: key,
-            key,
-            code: key,
-            key_code,
-            text: None,
-            shift: false,
-        }
-    }
-}
-
-const BACKSPACE: KeyPress = KeyPress::plain("Backspace", 8);
-
-const KEYS: [KeyPress; 11] = [
-    KeyPress::plain("Tab", 9),
-    KeyPress {
-        label: "Shift+Tab",
-        shift: true,
-        ..KeyPress::plain("Tab", 9)
-    },
-    KeyPress::plain("Escape", 27),
-    KeyPress {
-        text: Some("\r"),
-        ..KeyPress::plain("Enter", 13)
-    },
-    KeyPress {
-        label: "Space",
-        key: " ",
-        code: "Space",
-        key_code: 32,
-        text: Some(" "),
-        shift: false,
-    },
-    KeyPress::plain("ArrowDown", 40),
-    KeyPress::plain("ArrowUp", 38),
-    KeyPress::plain("ArrowLeft", 37),
-    KeyPress::plain("ArrowRight", 39),
-    KeyPress::plain("Home", 36),
-    KeyPress::plain("End", 35),
-];
 
 #[derive(Clone, Debug)]
 pub enum Action {
@@ -207,9 +151,8 @@ pub async fn perform(session: &PageSession, action: &Action, origin: &str) -> St
 }
 
 async fn drop_file(session: &PageSession, element_index: u32) -> Result<String, String> {
-    session
-        .evaluate::<bool>(&call_script(DROP_SCRIPT, &[&element_index])?)
-        .await?;
+    let script = call_script(DROP_SCRIPT, &[&element_index])?;
+    session.evaluate::<bool>(&script).await?;
     Ok(format!("drop a file on element {element_index}"))
 }
 
@@ -219,21 +162,16 @@ async fn act_on_candidate(
     text: Option<&String>,
     origin: &str,
 ) -> Result<String, String> {
-    let candidates: Vec<u32> = session
-        .evaluate(&call_script(
-            CANDIDATES_SCRIPT,
-            &[&INTERACTIVE_SELECTOR, &origin],
-        )?)
-        .await?;
+    let script = call_script(CANDIDATES_SCRIPT, &[&INTERACTIVE_SELECTOR, &origin])?;
+    let candidates: Vec<u32> = session.evaluate(&script).await?;
     let Some(index) = pick(&candidates, target) else {
         return Ok("nothing to act on".to_owned());
     };
-    let actionable: Option<ActionableTarget> = session
-        .evaluate(&call_script(
-            ACTIONABLE_TARGET_SCRIPT,
-            &[&INTERACTIVE_SELECTOR, &index, &ACTION_TIMEOUT_MILLISECONDS],
-        )?)
-        .await?;
+    let script = call_script(
+        ACTIONABLE_TARGET_SCRIPT,
+        &[&INTERACTIVE_SELECTOR, &index, &ACTION_TIMEOUT_MILLISECONDS],
+    )?;
+    let actionable: Option<ActionableTarget> = session.evaluate(&script).await?;
     let element = actionable.ok_or("the element never became clickable")?;
     match text.filter(|_| element.accepts_text) {
         Some(text) => fill(session, index, text, &element.description).await,
@@ -265,12 +203,8 @@ async fn fill(
     text: &str,
     description: &str,
 ) -> Result<String, String> {
-    session
-        .evaluate::<bool>(&call_script(
-            SELECT_FOR_TYPING_SCRIPT,
-            &[&INTERACTIVE_SELECTOR, &index],
-        )?)
-        .await?;
+    let script = call_script(SELECT_FOR_TYPING_SCRIPT, &[&INTERACTIVE_SELECTOR, &index])?;
+    session.evaluate::<bool>(&script).await?;
     if text.is_empty() {
         press(session, BACKSPACE).await?;
     } else {
@@ -282,36 +216,6 @@ async fn fill(
     }
     let shown: String = text.chars().take(TYPED_TEXT_SHOWN_CHARACTERS).collect();
     Ok(format!("type {shown:?} into {description}"))
-}
-
-async fn press(session: &PageSession, key: KeyPress) -> Result<(), String> {
-    let modifiers = if key.shift {
-        SHIFT_MODIFIER
-    } else {
-        NO_MODIFIERS
-    };
-    let mut builder = DispatchKeyEventParams::builder()
-        .key(key.key)
-        .code(key.code)
-        .windows_virtual_key_code(key.key_code)
-        .native_virtual_key_code(key.key_code)
-        .modifiers(modifiers);
-    let key_down = match key.text {
-        Some(text) => {
-            builder = builder.text(text);
-            DispatchKeyEventType::KeyDown
-        }
-        None => DispatchKeyEventType::RawKeyDown,
-    };
-    for event_type in [key_down, DispatchKeyEventType::KeyUp] {
-        let event = builder.clone().r#type(event_type).build()?;
-        session
-            .page()
-            .execute(event)
-            .await
-            .map_err(|error| error.to_string())?;
-    }
-    Ok(())
 }
 
 #[cfg(test)]

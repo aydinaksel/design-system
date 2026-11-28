@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use chromiumoxide::Browser;
 
 use crate::action::{Action, perform};
-use crate::page_session::{PageSession, Viewport};
+use stress::page_session::{PageSession, Viewport};
 
 const ACTION_GUARD_MILLISECONDS: u64 = 3_000;
 const SHRINK_BUDGET_SECONDS: u64 = 180;
