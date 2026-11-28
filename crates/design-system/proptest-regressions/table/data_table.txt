@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f8aef8286e153209492b5f540ab1a10bb73646ffd13cd758f97967c1612ab800 # shrinks to mut cells = [Text(""), Text("a"), Text("3a"), Number(3.650670415808319e214), Int(5666790540542440960), Text(""), Text(""), Text("A"), Text(""), Text("¡"), Text("A"), Text("A"), Int(0), Text(""), Text("4"), Int(4000000000000000000), Text(""), Text("a"), Text(""), Text(""), Text("𖩀")], ascending = false
+cc 66b088ca8f786560f7674cab6e8445c0c74707262ca31f2bcd53c8968684f048 # shrinks to mut cells = [Number(0.0), Int(600000000000000000), Number(0.0), Int(6000000000000000000), Text("Σ"), Number(0.0), Text(" "), Empty, Text("𑵧"), Empty, Int(1000000000000000000), Text(""), Text("ꟓ"), Empty, Text(""), Text("2 "), Int(200000000000000000), Text(""), Text(""), Text(""), Text("2")], ascending = true

@@ -1282,3 +1282,72 @@ where
     }
     .into_any()
 }
+
+#[cfg(test)]
+mod tests {
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+
+    use super::*;
+
+    fn cell() -> impl Strategy<Value = CellValue> {
+        prop_oneof![
+            any::<String>().prop_map(CellValue::Text),
+            any::<f64>().prop_map(CellValue::Number),
+            any::<i64>().prop_map(CellValue::Int),
+            Just(CellValue::Empty),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn comparing_the_other_way_round_gives_the_opposite(
+            left in cell(),
+            right in cell(),
+            ascending in any::<bool>(),
+        ) {
+            prop_assert_eq!(
+                compare_cells(&left, &right, ascending),
+                compare_cells(&right, &left, ascending).reverse()
+            );
+        }
+
+        #[test]
+        fn ordering_carries_through_a_middle_value(
+            first in cell(),
+            middle in cell(),
+            last in cell(),
+            ascending in any::<bool>(),
+        ) {
+            let not_after = |left: &CellValue, right: &CellValue| {
+                compare_cells(left, right, ascending) != Ordering::Greater
+            };
+            if not_after(&first, &middle) && not_after(&middle, &last) {
+                prop_assert!(not_after(&first, &last));
+            }
+        }
+
+        #[test]
+        fn sorting_any_cells_puts_every_neighbour_in_order(
+            mut cells in vec(cell(), 0..40),
+            ascending in any::<bool>(),
+        ) {
+            cells.sort_by(|left, right| compare_cells(left, right, ascending));
+            for pair in cells.windows(2) {
+                if let [earlier, later] = pair {
+                    prop_assert_ne!(compare_cells(earlier, later, ascending), Ordering::Greater);
+                }
+            }
+        }
+
+        #[test]
+        fn empty_cells_sort_last_in_either_direction(
+            mut cells in vec(cell(), 0..40),
+            ascending in any::<bool>(),
+        ) {
+            cells.sort_by(|left, right| compare_cells(left, right, ascending));
+            let first_empty = cells.iter().position(CellValue::is_empty).unwrap_or(cells.len());
+            prop_assert!(cells.iter().skip(first_empty).all(CellValue::is_empty));
+        }
+    }
+}
